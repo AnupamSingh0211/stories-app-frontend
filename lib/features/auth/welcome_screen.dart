@@ -93,7 +93,7 @@ class WelcomeScreen extends StatelessWidget {
                   GestureDetector(
                     onTap: () => _navigateToProfile(context),
                     child: Text(
-                      "Browse as a Guest →",
+                      "Browse as a Guest ->",
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colors.onSurface.withValues(alpha: 0.7),
                       ),
