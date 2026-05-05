@@ -1,4 +1,4 @@
-// // lib/core/theme.dart
+// lib/core/theme.dart
 
  import 'package:flutter/material.dart';
 
