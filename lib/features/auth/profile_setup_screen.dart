@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import '../../shared/widgets/pill_button.dart';
 import 'profile_repository.dart';
 
-const _companionOptions = ['Luna', 'Nova', 'Milo', 'Stella'];
+const _companionOptions = [
+  'Baby Krishna',
+  'Baby Hanuman',
+  'Baby Ganesha',
+  'Baby Shiva',
+];
 const _ageOptions = [1, 2, 3, 4];
 const _defaultCompanionLabel = 'Companion';
 
