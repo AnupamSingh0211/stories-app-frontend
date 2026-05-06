@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/widgets/pill_button.dart';
 import 'profile_repository.dart';
+
+const _companionOptions = ['Luna', 'Nova', 'Milo', 'Stella'];
+const _ageOptions = [1, 2, 3, 4];
+const _defaultCompanionLabel = 'Companion';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -15,7 +20,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _repository = const ProfileRepository();
 
   int _selectedAge = 2;
-  String _selectedCharacter = 'Companion';
+  String _selectedCharacter = _defaultCompanionLabel;
   bool _isSaving = false;
 
   @override
@@ -58,7 +63,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   void _chooseCompanion() {
     final colors = Theme.of(context).colorScheme;
-    const companions = ['Luna', 'Nova', 'Milo', 'Stella'];
 
     showModalBottomSheet<void>(
       context: context,
@@ -72,7 +76,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: companions.map((companion) {
+              children: _companionOptions.map((companion) {
                 return ListTile(
                   title: Text(companion),
                   textColor: colors.onSurface,
@@ -268,6 +272,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Widget _buildNameField(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final emptyBorder = _fieldBorder();
 
     return TextFormField(
       controller: _nameController,
@@ -294,26 +299,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           horizontal: 18,
           vertical: 17,
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: colors.primary, width: 1),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: colors.error, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: colors.error, width: 1),
-        ),
+        border: emptyBorder,
+        enabledBorder: emptyBorder,
+        focusedBorder: _fieldBorder(colors.primary),
+        errorBorder: _fieldBorder(colors.error),
+        focusedErrorBorder: _fieldBorder(colors.error),
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -325,9 +315,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 
+  OutlineInputBorder _fieldBorder([Color? color]) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: color == null ? BorderSide.none : BorderSide(color: color),
+    );
+  }
+
   Widget _buildAgeSelector(BuildContext context) {
     return Row(
-      children: [1, 2, 3, 4].map((age) {
+      children: _ageOptions.map((age) {
         return Padding(
           padding: const EdgeInsets.only(right: 16),
           child: _buildAgeButton(context, age),
@@ -384,52 +381,44 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Widget _buildCompanionButton(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final label = _selectedCharacter == 'Companion'
+    final label = _selectedCharacter == _defaultCompanionLabel
         ? 'Choose Companion'
         : _selectedCharacter;
 
-    return GestureDetector(
+    return PillButton(
       onTap: _chooseCompanion,
-      child: Container(
-        height: 50,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          gradient: LinearGradient(
-            colors: [
-              colors.secondaryContainer.withValues(alpha: 0.58),
-              colors.tertiary.withValues(alpha: 0.28),
-            ],
+      gradient: LinearGradient(
+        colors: [
+          colors.secondaryContainer.withValues(alpha: 0.58),
+          colors.tertiary.withValues(alpha: 0.28),
+        ],
+      ),
+      border: Border.all(color: colors.primary.withValues(alpha: 0.28)),
+      boxShadow: [
+        BoxShadow(
+          color: colors.secondary.withValues(alpha: 0.18),
+          blurRadius: 18,
+          offset: const Offset(0, 8),
+        ),
+      ],
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.diversity_1_rounded,
+            color: colors.onSurface.withValues(alpha: 0.9),
+            size: 18,
           ),
-          border: Border.all(color: colors.primary.withValues(alpha: 0.28)),
-          boxShadow: [
-            BoxShadow(
-              color: colors.secondary.withValues(alpha: 0.18),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: colors.onSurface,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
             ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.diversity_1_rounded,
-              color: colors.onSurface.withValues(alpha: 0.9),
-              size: 18,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: colors.onSurface,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -438,36 +427,28 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return GestureDetector(
+    return PillButton(
       onTap: _isSaving ? null : _saveProfile,
-      child: Container(
-        height: 50,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          gradient: _isSaving
-              ? null
-              : LinearGradient(colors: [colors.primary, colors.secondary]),
-          color: _isSaving ? colors.surface.withValues(alpha: 0.78) : null,
-        ),
-        alignment: Alignment.center,
-        child: _isSaving
-            ? SizedBox.square(
-                dimension: 19,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: colors.onSurface,
-                ),
-              )
-            : Text(
-                'Create Profile',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colors.onPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
+      gradient: _isSaving
+          ? null
+          : LinearGradient(colors: [colors.primary, colors.secondary]),
+      color: _isSaving ? colors.surface.withValues(alpha: 0.78) : null,
+      child: _isSaving
+          ? SizedBox.square(
+              dimension: 19,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: colors.onSurface,
               ),
-      ),
+            )
+          : Text(
+              'Create Profile',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.onPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
     );
   }
 
@@ -475,24 +456,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return GestureDetector(
+    return PillButton(
       onTap: _skipProfile,
-      child: Container(
-        height: 42,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: colors.outline.withValues(alpha: 0.18)),
-          color: colors.surface.withValues(alpha: 0.12),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          'Skip for now',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: colors.onSurface.withValues(alpha: 0.6),
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
+      height: 42,
+      border: Border.all(color: colors.outline.withValues(alpha: 0.18)),
+      color: colors.surface.withValues(alpha: 0.12),
+      child: Text(
+        'Skip for now',
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: colors.onSurface.withValues(alpha: 0.6),
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
         ),
       ),
     );
