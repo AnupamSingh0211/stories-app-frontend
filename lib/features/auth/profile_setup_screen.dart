@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/pill_button.dart';
-import 'profile_repository.dart';
+import 'profile_notifier.dart';
 
 const _companionOptions = [
   'Baby Krishna',
@@ -12,21 +13,21 @@ const _companionOptions = [
 const _ageOptions = [1, 2, 3, 4];
 const _defaultCompanionLabel = 'Companion';
 
-class ProfileSetupScreen extends StatefulWidget {
+class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
 
   @override
-  State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
+  ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
 }
 
-class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
+class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _repository = const ProfileRepository();
 
   int _selectedAge = 2;
   String _selectedCharacter = _defaultCompanionLabel;
-  bool _isSaving = false;
+
+  bool get _isSaving => ref.watch(profileNotifierProvider).isLoading;
 
   @override
   void dispose() {
@@ -39,16 +40,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
-    setState(() => _isSaving = true);
-
     try {
-      await _repository.saveProfile(
+      await ref.read(profileNotifierProvider.notifier).saveProfile(
         name: _nameController.text.trim(),
         age: _selectedAge,
         character: _selectedCharacter,
       );
 
       if (!mounted) return;
+
+      final profileState = ref.read(profileNotifierProvider);
+      if (profileState.hasError) {
+        throw profileState.error!;
+      }
 
       ScaffoldMessenger.of(
         context,
@@ -59,10 +63,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Could not save profile: $error')));
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
     }
   }
 
