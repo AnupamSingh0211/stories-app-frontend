@@ -12,7 +12,10 @@ class PillButton extends StatelessWidget {
     this.gradient,
     this.border,
     this.boxShadow,
-  });
+  }) : assert(
+         color == null || gradient == null,
+         'Cannot provide both color and gradient',
+       );
 
   final VoidCallback? onTap;
   final Widget child;

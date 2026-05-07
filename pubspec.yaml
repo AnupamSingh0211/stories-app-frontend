@@ -67,8 +67,8 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
      - assets/images/
-     - assets/icons/email_icon.webp
-     - assets/icons/google_icon.webp
+     - assets/icons/email_icon.png
+     - assets/icons/google_icon.png
      - assets/icons/ios_icon.png
   #   - images/a_dot_ham.jpeg
 
