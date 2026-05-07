@@ -27,8 +27,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   int _selectedAge = 2;
   String _selectedCharacter = _defaultCompanionLabel;
 
-  bool get _isSaving => ref.watch(profileNotifierProvider).isLoading;
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -85,8 +83,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 return ListTile(
                   title: Text(companion),
                   textColor: colors.onSurface,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(16)),
                   ),
                   onTap: () {
                     setState(() => _selectedCharacter = companion);
@@ -107,33 +105,42 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final cacheWidth = MediaQuery.of(context).size.width.toInt();
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          SizedBox.expand(
-            child: Image.asset(
-              'assets/images/profileSetup_bg.jpg',
-              fit: BoxFit.cover,
-            ),
-          ),
-          Container(color: colors.surface.withValues(alpha: 0.44)),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: const [0, 0.22, 0.42, 0.56, 1],
-                colors: [
-                  colors.surface.withValues(alpha: 0.08),
-                  colors.surface.withValues(alpha: 0.08),
-                  colors.surface.withValues(alpha: 0.58),
-                  colors.surface.withValues(alpha: 0.92),
-                  colors.surface.withValues(alpha: 0.98),
-                ],
-              ),
+          RepaintBoundary(
+            child: Stack(
+              children: [
+                SizedBox.expand(
+                  child: Image.asset(
+                    'assets/images/profileSetup_bg.jpg',
+                    fit: BoxFit.cover,
+                    cacheWidth: cacheWidth,
+                  ),
+                ),
+                Container(color: colors.surface.withValues(alpha: 0.44)),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: const [0, 0.22, 0.42, 0.56, 1],
+                      colors: [
+                        colors.surface.withValues(alpha: 0.08),
+                        colors.surface.withValues(alpha: 0.08),
+                        colors.surface.withValues(alpha: 0.58),
+                        colors.surface.withValues(alpha: 0.92),
+                        colors.surface.withValues(alpha: 0.98),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           SafeArea(
@@ -144,27 +151,71 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildTopBar(context),
+                    _TopBar(
+                      colors: colors,
+                      onBack: () => Navigator.pop(context),
+                    ),
                     const SizedBox(height: 42),
-                    _buildBookBadge(context),
+                    _BookBadge(colors: colors),
                     const SizedBox(height: 22),
-                    _buildTitle(context),
+                    _TitleText(theme: theme, colors: colors),
                     const SizedBox(height: 12),
-                    _buildSubtitle(context),
+                    const _SubtitleText(),
                     const SizedBox(height: 32),
-                    _buildFieldLabel(context, "Child's name"),
+                    _FieldLabel(
+                      text: "Child's name",
+                      theme: theme,
+                      colors: colors,
+                    ),
                     const SizedBox(height: 8),
-                    _buildNameField(context),
+                    _NameField(
+                      controller: _nameController,
+                      colors: colors,
+                      theme: theme,
+                    ),
                     const SizedBox(height: 28),
-                    _buildFieldLabel(context, 'How old are they?'),
+                    _FieldLabel(
+                      text: 'How old are they?',
+                      theme: theme,
+                      colors: colors,
+                    ),
                     const SizedBox(height: 12),
-                    _buildAgeSelector(context),
+                    _AgeSelector(
+                      selectedAge: _selectedAge,
+                      onAgeChanged: (age) => setState(() => _selectedAge = age),
+                    ),
                     const SizedBox(height: 40),
-                    _buildCompanionButton(context),
+                    _CompanionButton(
+                      label: _selectedCharacter == _defaultCompanionLabel
+                          ? 'Choose Companion'
+                          : _selectedCharacter,
+                      onTap: _chooseCompanion,
+                      colors: colors,
+                      theme: theme,
+                    ),
                     const Spacer(),
-                    _buildCreateProfileButton(context),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final isSaving = ref.watch(
+                          profileNotifierProvider.select(
+                            (state) => state.isLoading,
+                          ),
+                        );
+
+                        return _CreateProfileButton(
+                          isSaving: isSaving,
+                          onTap: isSaving ? null : _saveProfile,
+                          colors: colors,
+                          theme: theme,
+                        );
+                      },
+                    ),
                     const SizedBox(height: 16),
-                    _buildSkipButton(context),
+                    _SkipButton(
+                      onTap: _skipProfile,
+                      colors: colors,
+                      theme: theme,
+                    ),
                   ],
                 ),
               ),
@@ -174,17 +225,25 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
   }
+}
 
-  Widget _buildTopBar(BuildContext context) {
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.colors, required this.onBack});
+
+  final ColorScheme colors;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final colors = this.colors;
 
     return Row(
       children: [
         SizedBox.square(
           dimension: 34,
           child: IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: onBack,
             padding: EdgeInsets.zero,
             icon: Icon(
               Icons.arrow_back,
@@ -205,9 +264,16 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ],
     );
   }
+}
 
-  Widget _buildBookBadge(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+class _BookBadge extends StatelessWidget {
+  const _BookBadge({required this.colors});
+
+  final ColorScheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = this.colors;
 
     return Center(
       child: Container(
@@ -228,10 +294,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
   }
+}
 
-  Widget _buildTitle(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+class _TitleText extends StatelessWidget {
+  const _TitleText({required this.theme, required this.colors});
+
+  final ThemeData theme;
+  final ColorScheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = this.theme;
+    final colors = this.colors;
 
     return Text(
       'Who are we telling\nstories to today?',
@@ -244,8 +318,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
   }
+}
 
-  Widget _buildSubtitle(BuildContext context) {
+class _SubtitleText extends StatelessWidget {
+  const _SubtitleText();
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
@@ -259,10 +338,23 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
   }
+}
 
-  Widget _buildFieldLabel(BuildContext context, String text) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel({
+    required this.text,
+    required this.theme,
+    required this.colors,
+  });
+
+  final String text;
+  final ThemeData theme;
+  final ColorScheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = this.theme;
+    final colors = this.colors;
 
     return Text(
       text,
@@ -273,14 +365,38 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
   }
+}
 
-  Widget _buildNameField(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final emptyBorder = _fieldBorder();
+class _NameField extends StatelessWidget {
+  const _NameField({
+    required this.controller,
+    required this.colors,
+    required this.theme,
+  });
+
+  final TextEditingController controller;
+  final ColorScheme colors;
+  final ThemeData theme;
+
+  static final OutlineInputBorder _emptyBorder = OutlineInputBorder(
+    borderRadius: const BorderRadius.all(Radius.circular(16)),
+    borderSide: BorderSide.none,
+  );
+
+  static OutlineInputBorder _fieldBorder(Color color) {
+    return OutlineInputBorder(
+      borderRadius: const BorderRadius.all(Radius.circular(16)),
+      borderSide: BorderSide(color: color),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = this.theme;
+    final colors = this.colors;
 
     return TextFormField(
-      controller: _nameController,
+      controller: controller,
       textInputAction: TextInputAction.done,
       style: theme.textTheme.bodyMedium?.copyWith(
         color: colors.onSurface,
@@ -304,8 +420,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           horizontal: 18,
           vertical: 17,
         ),
-        border: emptyBorder,
-        enabledBorder: emptyBorder,
+        border: _emptyBorder,
+        enabledBorder: _emptyBorder,
         focusedBorder: _fieldBorder(colors.primary),
         errorBorder: _fieldBorder(colors.error),
         focusedErrorBorder: _fieldBorder(colors.error),
@@ -319,32 +435,61 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       },
     );
   }
+}
 
-  OutlineInputBorder _fieldBorder([Color? color]) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: color == null ? BorderSide.none : BorderSide(color: color),
-    );
-  }
+class _AgeSelector extends StatelessWidget {
+  const _AgeSelector({
+    required this.selectedAge,
+    required this.onAgeChanged,
+  });
 
-  Widget _buildAgeSelector(BuildContext context) {
+  final int selectedAge;
+  final ValueChanged<int> onAgeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Row(
       children: _ageOptions.map((age) {
         return Padding(
           padding: const EdgeInsets.only(right: 16),
-          child: _buildAgeButton(context, age),
+          child: _AgeButton(
+            age: age,
+            isSelected: age == selectedAge,
+            onTap: () => onAgeChanged(age),
+            colors: colors,
+            theme: theme,
+          ),
         );
       }).toList(),
     );
   }
+}
 
-  Widget _buildAgeButton(BuildContext context, int age) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final isSelected = age == _selectedAge;
+class _AgeButton extends StatelessWidget {
+  const _AgeButton({
+    required this.age,
+    required this.isSelected,
+    required this.onTap,
+    required this.colors,
+    required this.theme,
+  });
+
+  final int age;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final ColorScheme colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = this.theme;
+    final colors = this.colors;
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedAge = age),
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         height: 50,
@@ -382,16 +527,28 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
   }
+}
 
-  Widget _buildCompanionButton(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final label = _selectedCharacter == _defaultCompanionLabel
-        ? 'Choose Companion'
-        : _selectedCharacter;
+class _CompanionButton extends StatelessWidget {
+  const _CompanionButton({
+    required this.label,
+    required this.onTap,
+    required this.colors,
+    required this.theme,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final ColorScheme colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = this.theme;
+    final colors = this.colors;
 
     return PillButton(
-      onTap: _chooseCompanion,
+      onTap: onTap,
       gradient: LinearGradient(
         colors: [
           colors.secondaryContainer.withValues(alpha: 0.58),
@@ -427,18 +584,33 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
   }
+}
 
-  Widget _buildCreateProfileButton(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+class _CreateProfileButton extends StatelessWidget {
+  const _CreateProfileButton({
+    required this.isSaving,
+    required this.onTap,
+    required this.colors,
+    required this.theme,
+  });
+
+  final bool isSaving;
+  final VoidCallback? onTap;
+  final ColorScheme colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = this.theme;
+    final colors = this.colors;
 
     return PillButton(
-      onTap: _isSaving ? null : _saveProfile,
-      gradient: _isSaving
+      onTap: onTap,
+      gradient: isSaving
           ? null
           : LinearGradient(colors: [colors.primary, colors.secondary]),
-      color: _isSaving ? colors.surface.withValues(alpha: 0.78) : null,
-      child: _isSaving
+      color: isSaving ? colors.surface.withValues(alpha: 0.78) : null,
+      child: isSaving
           ? SizedBox.square(
               dimension: 19,
               child: CircularProgressIndicator(
@@ -456,13 +628,26 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             ),
     );
   }
+}
 
-  Widget _buildSkipButton(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+class _SkipButton extends StatelessWidget {
+  const _SkipButton({
+    required this.onTap,
+    required this.colors,
+    required this.theme,
+  });
+
+  final VoidCallback onTap;
+  final ColorScheme colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = this.theme;
+    final colors = this.colors;
 
     return PillButton(
-      onTap: _skipProfile,
+      onTap: onTap,
       height: 42,
       border: Border.all(color: colors.outline.withValues(alpha: 0.18)),
       color: colors.surface.withValues(alpha: 0.12),
