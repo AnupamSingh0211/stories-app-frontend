@@ -1,27 +1,27 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'assets_provider.dart';
+part of 'companions_provider.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$appAssetsHash() => r'8b7f1674f5fdbd7ce943df2d55ca536983eaf89a';
+String _$companionsHash() => r'4e5c2c970b4ff3b11391db3ced2867cb69bf93ad';
 
-/// See also [appAssets].
-@ProviderFor(appAssets)
-final appAssetsProvider = Provider<Map<String, String>>.internal(
-  appAssets,
-  name: r'appAssetsProvider',
+/// See also [companions].
+@ProviderFor(companions)
+final companionsProvider = FutureProvider<List<CompanionModel>>.internal(
+  companions,
+  name: r'companionsProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$appAssetsHash,
+      : _$companionsHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef AppAssetsRef = ProviderRef<Map<String, String>>;
+typedef CompanionsRef = FutureProviderRef<List<CompanionModel>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

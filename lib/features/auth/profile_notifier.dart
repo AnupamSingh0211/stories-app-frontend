@@ -14,14 +14,14 @@ class ProfileNotifier extends _$ProfileNotifier {
   Future<void> saveProfile({
     required String name,
     required int age,
-    required String character,
+    required String? companionId,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
       () => _repository.saveProfile(
         name: name,
         age: age,
-        character: character,
+        companionId: companionId,
       ),
     );
   }

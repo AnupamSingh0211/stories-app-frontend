@@ -4,16 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/pill_button.dart';
 import 'assets_provider.dart';
+import 'choose_companion_screen.dart';
+import 'companion_notifier.dart';
 import 'profile_notifier.dart';
 
-const _companionOptions = [
-  'Baby Krishna',
-  'Baby Hanuman',
-  'Baby Ganesha',
-  'Baby Shiva',
-];
 const _ageOptions = [1, 2, 3, 4];
-const _defaultCompanionLabel = 'Companion';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -27,7 +22,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _nameController = TextEditingController();
 
   int _selectedAge = 2;
-  String _selectedCharacter = _defaultCompanionLabel;
 
   @override
   void dispose() {
@@ -41,11 +35,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     }
 
     try {
-      await ref.read(profileNotifierProvider.notifier).saveProfile(
-        name: _nameController.text.trim(),
-        age: _selectedAge,
-        character: _selectedCharacter,
-      );
+      await ref
+          .read(profileNotifierProvider.notifier)
+          .saveProfile(
+            name: _nameController.text.trim(),
+            age: _selectedAge,
+            companionId: ref.read(companionNotifierProvider)?.id,
+          );
 
       if (!mounted) return;
 
@@ -67,37 +63,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 
   void _chooseCompanion() {
-    final colors = Theme.of(context).colorScheme;
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: colors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: _companionOptions.map((companion) {
-                return ListTile(
-                  title: Text(companion),
-                  textColor: colors.onSurface,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(16)),
-                  ),
-                  onTap: () {
-                    setState(() => _selectedCharacter = companion);
-                    Navigator.pop(context);
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-        );
-      },
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ChooseCompanionScreen()),
     );
   }
 
@@ -110,45 +78,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final appAssets = ref.watch(appAssetsProvider);
-    final cacheWidth = MediaQuery.of(context).size.width.toInt();
+    final mediaQuery = MediaQuery.of(context);
+    final cacheWidth = (mediaQuery.size.width * mediaQuery.devicePixelRatio)
+        .round();
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          RepaintBoundary(
-            child: Stack(
-              children: [
-                SizedBox.expand(
-                  child: CachedNetworkImage(
-                    imageUrl: appAssets['profile_setup_bg']!,
-                    fit: BoxFit.cover,
-                    memCacheWidth: cacheWidth,
-                    placeholder: (context, url) =>
-                        Container(color: colors.surface),
-                    errorWidget: (context, url, error) =>
-                        Container(color: colors.surface),
-                  ),
-                ),
-                Container(color: colors.surface.withValues(alpha: 0.44)),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      stops: const [0, 0.22, 0.42, 0.56, 1],
-                      colors: [
-                        colors.surface.withValues(alpha: 0.08),
-                        colors.surface.withValues(alpha: 0.08),
-                        colors.surface.withValues(alpha: 0.58),
-                        colors.surface.withValues(alpha: 0.92),
-                        colors.surface.withValues(alpha: 0.98),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          _ProfileBackground(
+            imageUrl: appAssets['profile_setup_bg']!,
+            colors: colors,
+            cacheWidth: cacheWidth,
           ),
           SafeArea(
             child: Padding(
@@ -192,13 +133,21 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       onAgeChanged: (age) => setState(() => _selectedAge = age),
                     ),
                     const SizedBox(height: 40),
-                    _CompanionButton(
-                      label: _selectedCharacter == _defaultCompanionLabel
-                          ? 'Choose Companion'
-                          : _selectedCharacter,
-                      onTap: _chooseCompanion,
-                      colors: colors,
-                      theme: theme,
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final companionName = ref.watch(
+                          companionNotifierProvider.select(
+                            (companion) => companion?.displayName,
+                          ),
+                        );
+
+                        return _CompanionButton(
+                          label: companionName ?? 'Choose Companion',
+                          onTap: _chooseCompanion,
+                          colors: colors,
+                          theme: theme,
+                        );
+                      },
                     ),
                     const Spacer(),
                     Consumer(
@@ -227,6 +176,59 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileBackground extends StatelessWidget {
+  const _ProfileBackground({
+    required this.imageUrl,
+    required this.colors,
+    required this.cacheWidth,
+  });
+
+  final String imageUrl;
+  final ColorScheme colors;
+  final int cacheWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: Stack(
+        children: [
+          RepaintBoundary(
+            child: SizedBox.expand(
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                memCacheWidth: cacheWidth,
+                fadeInDuration: const Duration(milliseconds: 120),
+                placeholder: (context, url) => Container(color: colors.surface),
+                errorWidget: (context, url, error) =>
+                    Container(color: colors.surface),
+              ),
+            ),
+          ),
+          Container(color: colors.surface.withValues(alpha: 0.44)),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0, 0.22, 0.42, 0.56, 1],
+                colors: [
+                  colors.surface.withValues(alpha: 0.08),
+                  colors.surface.withValues(alpha: 0.08),
+                  colors.surface.withValues(alpha: 0.58),
+                  colors.surface.withValues(alpha: 0.92),
+                  colors.surface.withValues(alpha: 0.98),
+                ],
+              ),
+            ),
+            child: const SizedBox.expand(),
           ),
         ],
       ),
@@ -445,10 +447,7 @@ class _NameField extends StatelessWidget {
 }
 
 class _AgeSelector extends StatelessWidget {
-  const _AgeSelector({
-    required this.selectedAge,
-    required this.onAgeChanged,
-  });
+  const _AgeSelector({required this.selectedAge, required this.onAgeChanged});
 
   final int selectedAge;
   final ValueChanged<int> onAgeChanged;
