@@ -1,17 +1,19 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'companion_model.dart';
+
 part 'companion_notifier.g.dart';
 
-@riverpod
+@Riverpod(keepAlive: true)
 class CompanionNotifier extends _$CompanionNotifier {
   @override
-  String build() {
-    return '';
+  CompanionModel? build() {
+    return null;
   }
 
-  void selectCompanion(String name) {
-    state = name;
+  void selectCompanion(CompanionModel companion) {
+    state = companion;
   }
 
-  bool get hasSelected => state.isNotEmpty;
+  bool get hasSelected => state != null;
 }

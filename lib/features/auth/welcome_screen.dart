@@ -144,7 +144,9 @@ class _BackgroundImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final screenWidth = MediaQuery.of(context).size.width.toInt();
+    final mediaQuery = MediaQuery.of(context);
+    final cacheWidth = (mediaQuery.size.width * mediaQuery.devicePixelRatio)
+        .round();
 
     return SizedBox.expand(
       child: CachedNetworkImage(
@@ -152,7 +154,8 @@ class _BackgroundImage extends StatelessWidget {
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        memCacheWidth: screenWidth,
+        memCacheWidth: cacheWidth,
+        fadeInDuration: const Duration(milliseconds: 120),
         placeholder: (context, url) => Container(color: colors.surface),
         errorWidget: (context, url, error) => Container(color: colors.surface),
       ),
@@ -187,6 +190,9 @@ class _AuthButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cacheHeight = (iconHeight * MediaQuery.of(context).devicePixelRatio)
+        .round();
+
     return PillButton(
       onTap: onTap,
       height: 56,
@@ -196,7 +202,16 @@ class _AuthButton extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CachedNetworkImage(imageUrl: iconPath, height: iconHeight),
+          CachedNetworkImage(
+            imageUrl: iconPath,
+            height: iconHeight,
+            memCacheHeight: cacheHeight,
+            fadeInDuration: const Duration(milliseconds: 80),
+            placeholder: (context, url) =>
+                SizedBox.square(dimension: iconHeight),
+            errorWidget: (context, url, error) =>
+                SizedBox.square(dimension: iconHeight),
+          ),
           SizedBox(width: iconGap),
           Text(
             text,

@@ -6,14 +6,14 @@ class ProfileRepository {
   Future<void> saveProfile({
     required String name,
     required int age,
-    required String character,
+    required String? companionId,
   }) async {
     final client = SupabaseClientProvider.client;
     final userId = client.auth.currentUser?.id;
     final profile = <String, dynamic>{
       'name': name,
       'age': age,
-      'character': character,
+      'companion_id': companionId,
     };
 
     if (userId == null) {
