@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/pill_button.dart';
+import 'assets_provider.dart';
 import 'profile_setup_screen.dart';
 
 class WelcomeScreen extends ConsumerWidget {
@@ -11,6 +13,7 @@ class WelcomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final appAssets = ref.watch(appAssetsProvider);
 
     return Scaffold(
       body: Stack(
@@ -18,7 +21,7 @@ class WelcomeScreen extends ConsumerWidget {
           RepaintBoundary(
             child: Stack(
               children: [
-                const _BackgroundImage(),
+                _BackgroundImage(imageUrl: appAssets['welcome_bg']!),
                 Container(color: colors.surface.withValues(alpha: 0.6)),
               ],
             ),
@@ -50,7 +53,7 @@ class WelcomeScreen extends ConsumerWidget {
                   const Spacer(),
                   _AuthButton(
                     text: "Continue with Apple",
-                    iconPath: 'assets/icons/ios_icon.png',
+                    iconPath: appAssets['ios_icon']!,
                     iconHeight: 20,
                     iconGap: 4,
                     textColor: colors.surface,
@@ -68,7 +71,7 @@ class WelcomeScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   _AuthButton(
                     text: "Continue with Google",
-                    iconPath: 'assets/icons/google_icon.png',
+                    iconPath: appAssets['google_icon']!,
                     iconHeight: 20,
                     iconGap: 10,
                     textColor: colors.onSurface,
@@ -87,7 +90,7 @@ class WelcomeScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   _AuthButton(
                     text: "Continue with Email",
-                    iconPath: 'assets/icons/email_icon.png',
+                    iconPath: appAssets['email_icon']!,
                     iconHeight: 24,
                     iconGap: 10,
                     textColor: colors.onPrimary,
@@ -133,7 +136,9 @@ class WelcomeScreen extends ConsumerWidget {
 }
 
 class _BackgroundImage extends StatelessWidget {
-  const _BackgroundImage();
+  const _BackgroundImage({required this.imageUrl});
+
+  final String imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -142,10 +147,14 @@ class _BackgroundImage extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width.toInt();
 
     return SizedBox.expand(
-      child: Image.asset(
-        'assets/images/welcome_bg.png',
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
         fit: BoxFit.cover,
-        cacheWidth: screenWidth,
+        width: double.infinity,
+        height: double.infinity,
+        memCacheWidth: screenWidth,
+        placeholder: (context, url) => Container(color: colors.surface),
+        errorWidget: (context, url, error) => Container(color: colors.surface),
       ),
     );
   }
@@ -178,9 +187,6 @@ class _AuthButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
     return PillButton(
       onTap: onTap,
       height: 56,
@@ -190,7 +196,7 @@ class _AuthButton extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(iconPath, height: iconHeight),
+          CachedNetworkImage(imageUrl: iconPath, height: iconHeight),
           SizedBox(width: iconGap),
           Text(
             text,

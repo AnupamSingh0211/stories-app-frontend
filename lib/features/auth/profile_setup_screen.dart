@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/pill_button.dart';
+import 'assets_provider.dart';
 import 'profile_notifier.dart';
 
 const _companionOptions = [
@@ -107,6 +109,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final appAssets = ref.watch(appAssetsProvider);
     final cacheWidth = MediaQuery.of(context).size.width.toInt();
 
     return Scaffold(
@@ -117,10 +120,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             child: Stack(
               children: [
                 SizedBox.expand(
-                  child: Image.asset(
-                    'assets/images/profileSetup_bg.jpg',
+                  child: CachedNetworkImage(
+                    imageUrl: appAssets['profile_setup_bg']!,
                     fit: BoxFit.cover,
-                    cacheWidth: cacheWidth,
+                    memCacheWidth: cacheWidth,
+                    placeholder: (context, url) =>
+                        Container(color: colors.surface),
+                    errorWidget: (context, url, error) =>
+                        Container(color: colors.surface),
                   ),
                 ),
                 Container(color: colors.surface.withValues(alpha: 0.44)),
