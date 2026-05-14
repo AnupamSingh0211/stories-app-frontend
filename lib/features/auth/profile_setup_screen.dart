@@ -83,7 +83,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         .round();
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           _ProfileBackground(
@@ -92,89 +91,117 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             cacheWidth: cacheWidth,
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _TopBar(
-                      colors: colors,
-                      onBack: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(height: 42),
-                    _BookBadge(colors: colors),
-                    const SizedBox(height: 22),
-                    _TitleText(theme: theme, colors: colors),
-                    const SizedBox(height: 12),
-                    const _SubtitleText(),
-                    const SizedBox(height: 32),
-                    _FieldLabel(
-                      text: "Child's name",
-                      theme: theme,
-                      colors: colors,
-                    ),
-                    const SizedBox(height: 8),
-                    _NameField(
-                      controller: _nameController,
-                      colors: colors,
-                      theme: theme,
-                    ),
-                    const SizedBox(height: 28),
-                    _FieldLabel(
-                      text: 'How old are they?',
-                      theme: theme,
-                      colors: colors,
-                    ),
-                    const SizedBox(height: 12),
-                    _AgeSelector(
-                      selectedAge: _selectedAge,
-                      onAgeChanged: (age) => setState(() => _selectedAge = age),
-                    ),
-                    const SizedBox(height: 40),
-                    Consumer(
-                      builder: (context, ref, child) {
-                        final companionName = ref.watch(
-                          companionNotifierProvider.select(
-                            (companion) => companion?.displayName,
-                          ),
-                        );
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+                const horizontalPadding = 18.0;
+                const topPadding = 10.0;
+                final bottomPadding = 24.0 + bottomInset;
+                final minContentHeight =
+                    (constraints.maxHeight - topPadding - bottomPadding)
+                        .clamp(0.0, double.infinity)
+                        .toDouble();
 
-                        return _CompanionButton(
-                          label: companionName ?? 'Choose Companion',
-                          onTap: _chooseCompanion,
-                          colors: colors,
-                          theme: theme,
-                        );
-                      },
+                return Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      topPadding,
+                      horizontalPadding,
+                      bottomPadding,
                     ),
-                    const Spacer(),
-                    Consumer(
-                      builder: (context, ref, child) {
-                        final isSaving = ref.watch(
-                          profileNotifierProvider.select(
-                            (state) => state.isLoading,
-                          ),
-                        );
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: minContentHeight),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _TopBar(
+                              colors: colors,
+                              onBack: () => Navigator.pop(context),
+                            ),
+                            const SizedBox(height: 42),
+                            _BookBadge(colors: colors),
+                            const SizedBox(height: 22),
+                            _TitleText(theme: theme, colors: colors),
+                            const SizedBox(height: 12),
+                            const _SubtitleText(),
+                            const SizedBox(height: 32),
+                            _FieldLabel(
+                              text: "Child's name",
+                              theme: theme,
+                              colors: colors,
+                            ),
+                            const SizedBox(height: 8),
+                            _NameField(
+                              controller: _nameController,
+                              colors: colors,
+                              theme: theme,
+                            ),
+                            const SizedBox(height: 28),
+                            _FieldLabel(
+                              text: 'How old are they?',
+                              theme: theme,
+                              colors: colors,
+                            ),
+                            const SizedBox(height: 12),
+                            _AgeSelector(
+                              selectedAge: _selectedAge,
+                              onAgeChanged: (age) =>
+                                  setState(() => _selectedAge = age),
+                            ),
+                            const SizedBox(height: 40),
+                            Consumer(
+                              builder: (context, ref, child) {
+                                final companionName = ref.watch(
+                                  companionNotifierProvider.select(
+                                    (companion) => companion?.displayName,
+                                  ),
+                                );
 
-                        return _CreateProfileButton(
-                          isSaving: isSaving,
-                          onTap: isSaving ? null : _saveProfile,
-                          colors: colors,
-                          theme: theme,
-                        );
-                      },
+                                return _CompanionButton(
+                                  label: companionName ?? 'Choose Companion',
+                                  onTap: _chooseCompanion,
+                                  colors: colors,
+                                  theme: theme,
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 28),
+                            const Spacer(),
+                            Consumer(
+                              builder: (context, ref, child) {
+                                final isSaving = ref.watch(
+                                  profileNotifierProvider.select(
+                                    (state) => state.isLoading,
+                                  ),
+                                );
+
+                                return _CreateProfileButton(
+                                  isSaving: isSaving,
+                                  onTap: isSaving ? null : _saveProfile,
+                                  colors: colors,
+                                  theme: theme,
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _SkipButton(
+                              onTap: _skipProfile,
+                              colors: colors,
+                              theme: theme,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    _SkipButton(
-                      onTap: _skipProfile,
-                      colors: colors,
-                      theme: theme,
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -457,17 +484,16 @@ class _AgeSelector extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Row(
+    return Wrap(
+      spacing: 16,
+      runSpacing: 12,
       children: _ageOptions.map((age) {
-        return Padding(
-          padding: const EdgeInsets.only(right: 16),
-          child: _AgeButton(
-            age: age,
-            isSelected: age == selectedAge,
-            onTap: () => onAgeChanged(age),
-            colors: colors,
-            theme: theme,
-          ),
+        return _AgeButton(
+          age: age,
+          isSelected: age == selectedAge,
+          onTap: () => onAgeChanged(age),
+          colors: colors,
+          theme: theme,
         );
       }).toList(),
     );
@@ -578,12 +604,16 @@ class _CompanionButton extends StatelessWidget {
             size: 18,
           ),
           const SizedBox(width: 10),
-          Text(
-            label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: colors.onSurface,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
             ),
           ),
         ],

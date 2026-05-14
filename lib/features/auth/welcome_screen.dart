@@ -27,106 +27,126 @@ class WelcomeScreen extends ConsumerWidget {
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 100),
-                  Text(
-                    "Welcome to\nBedtime Stories",
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 36,
-                      color: colors.onSurface,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Step into a world of gentle tales \nand quiet nights. Your journey to restful \nsleep starts here.",
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurface.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  const Spacer(),
-                  _AuthButton(
-                    text: "Continue with Apple",
-                    iconPath: appAssets['ios_icon']!,
-                    iconHeight: 20,
-                    iconGap: 4,
-                    textColor: colors.surface,
-                    fontWeight: FontWeight.w600,
-                    color: colors.onSurface,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ProfileSetupScreen(),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 100),
+                            Text(
+                              "Welcome to\nBedtime Stories",
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 36,
+                                color: colors.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              "Step into a world of gentle tales \nand quiet nights. Your journey to restful \nsleep starts here.",
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colors.onSurface.withValues(alpha: 0.7),
+                              ),
+                            ),
+                            const Spacer(),
+                            _AuthButton(
+                              text: "Continue with Apple",
+                              iconPath: appAssets['ios_icon']!,
+                              iconHeight: 20,
+                              iconGap: 4,
+                              textColor: colors.surface,
+                              fontWeight: FontWeight.w600,
+                              color: colors.onSurface,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ProfileSetupScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _AuthButton(
+                              text: "Continue with Google",
+                              iconPath: appAssets['google_icon']!,
+                              iconHeight: 20,
+                              iconGap: 10,
+                              textColor: colors.onSurface,
+                              border: Border.all(
+                                color: colors.outline.withValues(alpha: 0.3),
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ProfileSetupScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _AuthButton(
+                              text: "Continue with Email",
+                              iconPath: appAssets['email_icon']!,
+                              iconHeight: 24,
+                              iconGap: 10,
+                              textColor: colors.onPrimary,
+                              fontWeight: FontWeight.w600,
+                              gradient: LinearGradient(
+                                colors: [colors.primary, colors.secondary],
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ProfileSetupScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ProfileSetupScreen(),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                "Browse as a Guest ->",
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colors.onSurface.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 30),
+                          ],
                         ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _AuthButton(
-                    text: "Continue with Google",
-                    iconPath: appAssets['google_icon']!,
-                    iconHeight: 20,
-                    iconGap: 10,
-                    textColor: colors.onSurface,
-                    border: Border.all(
-                      color: colors.outline.withValues(alpha: 0.3),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ProfileSetupScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _AuthButton(
-                    text: "Continue with Email",
-                    iconPath: appAssets['email_icon']!,
-                    iconHeight: 24,
-                    iconGap: 10,
-                    textColor: colors.onPrimary,
-                    fontWeight: FontWeight.w600,
-                    gradient: LinearGradient(
-                      colors: [colors.primary, colors.secondary],
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ProfileSetupScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ProfileSetupScreen(),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      "Browse as a Guest ->",
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 30),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -213,9 +233,13 @@ class _AuthButton extends StatelessWidget {
                 SizedBox.square(dimension: iconHeight),
           ),
           SizedBox(width: iconGap),
-          Text(
-            text,
-            style: TextStyle(color: textColor, fontWeight: fontWeight),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: textColor, fontWeight: fontWeight),
+            ),
           ),
         ],
       ),

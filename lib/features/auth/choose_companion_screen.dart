@@ -54,7 +54,7 @@ class _CompanionList extends StatelessWidget {
     final colors = theme.colorScheme;
 
     return ListView.builder(
-      physics: const BouncingScrollPhysics(),
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
       itemCount: companions.length + 2,
       itemBuilder: (context, index) {
