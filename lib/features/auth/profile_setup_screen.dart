@@ -9,6 +9,10 @@ import 'companion_notifier.dart';
 import 'profile_notifier.dart';
 
 const _ageOptions = [1, 2, 3, 4];
+const _genderOptions = [
+  _GenderOption(label: 'Boy', value: 'boy', icon: Icons.face_rounded),
+  _GenderOption(label: 'Girl', value: 'girl', icon: Icons.face_3_rounded),
+];
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -22,6 +26,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _nameController = TextEditingController();
 
   int _selectedAge = 2;
+  String _selectedGender = 'boy';
 
   @override
   void dispose() {
@@ -39,6 +44,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           .read(profileNotifierProvider.notifier)
           .saveProfile(
             name: _nameController.text.trim(),
+            gender: _selectedGender,
             age: _selectedAge,
             companionId: ref.read(companionNotifierProvider)?.id,
           );
@@ -144,6 +150,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                             ),
                             const SizedBox(height: 28),
                             _FieldLabel(
+                              text: "Child's gender",
+                              theme: theme,
+                              colors: colors,
+                            ),
+                            const SizedBox(height: 12),
+                            _GenderSelector(
+                              selectedGender: _selectedGender,
+                              onGenderChanged: (gender) =>
+                                  setState(() => _selectedGender = gender),
+                            ),
+                            const SizedBox(height: 28),
+                            _FieldLabel(
                               text: 'How old are they?',
                               theme: theme,
                               colors: colors,
@@ -208,6 +226,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
   }
+}
+
+class _GenderOption {
+  const _GenderOption({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
 }
 
 class _ProfileBackground extends StatelessWidget {
@@ -469,6 +499,123 @@ class _NameField extends StatelessWidget {
 
         return null;
       },
+    );
+  }
+}
+
+class _GenderSelector extends StatelessWidget {
+  const _GenderSelector({
+    required this.selectedGender,
+    required this.onGenderChanged,
+  });
+
+  final String selectedGender;
+  final ValueChanged<String> onGenderChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Row(
+      children: _genderOptions.map((gender) {
+        final isSelected = gender.value == selectedGender;
+
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: gender == _genderOptions.first ? 12 : 0,
+              left: gender == _genderOptions.last ? 12 : 0,
+            ),
+            child: _GenderButton(
+              option: gender,
+              isSelected: isSelected,
+              onTap: () => onGenderChanged(gender.value),
+              colors: colors,
+              theme: theme,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _GenderButton extends StatelessWidget {
+  const _GenderButton({
+    required this.option,
+    required this.isSelected,
+    required this.onTap,
+    required this.colors,
+    required this.theme,
+  });
+
+  final _GenderOption option;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final ColorScheme colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = this.theme;
+    final colors = this.colors;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 54,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colors.secondaryContainer
+              : colors.surface.withValues(alpha: 0.88),
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          border: Border.all(
+            color: isSelected
+                ? colors.primary
+                : colors.outline.withValues(alpha: 0.16),
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: colors.secondary.withValues(alpha: 0.32),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              option.icon,
+              color: isSelected
+                  ? colors.onSecondaryContainer
+                  : colors.onSurface.withValues(alpha: 0.64),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                option.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: isSelected
+                      ? colors.onSecondaryContainer
+                      : colors.onSurface.withValues(alpha: 0.64),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
