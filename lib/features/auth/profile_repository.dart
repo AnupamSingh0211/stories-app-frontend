@@ -5,6 +5,7 @@ class ProfileRepository {
 
   Future<void> saveProfile({
     required String name,
+    required String gender,
     required int age,
     required String? companionId,
   }) async {
@@ -12,6 +13,7 @@ class ProfileRepository {
     final userId = client.auth.currentUser?.id;
     final profile = <String, dynamic>{
       'name': name,
+      'gender': gender,
       'age': age,
       'companion_id': companionId,
     };

@@ -13,6 +13,7 @@ class ProfileNotifier extends _$ProfileNotifier {
 
   Future<void> saveProfile({
     required String name,
+    required String gender,
     required int age,
     required String? companionId,
   }) async {
@@ -20,6 +21,7 @@ class ProfileNotifier extends _$ProfileNotifier {
     state = await AsyncValue.guard(
       () => _repository.saveProfile(
         name: name,
+        gender: gender,
         age: age,
         companionId: companionId,
       ),
