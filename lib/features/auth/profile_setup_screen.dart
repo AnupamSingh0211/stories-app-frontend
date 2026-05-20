@@ -6,6 +6,7 @@ import '../../shared/widgets/pill_button.dart';
 import 'assets_provider.dart';
 import 'choose_companion_screen.dart';
 import 'companion_notifier.dart';
+import '../home/home_screen.dart';
 import 'profile_notifier.dart';
 
 const _ageOptions = [1, 2, 3, 4];
@@ -59,6 +60,16 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Profile saved')));
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(
+            childName: _nameController.text.trim(),
+            childAge: _selectedAge,
+          ),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
 
