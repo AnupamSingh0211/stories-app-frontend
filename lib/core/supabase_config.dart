@@ -1,13 +1,18 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class SupabaseConfig {
   const SupabaseConfig._();
 
-  static const url = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'https://qajehfpfvahzkjkuqpdp.supabase.co',
-  );
+  static String get url => _requiredValue('SUPABASE_URL');
+  static String get anonKey => _requiredValue('SUPABASE_ANON_KEY');
 
-  static const anonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue: 'sb_publishable_Bg2IPlT0iZnzai75WW8TOQ_kIrpgPXO',
-  );
+  static String _requiredValue(String key) {
+    final value = dotenv.env[key];
+
+    if (value == null || value.isEmpty) {
+      throw StateError('Missing required environment variable: $key');
+    }
+
+    return value;
+  }
 }
