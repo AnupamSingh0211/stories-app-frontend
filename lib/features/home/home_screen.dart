@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/widgets/pill_button.dart';
+import '../storytime/storytime_screen.dart';
 
 final _kWhiteAlpha08 = Colors.white.withValues(alpha: 0.08);
 final _kWhiteAlpha14 = Colors.white.withValues(alpha: 0.14);
@@ -303,6 +304,35 @@ class _HeroStoryCard extends StatelessWidget {
   final String childName;
   final int age;
 
+  void _openStorytime(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 420),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return const StorytimeScreen();
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          );
+
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -377,7 +407,7 @@ class _HeroStoryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: PillButton(
-                  onTap: null,
+                  onTap: () => _openStorytime(context),
                   height: 56,
                   gradient: const LinearGradient(
                     colors: [Color(0xFFC8BBFF), Color(0xFFA9A7FF)],
