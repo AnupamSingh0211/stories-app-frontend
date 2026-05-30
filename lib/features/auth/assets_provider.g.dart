@@ -6,7 +6,7 @@ part of 'assets_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$appAssetsHash() => r'8b7f1674f5fdbd7ce943df2d55ca536983eaf89a';
+String _$appAssetsHash() => r'5d080e117d43f65110882c2a8cfff27b11f0cff5';
 
 /// See also [appAssets].
 @ProviderFor(appAssets)
