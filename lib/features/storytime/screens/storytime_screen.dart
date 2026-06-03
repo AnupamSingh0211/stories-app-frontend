@@ -1,19 +1,16 @@
-import 'dart:async';
-import 'dart:math' as math;
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'story_model.dart';
-import 'story_provider.dart';
+import '../models/story_model.dart';
+import '../providers/story_player_provider.dart';
+import '../widgets/story_image_view.dart';
+import 'story_player_screen.dart';
 
 const _backgroundGradient = LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
   colors: [Color(0xFF10163A), Color(0xFF0B1027), Color(0xFF070B19)],
 );
-const _carouselLoopStartPage = 12000;
 
 final _softBorder = Border.all(color: Colors.white.withValues(alpha: 0.08));
 
@@ -25,72 +22,24 @@ class StorytimeScreen extends ConsumerStatefulWidget {
 }
 
 class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
-  final _pageController = PageController(
-    initialPage: _carouselLoopStartPage,
-    viewportFraction: 0.9,
-  );
-  Timer? _carouselTimer;
+  final _pageController = PageController(viewportFraction: 0.9);
   int _activePage = 0;
-  int _carouselBannerCount = -1;
 
   @override
   void dispose() {
-    _carouselTimer?.cancel();
     _pageController.dispose();
     super.dispose();
-  }
-
-  void _syncCarouselTimer(int bannerCount) {
-    if (_carouselBannerCount == bannerCount) {
-      return;
-    }
-
-    _carouselBannerCount = bannerCount;
-    _carouselTimer?.cancel();
-    if (bannerCount > 0 && _pageController.hasClients) {
-      final loopStart =
-          _carouselLoopStartPage - (_carouselLoopStartPage % bannerCount);
-      _pageController.jumpToPage(loopStart);
-      if (_activePage != 0) {
-        setState(() => _activePage = 0);
-      }
-    }
-
-    if (bannerCount < 2) {
-      return;
-    }
-
-    _carouselTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted || !_pageController.hasClients) {
-        return;
-      }
-
-      final currentPage = (_pageController.page ?? _carouselLoopStartPage)
-          .round();
-      final nextPage = currentPage + 1;
-      _pageController.animateToPage(
-        nextPage,
-        duration: const Duration(milliseconds: 520),
-        curve: Curves.easeOutCubic,
-      );
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final contentState = ref.watch(storytimeContentProvider);
-    final bannerCount = contentState.valueOrNull?.featuredBanners.length ?? 0;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _syncCarouselTimer(bannerCount);
-    });
 
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(gradient: _backgroundGradient),
         child: Stack(
           children: [
-            const _AmbientBackdrop(),
             SafeArea(
               bottom: false,
               child: CustomScrollView(
@@ -100,27 +49,24 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
                 slivers: [
                   const SliverToBoxAdapter(child: _TopAppBar()),
                   contentState.when(
-                    data: (content) => _StorySlivers(
+                    data: (content) => _StoryLibrary(
                       content: content,
                       pageController: _pageController,
                       activePage: _activePage,
                       onPageChanged: (page) {
-                        final bannerCount = content.featuredBanners.length;
-                        if (bannerCount == 0) {
+                        final count = content.featuredBanners.length;
+                        if (count == 0) {
                           return;
                         }
-
-                        setState(() => _activePage = page % bannerCount);
+                        setState(() => _activePage = page % count);
                       },
                     ),
-                    loading: () => const _LoadingSlivers(),
-                    error: (error, stackTrace) => _StorySlivers(
+                    loading: () => const _LoadingLibrary(),
+                    error: (error, stackTrace) => _StoryLibrary(
                       content: StorytimeContent.empty(),
                       pageController: _pageController,
                       activePage: _activePage,
-                      onPageChanged: (page) {
-                        setState(() => _activePage = page);
-                      },
+                      onPageChanged: (_) {},
                     ),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 118)),
@@ -143,8 +89,54 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
   }
 }
 
-class _StorySlivers extends StatelessWidget {
-  const _StorySlivers({
+class _TopAppBar extends StatelessWidget {
+  const _TopAppBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
+      child: Row(
+        children: [
+          SizedBox.square(
+            dimension: 40,
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => Navigator.maybePop(context),
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                color: colors.onSurface.withValues(alpha: 0.82),
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Dreamy Tales',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: colors.onSurface,
+                fontSize: 30,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          _RoundIconButton(icon: Icons.search_rounded, onTap: () {}),
+          const SizedBox(width: 12),
+          _ChildAvatar(colors: colors),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryLibrary extends StatelessWidget {
+  const _StoryLibrary({
     required this.content,
     required this.pageController,
     required this.activePage,
@@ -189,65 +181,18 @@ class _StorySlivers extends StatelessWidget {
                 ? Icons.auto_awesome_rounded
                 : null,
             stories: entry.value.stories,
-            cardBuilder: (story, index) {
-              final title = entry.value.title.toLowerCase();
-              if (entry.key == 0 || title.contains('for you')) {
-                return _ForYouStoryCard(story: story, delayIndex: index);
-              }
-
-              return _PopularStoryCard(story: story, delayIndex: index);
-            },
+            cardStyle:
+                entry.key == 0 ||
+                    entry.value.title.toLowerCase().contains('for you')
+                ? _StoryCardStyle.tall
+                : _StoryCardStyle.square,
           ),
         ],
-        const SizedBox(height: 34),
-        _ExploreCategories(categories: content.categories),
+        if (content.categories.isNotEmpty) ...[
+          const SizedBox(height: 34),
+          _ExploreCategories(categories: content.categories),
+        ],
       ]),
-    );
-  }
-}
-
-class _TopAppBar extends StatelessWidget {
-  const _TopAppBar();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
-      child: Row(
-        children: [
-          SizedBox.square(
-            dimension: 40,
-            child: IconButton(
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.maybePop(context),
-              icon: Icon(
-                Icons.arrow_back_rounded,
-                color: colors.onSurface.withValues(alpha: 0.82),
-                size: 24,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Dreamy Tales',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: colors.onSurface,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          _RoundIconButton(icon: Icons.search_rounded, onTap: () {}),
-          const SizedBox(width: 12),
-          _ChildAvatar(colors: colors),
-        ],
-      ),
     );
   }
 }
@@ -273,7 +218,7 @@ class _FeaturedCarousel extends StatelessWidget {
         child: _EmptyImageCard(
           height: 176,
           icon: Icons.landscape_rounded,
-          label: 'Add featured banners in Supabase Storage',
+          label: 'Featured stories are loading',
         ),
       );
     }
@@ -285,28 +230,11 @@ class _FeaturedCarousel extends StatelessWidget {
           child: PageView.builder(
             controller: pageController,
             onPageChanged: onPageChanged,
+            itemCount: banners.length,
             itemBuilder: (context, index) {
-              final realIndex = index % banners.length;
-              final banner = banners[realIndex];
-
-              return AnimatedBuilder(
-                animation: pageController,
-                builder: (context, child) {
-                  double scale = 1;
-                  if (pageController.position.haveDimensions) {
-                    final page = pageController.page ?? activePage.toDouble();
-                    scale = (1 - ((page - index).abs() * 0.05)).clamp(0.94, 1);
-                  }
-
-                  return Transform.scale(scale: scale, child: child);
-                },
-                child: _FadeInCard(
-                  delay: Duration(milliseconds: 70 * realIndex),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 5),
-                    child: _FeaturedStoryCard(banner: banner),
-                  ),
-                ),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: _FeaturedStoryCard(banner: banners[index]),
               );
             },
           ),
@@ -346,7 +274,7 @@ class _FeaturedStoryCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              _StoryImage(imageUrl: banner.imageUrl),
+              StoryImageView(imageUrl: banner.imageUrl),
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -400,25 +328,26 @@ class _FeaturedStoryCard extends StatelessWidget {
   }
 }
 
-typedef _StoryCardBuilder = Widget Function(StoryModel story, int index);
+enum _StoryCardStyle { tall, square }
 
 class _HorizontalStorySection extends StatelessWidget {
   const _HorizontalStorySection({
     required this.title,
     required this.stories,
-    required this.cardBuilder,
+    required this.cardStyle,
     this.titleIcon,
   });
 
   final String title;
   final IconData? titleIcon;
   final List<StoryModel> stories;
-  final _StoryCardBuilder cardBuilder;
+  final _StoryCardStyle cardStyle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final isTall = cardStyle == _StoryCardStyle.tall;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,7 +366,7 @@ class _HorizontalStorySection extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleLarge?.copyWith(
                           color: colors.primary,
-                          fontSize: 22,
+                          fontSize: 30,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -462,7 +391,7 @@ class _HorizontalStorySection extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         SizedBox(
-          height: title == 'For You' ? 278 : 260,
+          height: isTall ? 278 : 260,
           child: stories.isEmpty
               ? ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -470,10 +399,10 @@ class _HorizontalStorySection extends StatelessWidget {
                   physics: const BouncingScrollPhysics(),
                   children: [
                     _EmptyImageCard(
-                      width: title == 'For You' ? 150 : 178,
-                      height: title == 'For You' ? 248 : 224,
-                      icon: Icons.image_rounded,
-                      label: 'Add images in story_thumbnails',
+                      width: isTall ? 150 : 178,
+                      height: isTall ? 248 : 224,
+                      icon: Icons.auto_stories_rounded,
+                      label: 'Stories are loading',
                     ),
                   ],
                 )
@@ -485,7 +414,7 @@ class _HorizontalStorySection extends StatelessWidget {
                   separatorBuilder: (context, index) =>
                       const SizedBox(width: 16),
                   itemBuilder: (context, index) =>
-                      cardBuilder(stories[index], index),
+                      _StoryCard(story: stories[index], isTall: isTall),
                 ),
         ),
       ],
@@ -493,117 +422,74 @@ class _HorizontalStorySection extends StatelessWidget {
   }
 }
 
-class _ForYouStoryCard extends StatelessWidget {
-  const _ForYouStoryCard({required this.story, required this.delayIndex});
+class _StoryCard extends StatelessWidget {
+  const _StoryCard({required this.story, required this.isTall});
 
   final StoryModel story;
-  final int delayIndex;
+  final bool isTall;
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+  bool get _opensPlayer =>
+      isTall && story.title.trim().toLowerCase() == 'morning whispers';
 
-    return _FadeInCard(
-      delay: Duration(milliseconds: 80 * delayIndex),
-      child: SizedBox(
-        width: 150,
-        child: _Pressable(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AspectRatio(
-                aspectRatio: 0.78,
-                child: _ImageCard(
-                  imageUrl: story.thumbnailUrl,
-                  radius: 16,
-                  overlay: const _EmptyHeartButton(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                story.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  height: 1.22,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                '${story.durationLabel} - ${story.category}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colors.onSurface.withValues(alpha: 0.68),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
+  void _openPlayer(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            StoryPlayerScreen(storyId: story.id, title: story.title),
       ),
     );
   }
-}
-
-class _PopularStoryCard extends StatelessWidget {
-  const _PopularStoryCard({required this.story, required this.delayIndex});
-
-  final StoryModel story;
-  final int delayIndex;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return _FadeInCard(
-      delay: Duration(milliseconds: 80 * delayIndex),
-      child: SizedBox(
-        width: 178,
-        child: _Pressable(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AspectRatio(
-                aspectRatio: 1,
-                child: _ImageCard(
-                  imageUrl: story.thumbnailUrl,
-                  radius: 18,
-                  overlay: _DurationBadge(label: story.durationLabel),
-                ),
+    return SizedBox(
+      width: isTall ? 150 : 178,
+      child: _Pressable(
+        onTap: _opensPlayer ? () => _openPlayer(context) : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: isTall ? 0.78 : 1,
+              child: _ImageCard(
+                imageUrl: story.thumbnailUrl,
+                radius: isTall ? 16 : 18,
+                overlay: isTall
+                    ? const _EmptyHeartButton()
+                    : _DurationBadge(label: story.durationLabel),
               ),
-              const SizedBox(height: 12),
-              Text(
-                story.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              story.title,
+              maxLines: isTall ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                height: 1.22,
               ),
-              const SizedBox(height: 5),
-              Text(
-                story.narrator?.isNotEmpty == true
-                    ? story.narrator!
-                    : story.category,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colors.onSurface.withValues(alpha: 0.66),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              isTall
+                  ? '${story.durationLabel} - ${story.category}'
+                  : story.narrator?.isNotEmpty == true
+                  ? story.narrator!
+                  : story.category,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colors.onSurface.withValues(alpha: 0.68),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -617,13 +503,9 @@ class _ExploreCategories extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibleCategories = categories.take(4).toList(growable: false);
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final visibleCategories = categories.take(6).toList(growable: false);
-
-    if (visibleCategories.isEmpty) {
-      return const SizedBox.shrink();
-    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -631,34 +513,28 @@ class _ExploreCategories extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Explore Categories',
+            'Explore',
             style: theme.textTheme.titleLarge?.copyWith(
               color: colors.primary,
-              fontSize: 22,
+              fontSize: 28,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 18),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const gap = 16.0;
-              final cardWidth = (constraints.maxWidth - gap) / 2;
-
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (var i = 0; i < visibleCategories.length; i++)
-                    SizedBox(
-                      width: cardWidth,
-                      child: _CategoryCard(
-                        category: visibleCategories[i],
-                        styleIndex: i,
-                      ),
-                    ),
-                ],
-              );
-            },
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: visibleCategories.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              childAspectRatio: 1.35,
+            ),
+            itemBuilder: (context, index) => _CategoryCard(
+              category: visibleCategories[index],
+              styleIndex: index,
+            ),
           ),
         ],
       ),
@@ -674,100 +550,36 @@ class _CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = Theme.of(context).colorScheme;
-    final icon = _iconForCategory(category.title);
-    final gradient = _gradientForIndex(styleIndex);
+    final theme = Theme.of(context);
 
-    return _FadeInCard(
-      delay: Duration(milliseconds: 90 * styleIndex),
-      child: _Pressable(
-        child: AspectRatio(
-          aspectRatio: 0.96,
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: gradient,
-              border: Border.all(
-                color: Colors.white.withValues(
-                  alpha: styleIndex == 1 ? 0.54 : 0.08,
-                ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF121936).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(22),
+        border: _softBorder,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.auto_stories_rounded, color: colors.primary, size: 32),
+            const SizedBox(height: 10),
+            Text(
+              category.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.22),
-                  blurRadius: 20,
-                  offset: const Offset(0, 12),
-                ),
-              ],
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: colors.primary, size: 40),
-                const SizedBox(height: 20),
-                Text(
-                  category.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );
-  }
-
-  IconData _iconForCategory(String title) {
-    final value = title.toLowerCase();
-    if (value.contains('sleep')) return Icons.nightlight_round;
-    if (value.contains('happy') || value.contains('joy')) {
-      return Icons.sentiment_satisfied_alt_rounded;
-    }
-    if (value.contains('lullaby') || value.contains('music')) {
-      return Icons.music_note_rounded;
-    }
-    if (value.contains('growth') || value.contains('lesson')) {
-      return Icons.psychology_alt_rounded;
-    }
-    if (value.contains('kind')) return Icons.favorite_rounded;
-    return Icons.auto_stories_rounded;
-  }
-
-  LinearGradient _gradientForIndex(int index) {
-    const gradients = [
-      LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF1A1F55), Color(0xFF151A42)],
-      ),
-      LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF251F3F), Color(0xFF1B1830)],
-      ),
-      LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF29305B), Color(0xFF202746)],
-      ),
-      LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF252B3B), Color(0xFF1C2130)],
-      ),
-    ];
-
-    return gradients[index % gradients.length];
   }
 }
 
@@ -801,37 +613,12 @@ class _ImageCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _StoryImage(imageUrl: imageUrl),
+            StoryImageView(imageUrl: imageUrl),
             if (overlay != null)
               Positioned(left: 8, bottom: 8, child: overlay!),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _StoryImage extends StatelessWidget {
-  const _StoryImage({required this.imageUrl});
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final cacheWidth = (mediaQuery.size.width * mediaQuery.devicePixelRatio)
-        .round();
-
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
-      memCacheWidth: cacheWidth,
-      fadeInDuration: const Duration(milliseconds: 180),
-      placeholder: (context, url) => const _ImagePlaceholder(),
-      errorWidget: (context, url, error) =>
-          const _ImagePlaceholder(icon: Icons.auto_stories_rounded),
     );
   }
 }
@@ -843,20 +630,18 @@ class _EmptyHeartButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    return _Pressable(
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: const Color(0xFF080C19).withValues(alpha: 0.46),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-        ),
-        child: Icon(
-          Icons.favorite_border_rounded,
-          color: colors.primary,
-          size: 17,
-        ),
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: const Color(0xFF080C19).withValues(alpha: 0.46),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+      ),
+      child: Icon(
+        Icons.favorite_border_rounded,
+        color: colors.primary,
+        size: 17,
       ),
     );
   }
@@ -945,14 +730,14 @@ class _RoundIconButton extends StatelessWidget {
     return _Pressable(
       onTap: onTap,
       child: SizedBox.square(
-        dimension: 40,
+        dimension: 48,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.07),
             shape: BoxShape.circle,
             border: _softBorder,
           ),
-          child: Icon(icon, color: colors.onSurface, size: 22),
+          child: Icon(icon, color: colors.onSurface, size: 24),
         ),
       ),
     );
@@ -967,35 +752,19 @@ class _ChildAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 42,
-      height: 42,
+      width: 52,
+      height: 52,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(colors: [colors.primary, colors.tertiary]),
-        boxShadow: [
-          BoxShadow(
-            color: colors.primary.withValues(alpha: 0.18),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: colors.primary, width: 2),
       ),
-      padding: const EdgeInsets.all(2),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            colors: [Color(0xFF202B62), Color(0xFF161B37)],
-          ),
-        ),
-        child: Icon(Icons.face_4_rounded, color: colors.primary, size: 24),
-      ),
+      child: Icon(Icons.face_4_rounded, color: colors.primary, size: 28),
     );
   }
 }
 
-class _LoadingSlivers extends StatelessWidget {
-  const _LoadingSlivers();
+class _LoadingLibrary extends StatelessWidget {
+  const _LoadingLibrary();
 
   @override
   Widget build(BuildContext context) {
@@ -1006,36 +775,17 @@ class _LoadingSlivers extends StatelessWidget {
           child: _ShimmerBox(height: 176, radius: 24),
         ),
         const SizedBox(height: 46),
-        const _LoadingRow(title: 'For You', tall: true),
+        const _LoadingRow(tall: true),
         const SizedBox(height: 34),
-        const _LoadingRow(title: 'Popular Tales'),
-        const SizedBox(height: 34),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              _ShimmerBox(width: 100, height: 24, radius: 10),
-              SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(child: _ShimmerBox(height: 150, radius: 22)),
-                  SizedBox(width: 16),
-                  Expanded(child: _ShimmerBox(height: 150, radius: 22)),
-                ],
-              ),
-            ],
-          ),
-        ),
+        const _LoadingRow(),
       ]),
     );
   }
 }
 
 class _LoadingRow extends StatelessWidget {
-  const _LoadingRow({required this.title, this.tall = false});
+  const _LoadingRow({this.tall = false});
 
-  final String title;
   final bool tall;
 
   @override
@@ -1043,15 +793,9 @@ class _LoadingRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            children: const [
-              _ShimmerBox(width: 118, height: 24, radius: 10),
-              Spacer(),
-              _ShimmerBox(width: 54, height: 18, radius: 9),
-            ],
-          ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: _ShimmerBox(width: 118, height: 28, radius: 10),
         ),
         const SizedBox(height: 14),
         SizedBox(
@@ -1129,34 +873,6 @@ class _ShimmerBoxState extends State<_ShimmerBox>
   }
 }
 
-class _ImagePlaceholder extends StatelessWidget {
-  const _ImagePlaceholder({this.icon});
-
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF202A5F), Color(0xFF111832)],
-        ),
-      ),
-      child: Center(
-        child: Icon(
-          icon ?? Icons.nightlight_round,
-          color: colors.primary.withValues(alpha: 0.72),
-          size: 34,
-        ),
-      ),
-    );
-  }
-}
-
 class _EmptyImageCard extends StatelessWidget {
   const _EmptyImageCard({
     required this.height,
@@ -1214,37 +930,6 @@ class _EmptyImageCard extends StatelessWidget {
   }
 }
 
-class _FadeInCard extends StatelessWidget {
-  const _FadeInCard({required this.child, required this.delay});
-
-  final Widget child;
-  final Duration delay;
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 360 + delay.inMilliseconds),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        final delayed =
-            ((value * (360 + delay.inMilliseconds)) - delay.inMilliseconds)
-                .clamp(0.0, 360.0) /
-            360.0;
-
-        return Opacity(
-          opacity: delayed,
-          child: Transform.translate(
-            offset: Offset(0, 12 * (1 - delayed)),
-            child: child,
-          ),
-        );
-      },
-      child: child,
-    );
-  }
-}
-
 class _Pressable extends StatefulWidget {
   const _Pressable({required this.child, this.onTap});
 
@@ -1270,58 +955,6 @@ class _PressableState extends State<_Pressable> {
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
         child: widget.child,
-      ),
-    );
-  }
-}
-
-class _AmbientBackdrop extends StatelessWidget {
-  const _AmbientBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Stack(
-        children: const [
-          Positioned(
-            top: 88,
-            right: -70,
-            child: _Glow(size: 220, color: Color(0xFF7B76FF), opacity: 0.12),
-          ),
-          Positioned(
-            top: 340,
-            left: -92,
-            child: _Glow(size: 240, color: Color(0xFFFFD66B), opacity: 0.06),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Glow extends StatelessWidget {
-  const _Glow({required this.size, required this.color, required this.opacity});
-
-  final double size;
-  final Color color;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Transform.rotate(
-      angle: math.pi / 8,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: opacity),
-              blurRadius: size * 0.55,
-              spreadRadius: size * 0.22,
-            ),
-          ],
-        ),
-        child: SizedBox(width: size, height: size),
       ),
     );
   }

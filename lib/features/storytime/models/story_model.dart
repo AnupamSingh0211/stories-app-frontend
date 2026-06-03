@@ -1,3 +1,5 @@
+import 'story_page.dart';
+
 class StorytimeContent {
   const StorytimeContent({
     required this.featuredBanners,
@@ -78,36 +80,7 @@ class FullStoryModel {
   const FullStoryModel({required this.story, required this.pages});
 
   final StoryModel story;
-  final List<StoryPageModel> pages;
-}
-
-class StoryPageModel {
-  const StoryPageModel({
-    required this.id,
-    required this.storyId,
-    required this.pageNumber,
-    required this.content,
-    this.imageUrl,
-    this.audioUrl,
-  });
-
-  factory StoryPageModel.fromMap(Map<String, dynamic> row) {
-    return StoryPageModel(
-      id: row['id'].toString(),
-      storyId: row['story_id'].toString(),
-      pageNumber: row['page_number'] as int,
-      content: row['content'] as String,
-      imageUrl: row['image_url'] as String?,
-      audioUrl: row['audio_url'] as String?,
-    );
-  }
-
-  final String id;
-  final String storyId;
-  final int pageNumber;
-  final String content;
-  final String? imageUrl;
-  final String? audioUrl;
+  final List<StoryPage> pages;
 }
 
 class StoryCategoryModel {

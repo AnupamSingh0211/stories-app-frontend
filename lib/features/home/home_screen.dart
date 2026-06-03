@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/pill_button.dart';
 import '../auth/companion_notifier.dart';
-import '../storytime/story_model.dart';
-import '../storytime/story_provider.dart';
-import '../storytime/storytime_screen.dart';
+import '../storytime/models/story_model.dart';
+import '../storytime/providers/story_player_provider.dart';
+import '../storytime/screens/storytime_screen.dart';
 
 final _kWhiteAlpha08 = Colors.white.withValues(alpha: 0.08);
 final _kWhiteAlpha14 = Colors.white.withValues(alpha: 0.14);

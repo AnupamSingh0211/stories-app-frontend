@@ -94,26 +94,78 @@ class CompanionRepository {
     debugPrint(
       'CompanionRepository: loaded ${rows.length} companions from Supabase.',
     );
-    return rows.map((row) {
-      final imagePath = row['image_path'] as String;
+    return rows
+        .asMap()
+        .entries
+        .map((entry) {
+          final row = entry.value;
+          final fallback = _fallbackFor(row, entry.key);
+          final imagePath = _firstString(row, ['image_path']);
 
-      return CompanionModel(
-        id: row['id'] as String,
-        displayName: row['display_name'] as String,
-        shortDescription: row['short_description'] as String,
-        longDescription: row['long_description'] as String,
-        imageUrl: _imageUrl(storage, imagePath),
-      );
-    }).toList();
+          return CompanionModel(
+            id: _firstString(row, ['id']).ifEmpty(fallback.id),
+            displayName: _firstString(row, [
+              'display_name',
+              'name',
+              'title',
+            ]).ifEmpty(fallback.displayName),
+            shortDescription: _firstString(row, [
+              'short_description',
+              'description',
+            ]).ifEmpty(fallback.shortDescription),
+            longDescription: _firstString(row, [
+              'long_description',
+              'description',
+            ]).ifEmpty(fallback.longDescription),
+            imageUrl: _imageUrl(storage, imagePath.ifEmpty(fallback.imagePath)),
+          );
+        })
+        .toList(growable: false);
   }
 
   String _imageUrl(StorageFileApi storage, String value) {
     final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
     }
 
     return storage.getPublicUrl(trimmed);
+  }
+
+  _CompanionSeed _fallbackFor(Map<String, dynamic> row, int index) {
+    final id = _firstString(row, ['id']);
+    for (final companion in _fallbackCompanions) {
+      if (companion.id == id) {
+        return companion;
+      }
+    }
+
+    return _fallbackCompanions[index % _fallbackCompanions.length];
+  }
+
+  String _firstString(Map<String, dynamic> row, List<String> keys) {
+    for (final key in keys) {
+      final value = row[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+
+      if (value != null && value is! String) {
+        return value.toString();
+      }
+    }
+
+    return '';
+  }
+}
+
+extension _StringFallback on String {
+  String ifEmpty(String fallback) {
+    return isEmpty ? fallback : this;
   }
 }
 
