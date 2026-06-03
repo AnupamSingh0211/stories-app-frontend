@@ -1,14 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/supabase_client.dart';
-import 'story_model.dart';
+import '../../../core/supabase_client.dart';
+import '../models/story_model.dart';
+import '../models/story_page.dart';
 
 const _imageExtensions = {'.jpg', '.jpeg', '.png', '.webp', '.gif'};
+const _audioExtensions = {'.aac', '.m4a', '.mp3', '.wav'};
 
 class StoryRepository {
   const StoryRepository();
 
+  static const morningWhispersStoryId = 'morning-whispers';
+  static const _storyAssetsBucket = 'story-assets';
   static const _storyColumns =
       'id, title, category_id, thumbnail_url, is_featured';
 
@@ -119,9 +123,166 @@ class StoryRepository {
         _categoryNamesById(_mapRows(categoryRows)),
         storage,
       ),
-      pages: _mapRows(
-        pageRows,
-      ).map(StoryPageModel.fromMap).toList(growable: false),
+      pages: _mapRows(pageRows).map(_storyPageFromMap).toList(growable: false),
+    );
+  }
+
+  Future<List<StoryPage>> fetchStoryPagesFromStorage() async {
+    final client = SupabaseClientProvider.client;
+    final storage = client.storage.from(_storyAssetsBucket);
+
+    try {
+      final results = await Future.wait([
+        storage.list(
+          path: 'images',
+          searchOptions: const SearchOptions(
+            limit: 100,
+            sortBy: SortBy(column: 'name', order: 'asc'),
+          ),
+        ),
+        storage.list(
+          path: 'audio',
+          searchOptions: const SearchOptions(
+            limit: 100,
+            sortBy: SortBy(column: 'name', order: 'asc'),
+          ),
+        ),
+      ]);
+
+      final images = _assetFilesByStem(
+        results[0],
+        folder: 'images',
+        extensions: _imageExtensions,
+      );
+      final audio = _assetFilesByStem(
+        results[1],
+        folder: 'audio',
+        extensions: _audioExtensions,
+      );
+      final stems = images.keys.where(audio.containsKey).toList(growable: false)
+        ..sort(_compareChapterPageStems);
+
+      if (stems.isEmpty) {
+        debugPrint(
+          'StoryRepository: story-assets list returned no matching pairs; using expected chapter asset paths.',
+        );
+        return _expectedStoryPages(storage);
+      }
+
+      final missingAudio = images.keys.where(
+        (stem) => !audio.containsKey(stem),
+      );
+      final missingImages = audio.keys.where(
+        (stem) => !images.containsKey(stem),
+      );
+      if (missingAudio.isNotEmpty || missingImages.isNotEmpty) {
+        debugPrint(
+          'StoryRepository: missing audio for ${missingAudio.join(', ')}; '
+          'missing images for ${missingImages.join(', ')}.',
+        );
+      }
+
+      return stems
+          .map((stem) {
+            final number = _pageNumberFromStem(stem);
+            return StoryPage(
+              pageNumber: number,
+              imageUrl: storage.getPublicUrl(images[stem]!),
+              audioUrl: storage.getPublicUrl(audio[stem]!),
+              text: _storyTextForPage(number),
+            );
+          })
+          .toList(growable: false);
+    } catch (error) {
+      if (error is StoryRepositoryException) {
+        rethrow;
+      }
+
+      debugPrint(
+        'StoryRepository: could not list story-assets; using expected chapter asset paths. $error',
+      );
+      return _expectedStoryPages(storage);
+    }
+  }
+
+  Future<bool> isFavoriteStory(String storyId) async {
+    final client = SupabaseClientProvider.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      return false;
+    }
+
+    try {
+      final rows = await client
+          .from('favorite_stories')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('story_id', storyId)
+          .limit(1);
+
+      return rows.isNotEmpty;
+    } catch (error) {
+      debugPrint('StoryRepository: favorite lookup failed. $error');
+      throw const StoryRepositoryException(
+        'Favorite status could not be loaded.',
+      );
+    }
+  }
+
+  Future<void> addFavoriteStory(String storyId) async {
+    final client = SupabaseClientProvider.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const StoryRepositoryException(
+        'Please sign in to favorite this story.',
+      );
+    }
+
+    try {
+      await client.from('favorite_stories').insert({
+        'user_id': userId,
+        'story_id': storyId,
+      });
+    } catch (error) {
+      debugPrint('StoryRepository: favorite insert failed. $error');
+      throw const StoryRepositoryException(
+        'Favorite could not be saved. Please try again.',
+      );
+    }
+  }
+
+  Future<void> removeFavoriteStory(String storyId) async {
+    final client = SupabaseClientProvider.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const StoryRepositoryException(
+        'Please sign in to update favorites.',
+      );
+    }
+
+    try {
+      await client
+          .from('favorite_stories')
+          .delete()
+          .eq('user_id', userId)
+          .eq('story_id', storyId);
+    } catch (error) {
+      debugPrint('StoryRepository: favorite delete failed. $error');
+      throw const StoryRepositoryException(
+        'Favorite could not be removed. Please try again.',
+      );
+    }
+  }
+
+  StoryPage _storyPageFromMap(Map<String, dynamic> row) {
+    final pageNumber = _intValue(row['page_number']);
+    return StoryPage(
+      pageNumber: pageNumber,
+      imageUrl: _firstString(row, ['image_url']),
+      audioUrl: _firstString(row, ['audio_url']),
+      text: _firstString(row, [
+        'content',
+      ]).ifEmpty(_storyTextForPage(pageNumber)),
     );
   }
 
@@ -501,10 +662,120 @@ class StoryRepository {
     final lower = fileName.toLowerCase();
     return _imageExtensions.any(lower.endsWith);
   }
+
+  Map<String, String> _assetFilesByStem(
+    List<FileObject> files, {
+    required String folder,
+    required Set<String> extensions,
+  }) {
+    final entries = <String, String>{};
+
+    for (final file in files) {
+      final lower = file.name.toLowerCase();
+      if (!extensions.any(lower.endsWith)) {
+        continue;
+      }
+
+      final stem = _assetStem(file.name);
+      if (stem == null) {
+        continue;
+      }
+
+      entries[stem] = '$folder/${file.name}';
+    }
+
+    return entries;
+  }
+
+  String? _assetStem(String fileName) {
+    final stem = _fileStem(fileName);
+    final match = RegExp(
+      r'^(chapter\d+_page\d+)_(?:image|audio)$',
+      caseSensitive: false,
+    ).firstMatch(stem);
+
+    return match?.group(1)?.toLowerCase();
+  }
+
+  int _compareChapterPageStems(String left, String right) {
+    final leftParts = _chapterPageNumbers(left);
+    final rightParts = _chapterPageNumbers(right);
+    final chapterCompare = leftParts.$1.compareTo(rightParts.$1);
+    if (chapterCompare != 0) {
+      return chapterCompare;
+    }
+
+    return leftParts.$2.compareTo(rightParts.$2);
+  }
+
+  (int, int) _chapterPageNumbers(String stem) {
+    final match = RegExp(
+      r'^chapter(\d+)_page(\d+)$',
+      caseSensitive: false,
+    ).firstMatch(stem);
+
+    return (
+      int.tryParse(match?.group(1) ?? '') ?? 0,
+      int.tryParse(match?.group(2) ?? '') ?? 0,
+    );
+  }
+
+  int _pageNumberFromStem(String stem) {
+    return _chapterPageNumbers(stem).$2;
+  }
+
+  int _intValue(Object? value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.round();
+    }
+
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _storyTextForPage(int pageNumber) {
+    return 'Morning Whispers - Page $pageNumber';
+  }
+
+  List<StoryPage> _expectedStoryPages(StorageFileApi storage) {
+    return List.generate(9, (index) {
+      final pageNumber = index + 1;
+      return StoryPage(
+        pageNumber: pageNumber,
+        imageUrl: storage.getPublicUrl(
+          'images/chapter${pageNumber}_page${pageNumber}_image.png',
+        ),
+        audioUrl: storage.getPublicUrl(
+          'audio/chapter${pageNumber}_page${pageNumber}_audio.mp3',
+        ),
+        text: _storyTextForPage(pageNumber),
+      );
+    }, growable: false);
+  }
+}
+
+class StoryRepositoryException implements Exception {
+  const StoryRepositoryException(this.message);
+
+  final String message;
+
+  @override
+  String toString() {
+    return message;
+  }
 }
 
 extension _ListFallback<T> on List<T> {
   List<T> ifEmpty(List<T> fallback) {
+    return isEmpty ? fallback : this;
+  }
+}
+
+extension _StringFallback on String {
+  String ifEmpty(String fallback) {
     return isEmpty ? fallback : this;
   }
 }
