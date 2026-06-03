@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/pill_button.dart';
+import '../auth/companion_notifier.dart';
+import '../storytime/story_model.dart';
+import '../storytime/story_provider.dart';
 import '../storytime/storytime_screen.dart';
 
 final _kWhiteAlpha08 = Colors.white.withValues(alpha: 0.08);
@@ -21,7 +25,7 @@ String _greeting() {
   return 'Good Evening';
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({
     required this.childName,
     required this.childAge,
@@ -32,8 +36,14 @@ class HomeScreen extends StatelessWidget {
   final int childAge;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final storytimeContent = ref.watch(storytimeContentProvider);
+    final companion = ref.watch(companionNotifierProvider);
+    final stories = storytimeContent.valueOrNull?.sections
+        .expand((section) => section.stories)
+        .toList(growable: false);
+    final featuredStory = stories?.isNotEmpty == true ? stories!.first : null;
 
     return Scaffold(
       body: DecoratedBox(
@@ -62,15 +72,22 @@ class HomeScreen extends StatelessWidget {
                         children: [
                           _Header(childName: childName),
                           const SizedBox(height: 24),
-                          _HeroStoryCard(childName: childName, age: childAge),
+                          _HeroStoryCard(
+                            childName: childName,
+                            age: childAge,
+                            story: featuredStory,
+                          ),
                           const SizedBox(height: 12),
                           _StoryTraits(colors: theme.colorScheme, theme: theme),
                           const SizedBox(height: 24),
-                          const _ContinueListeningCard(),
+                          _ContinueListeningCard(story: featuredStory),
                           const SizedBox(height: 12),
-                          const _LessonCard(),
+                          _LessonCard(category: featuredStory?.category),
                           const SizedBox(height: 12),
-                          const _CompanionCard(),
+                          _CompanionCard(
+                            name: companion?.displayName,
+                            description: companion?.shortDescription,
+                          ),
                         ],
                       ),
                     ),
@@ -299,10 +316,15 @@ class _BellButton extends StatelessWidget {
 }
 
 class _HeroStoryCard extends StatelessWidget {
-  const _HeroStoryCard({required this.childName, required this.age});
+  const _HeroStoryCard({
+    required this.childName,
+    required this.age,
+    this.story,
+  });
 
   final String childName;
   final int age;
+  final StoryModel? story;
 
   void _openStorytime(BuildContext context) {
     Navigator.of(context).push(
@@ -383,7 +405,7 @@ class _HeroStoryCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'A story of kindness\nwith Krishna',
+            story?.title ?? 'Choose a bedtime story',
             style: theme.textTheme.headlineSmall?.copyWith(
               color: colors.onSurface,
               fontSize: 23,
@@ -512,7 +534,9 @@ class _StoryTraits extends StatelessWidget {
 }
 
 class _ContinueListeningCard extends StatelessWidget {
-  const _ContinueListeningCard();
+  const _ContinueListeningCard({this.story});
+
+  final StoryModel? story;
 
   @override
   Widget build(BuildContext context) {
@@ -590,7 +614,7 @@ class _ContinueListeningCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Krishna and the River of Kindness',
+                      story?.title ?? 'Open Storytime to choose a tale',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -613,7 +637,9 @@ class _ContinueListeningCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          '8 min left',
+                          story == null
+                              ? 'No story selected'
+                              : story!.durationLabel,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colors.onSurface.withValues(alpha: 0.58),
                             fontSize: 12,
@@ -621,7 +647,7 @@ class _ContinueListeningCard extends StatelessWidget {
                         ),
                         const Spacer(),
                         Text(
-                          '15:00',
+                          story?.category ?? 'Storytime',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colors.onSurface.withValues(alpha: 0.58),
                             fontSize: 12,
@@ -641,7 +667,9 @@ class _ContinueListeningCard extends StatelessWidget {
 }
 
 class _LessonCard extends StatelessWidget {
-  const _LessonCard();
+  const _LessonCard({this.category});
+
+  final String? category;
 
   @override
   Widget build(BuildContext context) {
@@ -667,7 +695,7 @@ class _LessonCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Kindness & Patience',
+                  category?.isNotEmpty == true ? category! : 'Bedtime Story',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: const Color(0xFFFFE06B),
                     fontWeight: FontWeight.w700,
@@ -688,7 +716,10 @@ class _LessonCard extends StatelessWidget {
 }
 
 class _CompanionCard extends StatelessWidget {
-  const _CompanionCard();
+  const _CompanionCard({this.name, this.description});
+
+  final String? name;
+  final String? description;
 
   @override
   Widget build(BuildContext context) {
@@ -737,7 +768,7 @@ class _CompanionCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            'Baby Krishna',
+                            name ?? 'Choose Companion',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
@@ -782,7 +813,8 @@ class _CompanionCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      "Your little one's guide for all\nbedtime adventures",
+                      description ??
+                          "Your little one's guide for all bedtime adventures",
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurface.withValues(alpha: 0.62),
                         fontSize: 12,

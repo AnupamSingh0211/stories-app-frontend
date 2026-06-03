@@ -9,16 +9,16 @@ class ProfileNotifier extends _$ProfileNotifier {
   final ProfileRepository _repository = const ProfileRepository();
 
   @override
-  Future<void> build() async {}
+  Future<ProfileModel?> build() async => null;
 
-  Future<void> saveProfile({
+  Future<ProfileModel> saveProfile({
     required String name,
     required String gender,
     required int age,
     required String? companionId,
   }) async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(
+    final result = await AsyncValue.guard(
       () => _repository.saveProfile(
         name: name,
         gender: gender,
@@ -26,5 +26,12 @@ class ProfileNotifier extends _$ProfileNotifier {
         companionId: companionId,
       ),
     );
+    state = result.whenData<ProfileModel?>((profile) => profile);
+
+    if (result.hasError) {
+      Error.throwWithStackTrace(result.error!, result.stackTrace!);
+    }
+
+    return result.requireValue;
   }
 }
