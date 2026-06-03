@@ -158,6 +158,21 @@ class _StorySlivers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sections = content.sections.isNotEmpty
+        ? content.sections
+        : [
+            StorySectionModel(
+              id: 'for-you',
+              title: 'For You',
+              stories: content.forYouStories,
+            ),
+            StorySectionModel(
+              id: 'popular',
+              title: 'Popular Tales',
+              stories: content.popularStories,
+            ),
+          ].where((section) => section.stories.isNotEmpty).toList();
+
     return SliverList(
       delegate: SliverChildListDelegate.fixed([
         _FeaturedCarousel(
@@ -166,21 +181,24 @@ class _StorySlivers extends StatelessWidget {
           activePage: activePage,
           onPageChanged: onPageChanged,
         ),
-        const SizedBox(height: 34),
-        _HorizontalStorySection(
-          title: 'For You',
-          stories: content.forYouStories,
-          cardBuilder: (story, index) =>
-              _ForYouStoryCard(story: story, delayIndex: index),
-        ),
-        const SizedBox(height: 34),
-        _HorizontalStorySection(
-          title: 'Popular Tales',
-          titleIcon: Icons.auto_awesome_rounded,
-          stories: content.popularStories,
-          cardBuilder: (story, index) =>
-              _PopularStoryCard(story: story, delayIndex: index),
-        ),
+        for (final entry in sections.asMap().entries) ...[
+          const SizedBox(height: 34),
+          _HorizontalStorySection(
+            title: entry.value.title,
+            titleIcon: entry.value.title.toLowerCase().contains('popular')
+                ? Icons.auto_awesome_rounded
+                : null,
+            stories: entry.value.stories,
+            cardBuilder: (story, index) {
+              final title = entry.value.title.toLowerCase();
+              if (entry.key == 0 || title.contains('for you')) {
+                return _ForYouStoryCard(story: story, delayIndex: index);
+              }
+
+              return _PopularStoryCard(story: story, delayIndex: index);
+            },
+          ),
+        ],
         const SizedBox(height: 34),
         _ExploreCategories(categories: content.categories),
       ]),
