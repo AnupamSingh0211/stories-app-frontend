@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'speed_button.dart';
-
 class StoryControls extends StatelessWidget {
   const StoryControls({
     required this.isPlaying,
@@ -24,47 +22,115 @@ class StoryControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox.square(
-          dimension: 48,
-          child: IconButton.filledTonal(
-            onPressed: isEnabled ? onToggleFavorite : null,
-            icon: Icon(
-              isFavorite
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
-            ),
-            color: isFavorite ? const Color(0xFFFF7597) : colors.onSurface,
+        _ControlCircle(
+          size: 54,
+          backgroundColor: Colors.white,
+          onPressed: isEnabled ? onToggleFavorite : null,
+          child: Icon(
+            isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            color: isFavorite
+                ? const Color(0xFFFF6B5A)
+                : const Color(0xFF756A82),
+            size: 27,
           ),
         ),
-        const SizedBox(width: 22),
-        SizedBox.square(
-          dimension: 72,
-          child: FilledButton(
-            onPressed: isEnabled ? onTogglePlayback : null,
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.primary,
-              foregroundColor: const Color(0xFF091026),
-              shape: const CircleBorder(),
-              padding: EdgeInsets.zero,
-            ),
-            child: Icon(
-              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              size: 42,
-            ),
+        const SizedBox(width: 30),
+        _ControlCircle(
+          size: 82,
+          backgroundColor: const Color(0xFFFF6B5A),
+          onPressed: isEnabled ? onTogglePlayback : null,
+          child: Icon(
+            isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            color: Colors.white,
+            size: 48,
           ),
         ),
-        const SizedBox(width: 22),
-        SpeedButton(
-          speed: playbackSpeed,
-          selected: true,
-          onTap: isEnabled ? onChangeSpeed : null,
+        const SizedBox(width: 30),
+        _ControlCircle(
+          size: 54,
+          backgroundColor: Colors.white,
+          onPressed: isEnabled ? onChangeSpeed : null,
+          child: Text(
+            _speedLabel(playbackSpeed),
+            style: const TextStyle(
+              color: Color(0xFF5F8F68),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ),
       ],
+    );
+  }
+
+  String _speedLabel(double speed) {
+    return '${speed.toStringAsFixed(1)}x';
+  }
+}
+
+class _ControlCircle extends StatefulWidget {
+  const _ControlCircle({
+    required this.size,
+    required this.backgroundColor,
+    required this.onPressed,
+    required this.child,
+  });
+
+  final double size;
+  final Color backgroundColor;
+  final VoidCallback? onPressed;
+  final Widget child;
+
+  @override
+  State<_ControlCircle> createState() => _ControlCircleState();
+}
+
+class _ControlCircleState extends State<_ControlCircle> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onPressed != null;
+
+    return AnimatedScale(
+      scale: _isPressed ? 0.94 : 1,
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          color: enabled
+              ? widget.backgroundColor
+              : widget.backgroundColor.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(
+                0xFF5B4636,
+              ).withValues(alpha: enabled ? 0.18 : 0.06),
+              blurRadius: widget.size > 70 ? 22 : 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onHighlightChanged: enabled
+                ? (pressed) => setState(() => _isPressed = pressed)
+                : null,
+            onTap: widget.onPressed,
+            child: Center(child: widget.child),
+          ),
+        ),
+      ),
     );
   }
 }
