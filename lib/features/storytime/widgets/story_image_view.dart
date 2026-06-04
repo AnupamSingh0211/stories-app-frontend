@@ -14,22 +14,67 @@ class StoryImageView extends StatelessWidget {
       );
     }
 
-    final mediaQuery = MediaQuery.of(context);
-    final cacheWidth = (mediaQuery.size.width * mediaQuery.devicePixelRatio)
-        .round();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+        final logicalWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final cacheWidth = (logicalWidth * devicePixelRatio).round();
+        final alternateImageUrl = _alternateImageUrl(imageUrl);
 
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
-      memCacheWidth: cacheWidth,
-      fadeInDuration: const Duration(milliseconds: 180),
-      placeholder: (context, url) =>
-          const _StoryImagePlaceholder(icon: Icons.nightlight_round),
-      errorWidget: (context, url, error) =>
-          const _StoryImagePlaceholder(icon: Icons.broken_image_rounded),
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          memCacheWidth: cacheWidth,
+          maxWidthDiskCache: cacheWidth,
+          filterQuality: FilterQuality.medium,
+          useOldImageOnUrlChange: true,
+          fadeInDuration: const Duration(milliseconds: 180),
+          fadeOutDuration: const Duration(milliseconds: 80),
+          placeholder: (context, url) =>
+              const _StoryImagePlaceholder(icon: Icons.nightlight_round),
+          errorWidget: (context, url, error) {
+            if (alternateImageUrl == null) {
+              return const _StoryImagePlaceholder(
+                icon: Icons.broken_image_rounded,
+              );
+            }
+
+            return CachedNetworkImage(
+              imageUrl: alternateImageUrl,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              memCacheWidth: cacheWidth,
+              maxWidthDiskCache: cacheWidth,
+              filterQuality: FilterQuality.medium,
+              fadeInDuration: const Duration(milliseconds: 180),
+              errorWidget: (context, url, error) =>
+                  const _StoryImagePlaceholder(
+                    icon: Icons.broken_image_rounded,
+                  ),
+            );
+          },
+        );
+      },
     );
+  }
+
+  String? _alternateImageUrl(String value) {
+    final webpPattern = RegExp(r'\.webp(?=($|[?#]))', caseSensitive: false);
+    if (webpPattern.hasMatch(value)) {
+      return value.replaceFirst(webpPattern, '.png');
+    }
+
+    final pngPattern = RegExp(r'\.png(?=($|[?#]))', caseSensitive: false);
+    if (pngPattern.hasMatch(value)) {
+      return value.replaceFirst(pngPattern, '.webp');
+    }
+
+    return null;
   }
 }
 

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,9 +28,23 @@ class StoryPlayerScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(storyPlayerProvider(storyId));
-    final notifier = ref.read(storyPlayerProvider(storyId).notifier);
+    final provider = storyPlayerProvider(storyId);
+    final isLoading = ref.watch(provider.select((state) => state.isLoading));
     final colors = Theme.of(context).colorScheme;
+
+    ref.listen<String>(provider.select((state) => state.nextImageUrl), (
+      previous,
+      next,
+    ) {
+      if (next.isNotEmpty) {
+        unawaited(
+          precacheImage(
+            CachedNetworkImageProvider(next),
+            context,
+          ).catchError((Object _) {}),
+        );
+      }
+    });
 
     return Scaffold(
       body: DecoratedBox(
@@ -44,41 +61,88 @@ class StoryPlayerScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 18),
                 Expanded(
-                  child: state.isLoading
+                  child: isLoading
                       ? Center(
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             color: colors.primary,
                           ),
                         )
-                      : _PlayerBody(
-                          imageUrl: state.currentImageUrl,
-                          storyText: state.currentStoryText,
-                          pageLabel: state.pageCount == 0
-                              ? ''
-                              : 'Page ${state.pageNumber} of ${state.pageCount}',
-                          isComplete: state.isComplete,
-                          errorMessage: state.errorMessage,
-                        ),
+                      : _PlayerBodyConsumer(storyId: storyId),
                 ),
                 const SizedBox(height: 18),
-                if (!state.isLoading)
-                  StoryControls(
-                    isPlaying: state.isPlaying,
-                    isFavorite: state.isFavorite,
-                    playbackSpeed: state.playbackSpeed,
-                    isEnabled: state.pages.isNotEmpty,
-                    onTogglePlayback: () {
-                      state.isPlaying ? notifier.pause() : notifier.play();
-                    },
-                    onToggleFavorite: notifier.toggleFavorite,
-                    onChangeSpeed: notifier.changeSpeed,
-                  ),
+                if (!isLoading) _StoryControlsConsumer(storyId: storyId),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PlayerBodyConsumer extends ConsumerWidget {
+  const _PlayerBodyConsumer({required this.storyId});
+
+  final String storyId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(
+      storyPlayerProvider(storyId).select(
+        (state) => (
+          imageUrl: state.currentImageUrl,
+          storyText: state.currentStoryText,
+          pageNumber: state.pageNumber,
+          pageCount: state.pageCount,
+          isComplete: state.isComplete,
+          errorMessage: state.errorMessage,
+        ),
+      ),
+    );
+
+    return _PlayerBody(
+      imageUrl: state.imageUrl,
+      storyText: state.storyText,
+      pageLabel: state.pageCount == 0
+          ? ''
+          : 'Page ${state.pageNumber} of ${state.pageCount}',
+      isComplete: state.isComplete,
+      errorMessage: state.errorMessage,
+    );
+  }
+}
+
+class _StoryControlsConsumer extends ConsumerWidget {
+  const _StoryControlsConsumer({required this.storyId});
+
+  final String storyId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = storyPlayerProvider(storyId);
+    final state = ref.watch(
+      provider.select(
+        (state) => (
+          isPlaying: state.isPlaying,
+          isFavorite: state.isFavorite,
+          playbackSpeed: state.playbackSpeed,
+          isEnabled: state.pages.isNotEmpty,
+        ),
+      ),
+    );
+    final notifier = ref.read(provider.notifier);
+
+    return StoryControls(
+      isPlaying: state.isPlaying,
+      isFavorite: state.isFavorite,
+      playbackSpeed: state.playbackSpeed,
+      isEnabled: state.isEnabled,
+      onTogglePlayback: () {
+        state.isPlaying ? notifier.pause() : notifier.play();
+      },
+      onToggleFavorite: notifier.toggleFavorite,
+      onChangeSpeed: notifier.changeSpeed,
     );
   }
 }
