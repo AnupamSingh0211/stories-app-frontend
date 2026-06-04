@@ -13,8 +13,10 @@ class StoryRepository {
 
   static const morningWhispersStoryId = 'morning-whispers';
   static const _storyAssetsBucket = 'story-assets';
+  static const _storyPageCacheDuration = Duration(minutes: 5);
   static const _storyColumns =
       'id, title, category_id, thumbnail_url, is_featured';
+  static final Map<String, _CachedStoryPages> _storyPageCache = {};
 
   Future<StorytimeContent> fetchStorytimeContent() async {
     final client = SupabaseClientProvider.client;
@@ -99,6 +101,7 @@ class StoryRepository {
   Future<FullStoryModel> fetchStoryWithPages(String storyId) async {
     final client = SupabaseClientProvider.client;
     final storage = client.storage.from('app-assets');
+    final storyAssets = client.storage.from(_storyAssetsBucket);
 
     final storyRow = await client
         .from('stories')
@@ -123,8 +126,47 @@ class StoryRepository {
         _categoryNamesById(_mapRows(categoryRows)),
         storage,
       ),
-      pages: _mapRows(pageRows).map(_storyPageFromMap).toList(growable: false),
+      pages: _mapRows(pageRows)
+          .map((row) => _storyPageFromMap(row, storyAssets))
+          .toList(growable: false),
     );
+  }
+
+  Future<List<StoryPage>> fetchStoryPages(String storyId) async {
+    final cached = _storyPageCache[storyId];
+    if (cached != null && !cached.isExpired) {
+      return cached.pages;
+    }
+
+    final client = SupabaseClientProvider.client;
+    final storyAssets = client.storage.from(_storyAssetsBucket);
+    try {
+      final pageRows = await client
+          .from('story_pages')
+          .select('id, story_id, page_number, content, image_url, audio_url')
+          .eq('story_id', storyId)
+          .order('page_number');
+      final pages = _mapRows(pageRows)
+          .map((row) => _storyPageFromMap(row, storyAssets))
+          .toList(growable: false);
+
+      if (pages.isNotEmpty) {
+        _storyPageCache[storyId] = _CachedStoryPages(pages);
+        return pages;
+      }
+
+      debugPrint(
+        'StoryRepository: story $storyId has no database pages; using Storage assets.',
+      );
+    } catch (error) {
+      debugPrint(
+        'StoryRepository: story page query failed for $storyId; using Storage assets. $error',
+      );
+    }
+
+    final pages = await fetchStoryPagesFromStorage();
+    _storyPageCache[storyId] = _CachedStoryPages(pages);
+    return pages;
   }
 
   Future<List<StoryPage>> fetchStoryPagesFromStorage() async {
@@ -274,12 +316,15 @@ class StoryRepository {
     }
   }
 
-  StoryPage _storyPageFromMap(Map<String, dynamic> row) {
+  StoryPage _storyPageFromMap(
+    Map<String, dynamic> row,
+    StorageFileApi storage,
+  ) {
     final pageNumber = _intValue(row['page_number']);
     return StoryPage(
       pageNumber: pageNumber,
-      imageUrl: _firstString(row, ['image_url']),
-      audioUrl: _firstString(row, ['audio_url']),
+      imageUrl: _assetUrl(storage, _firstString(row, ['image_url'])),
+      audioUrl: _assetUrl(storage, _firstString(row, ['audio_url'])),
       text: _firstString(row, [
         'content',
       ]).ifEmpty(_storyTextForPage(pageNumber)),
@@ -746,7 +791,7 @@ class StoryRepository {
       return StoryPage(
         pageNumber: pageNumber,
         imageUrl: storage.getPublicUrl(
-          'images/chapter${pageNumber}_page${pageNumber}_image.png',
+          'images/chapter${pageNumber}_page${pageNumber}_image.webp',
         ),
         audioUrl: storage.getPublicUrl(
           'audio/chapter${pageNumber}_page${pageNumber}_audio.mp3',
@@ -766,6 +811,17 @@ class StoryRepositoryException implements Exception {
   String toString() {
     return message;
   }
+}
+
+class _CachedStoryPages {
+  _CachedStoryPages(this.pages) : cachedAt = DateTime.now();
+
+  final List<StoryPage> pages;
+  final DateTime cachedAt;
+
+  bool get isExpired =>
+      DateTime.now().difference(cachedAt) >
+      StoryRepository._storyPageCacheDuration;
 }
 
 extension _ListFallback<T> on List<T> {

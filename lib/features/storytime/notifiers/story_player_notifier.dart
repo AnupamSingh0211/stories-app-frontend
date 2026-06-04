@@ -4,7 +4,6 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../models/story_page.dart';
 import '../repositories/story_repository.dart';
 import 'story_player_state.dart';
 
@@ -18,14 +17,17 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
         _setError('Audio playback failed. Please try again.');
       },
     );
+    _currentIndexSubscription = _audioPlayer.currentIndexStream.listen(
+      _handleCurrentIndex,
+    );
   }
 
   final StoryRepository _repository;
   final String _storyId;
   final AudioPlayer _audioPlayer = AudioPlayer();
   StreamSubscription<PlayerState>? _playerStateSubscription;
+  StreamSubscription<int?>? _currentIndexSubscription;
   bool _disposed = false;
-  bool _isAdvancing = false;
 
   static const List<double> allowedSpeeds = [1, 1.25, 1.5, 1.75, 2];
 
@@ -38,13 +40,9 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     );
 
     try {
+      final pagesFuture = _repository.fetchStoryPages(_storyId);
       await _configureAudioSession();
-      final results = await Future.wait<Object>([
-        _repository.fetchStoryPagesFromStorage(),
-        _repository.isFavoriteStory(_storyId),
-      ]);
-      final pages = results[0] as List<StoryPage>;
-      final isFavorite = results[1] as bool;
+      final pages = await pagesFuture;
 
       if (_disposed) {
         return;
@@ -53,7 +51,6 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
       state = state.copyWith(
         pages: pages,
         currentPageIndex: 0,
-        isFavorite: isFavorite,
         playbackSpeed: 1,
         isLoading: false,
         isComplete: false,
@@ -61,7 +58,8 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
       );
 
       await _audioPlayer.setSpeed(state.playbackSpeed);
-      await _loadCurrentAudioAndPlay();
+      unawaited(_loadFavorite());
+      await _loadPlaylistAndPlay();
     } catch (error) {
       _setError(_friendlyError(error));
     }
@@ -74,7 +72,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     }
 
     try {
-      await _audioPlayer.play();
+      _startPlayback();
       state = state.copyWith(isPlaying: true, isComplete: false);
     } catch (error) {
       _setError('Audio could not start. Please try again.');
@@ -96,12 +94,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
       return;
     }
 
-    state = state.copyWith(
-      currentPageIndex: state.currentPageIndex + 1,
-      isComplete: false,
-      clearError: true,
-    );
-    await _loadCurrentAudioAndPlay();
+    await _seekToPage(state.currentPageIndex + 1);
   }
 
   Future<void> previousPage() async {
@@ -109,12 +102,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
       return;
     }
 
-    state = state.copyWith(
-      currentPageIndex: state.currentPageIndex - 1,
-      isComplete: false,
-      clearError: true,
-    );
-    await _loadCurrentAudioAndPlay();
+    await _seekToPage(state.currentPageIndex - 1);
   }
 
   Future<void> toggleFavorite() async {
@@ -153,6 +141,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
   Future<void> disposePlayer() async {
     _disposed = true;
     await _playerStateSubscription?.cancel();
+    await _currentIndexSubscription?.cancel();
     await _audioPlayer.dispose();
   }
 
@@ -168,18 +157,30 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     await session.setActive(true);
   }
 
-  Future<void> _loadCurrentAudioAndPlay() async {
-    final audioUrl = state.currentAudioUrl;
-    if (audioUrl.isEmpty) {
+  Future<void> _loadPlaylistAndPlay() async {
+    if (state.pages.isEmpty) {
+      _setError('This story does not have any pages yet.');
+      return;
+    }
+    if (state.pages.any((page) => page.audioUrl.isEmpty)) {
       _setError('This story page is missing audio.');
       return;
     }
 
     try {
-      await _audioPlayer.stop();
-      await _audioPlayer.setUrl(audioUrl);
+      final audioSources = state.pages
+          .map((page) => AudioSource.uri(Uri.parse(page.audioUrl)))
+          .toList(growable: false);
+
+      await _audioPlayer.setAudioSource(
+        ConcatenatingAudioSource(
+          useLazyPreparation: true,
+          children: audioSources,
+        ),
+        initialIndex: state.currentPageIndex,
+      );
       await _audioPlayer.setSpeed(state.playbackSpeed);
-      await _audioPlayer.play();
+      _startPlayback();
       state = state.copyWith(isPlaying: true, clearError: true);
     } catch (error) {
       _setError('This story page could not be played. Please try again.');
@@ -192,18 +193,62 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     }
 
     if (playerState.processingState == ProcessingState.completed) {
-      if (_isAdvancing) {
-        return;
-      }
-
-      _isAdvancing = true;
-      await nextPage();
-      _isAdvancing = false;
+      await _finishStory();
       return;
     }
 
     if (playerState.processingState == ProcessingState.ready) {
       state = state.copyWith(isPlaying: playerState.playing);
+    }
+  }
+
+  void _handleCurrentIndex(int? index) {
+    if (_disposed ||
+        index == null ||
+        index < 0 ||
+        index >= state.pages.length ||
+        index == state.currentPageIndex) {
+      return;
+    }
+
+    state = state.copyWith(
+      currentPageIndex: index,
+      isComplete: false,
+      clearError: true,
+    );
+  }
+
+  Future<void> _seekToPage(int index) async {
+    try {
+      await _audioPlayer.seek(Duration.zero, index: index);
+      _startPlayback();
+      state = state.copyWith(
+        currentPageIndex: index,
+        isPlaying: true,
+        isComplete: false,
+        clearError: true,
+      );
+    } catch (error) {
+      _setError('This story page could not be played. Please try again.');
+    }
+  }
+
+  void _startPlayback() {
+    unawaited(
+      _audioPlayer.play().catchError((Object error) {
+        _setError('Audio could not start. Please try again.');
+      }),
+    );
+  }
+
+  Future<void> _loadFavorite() async {
+    try {
+      final isFavorite = await _repository.isFavoriteStory(_storyId);
+      if (!_disposed) {
+        state = state.copyWith(isFavorite: isFavorite);
+      }
+    } catch (error) {
+      // Favorite status should not prevent story playback.
     }
   }
 
