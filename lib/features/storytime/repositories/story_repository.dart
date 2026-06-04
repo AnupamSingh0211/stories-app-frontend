@@ -141,11 +141,7 @@ class StoryRepository {
     final client = SupabaseClientProvider.client;
     final storyAssets = client.storage.from(_storyAssetsBucket);
     try {
-      final pageRows = await client
-          .from('story_pages')
-          .select('id, story_id, page_number, content, image_url, audio_url')
-          .eq('story_id', storyId)
-          .order('page_number');
+      final pageRows = await _fetchDatabaseStoryPages(client, storyId);
       final pages = _mapRows(pageRows)
           .map((row) => _storyPageFromMap(row, storyAssets))
           .toList(growable: false);
@@ -167,6 +163,27 @@ class StoryRepository {
     final pages = await fetchStoryPagesFromStorage();
     _storyPageCache[storyId] = _CachedStoryPages(pages);
     return pages;
+  }
+
+  Future<dynamic> _fetchDatabaseStoryPages(
+    SupabaseClient client,
+    String storyId,
+  ) async {
+    try {
+      return await client
+          .from('story_pages')
+          .select('id, story_id, page_number, content, image_url, audio_url')
+          .eq('story_id', storyId)
+          .order('page_number');
+    } catch (error) {
+      debugPrint(
+        'StoryRepository: story_pages uses legacy text fields; querying hindi_text. $error',
+      );
+      return client
+          .from('story_pages')
+          .select('id, page_number, hindi_text, image_url, audio_url')
+          .order('page_number');
+    }
   }
 
   Future<List<StoryPage>> fetchStoryPagesFromStorage() async {
@@ -327,6 +344,7 @@ class StoryRepository {
       audioUrl: _assetUrl(storage, _firstString(row, ['audio_url'])),
       text: _firstString(row, [
         'content',
+        'hindi_text',
       ]).ifEmpty(_storyTextForPage(pageNumber)),
     );
   }
@@ -782,7 +800,38 @@ class StoryRepository {
   }
 
   String _storyTextForPage(int pageNumber) {
-    return 'Morning Whispers - Page $pageNumber';
+    return switch (pageNumber) {
+      1 =>
+        'वृंदावन में, जहाँ मोर नाचते थे और यमुना नदी गुनगुनाती थी — '
+            'वहाँ एक प्यारा सा बालक रहता था। उसका नाम था... कृष्ण।',
+      2 =>
+        'एक सुबह, जब चिड़ियाँ चहचहाने लगीं — तब भी कृष्ण अपनी '
+            'मखमली पीली चादर ओढ़कर सोते रहे।',
+      3 =>
+        'तभी उनकी माँ यशोदा आईं। हाथ में था एक मिट्टी का घड़ा — '
+            'और एक छोटी सी नीम की दातून।',
+      4 =>
+        '“उठो, मेरे कन्हैया,” यशोदा ने प्यार से कहा। '
+            '“क्या तुम जानते हो — मोर इतना सुंदर क्यों होता है?”',
+      5 => 'कृष्ण ने चादर से झाँककर पूछा — “क्या पंखों की वजह से, मैया?”',
+      6 =>
+        '“नहीं, कन्हैया।” यशोदा मुस्कुराईं। '
+            '“मोर सूरज से पहले जागता है, मुँह धोता है, और दुनिया को '
+            'ताज़े मन से नमस्कार करता है — इसलिए वह नाचता है।”',
+      7 =>
+        'कृष्ण आँगन में गए। उन्होंने दातून से दाँत साफ़ किए — '
+            'गोल-गोल, धीरे-धीरे। फिर ठंडे पानी से मुँह धोया — '
+            'और ज़ोर से हँस पड़े।',
+      8 =>
+        'जब सूरज की पहली किरण वृंदावन पर पड़ी — कृष्ण तैयार खड़े थे। '
+            'चेहरा चमकता, मन खिला। उन्होंने महसूस किया — '
+            '“जब मैं तैयार होता हूँ, तो पूरा दिन मेरा इंतज़ार करता है।”',
+      9 =>
+        'आज की सीख: “जब हम सुबह उठकर दाँत साफ़ करते हैं, मुँह धोते हैं, '
+            'और तैयार होते हैं — तो हम अपने दिन के लिए कवच पहनते हैं। '
+            'एक ताज़ी सुबह से ही खिला हुआ दिन बनता है।”',
+      _ => 'कहानी का यह सुंदर पल धीरे-धीरे आगे बढ़ता है।',
+    };
   }
 
   List<StoryPage> _expectedStoryPages(StorageFileApi storage) {

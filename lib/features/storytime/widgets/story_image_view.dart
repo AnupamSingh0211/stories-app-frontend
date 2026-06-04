@@ -2,9 +2,16 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class StoryImageView extends StatelessWidget {
-  const StoryImageView({required this.imageUrl, super.key});
+  const StoryImageView({
+    required this.imageUrl,
+    this.fit = BoxFit.cover,
+    this.alignment = Alignment.center,
+    super.key,
+  });
 
   final String imageUrl;
+  final BoxFit fit;
+  final Alignment alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +32,8 @@ class StoryImageView extends StatelessWidget {
 
         return CachedNetworkImage(
           imageUrl: imageUrl,
-          fit: BoxFit.cover,
+          fit: fit,
+          alignment: alignment,
           width: double.infinity,
           height: double.infinity,
           memCacheWidth: cacheWidth,
@@ -45,7 +53,8 @@ class StoryImageView extends StatelessWidget {
 
             return CachedNetworkImage(
               imageUrl: alternateImageUrl,
-              fit: BoxFit.cover,
+              fit: fit,
+              alignment: alignment,
               width: double.infinity,
               height: double.infinity,
               memCacheWidth: cacheWidth,
