@@ -253,8 +253,18 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
   }
 
   Future<void> _finishStory() async {
-    await _audioPlayer.stop();
-    state = state.copyWith(isPlaying: false, isComplete: true);
+    try {
+      await _audioPlayer.pause();
+      await _audioPlayer.seek(Duration.zero, index: 0);
+      state = state.copyWith(
+        currentPageIndex: 0,
+        isPlaying: false,
+        isComplete: true,
+        clearError: true,
+      );
+    } catch (error) {
+      _setError('The story could not return to the beginning.');
+    }
   }
 
   void _setError(String message) {

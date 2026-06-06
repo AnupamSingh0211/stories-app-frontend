@@ -230,11 +230,12 @@ class _FeaturedCarousel extends StatelessWidget {
           child: PageView.builder(
             controller: pageController,
             onPageChanged: onPageChanged,
-            itemCount: banners.length,
             itemBuilder: (context, index) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: _FeaturedStoryCard(banner: banners[index]),
+                child: _FeaturedStoryCard(
+                  banner: banners[index % banners.length],
+                ),
               );
             },
           ),
@@ -758,7 +759,11 @@ class _ChildAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: colors.primary, width: 2),
       ),
-      child: Icon(Icons.face_4_rounded, color: colors.primary, size: 28),
+      child: Icon(
+        Icons.person_outline_rounded,
+        color: colors.primary,
+        size: 28,
+      ),
     );
   }
 }
