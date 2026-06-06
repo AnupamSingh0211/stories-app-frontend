@@ -198,13 +198,6 @@ class _PlayerHeader extends StatelessWidget {
                     style: TextStyle(color: Color(0xFF4B3A73)),
                   ),
                 ),
-                PopupMenuItem(
-                  value: 'English',
-                  child: Text(
-                    'English',
-                    style: TextStyle(color: Color(0xFF4B3A73)),
-                  ),
-                ),
               ],
               child: Container(
                 height: 44,

@@ -5,6 +5,7 @@ import '../../shared/widgets/pill_button.dart';
 import '../auth/companion_notifier.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/story_player_provider.dart';
+import '../storytime/screens/story_player_screen.dart';
 import '../storytime/screens/storytime_screen.dart';
 
 final _kWhiteAlpha08 = Colors.white.withValues(alpha: 0.08);
@@ -87,6 +88,7 @@ class HomeScreen extends ConsumerWidget {
                           _CompanionCard(
                             name: companion?.displayName,
                             description: companion?.shortDescription,
+                            imageUrl: companion?.imageUrl,
                           ),
                         ],
                       ),
@@ -294,18 +296,6 @@ class _BellButton extends StatelessWidget {
                 Icons.notifications_none_rounded,
                 color: colors.onSurface,
                 size: 23,
-              ),
-            ),
-          ),
-          Positioned(
-            top: 3,
-            right: 1,
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFE06B),
-                shape: BoxShape.circle,
               ),
             ),
           ),
@@ -533,134 +523,241 @@ class _StoryTraits extends StatelessWidget {
   }
 }
 
-class _ContinueListeningCard extends StatelessWidget {
+class _ContinueListeningCard extends ConsumerStatefulWidget {
   const _ContinueListeningCard({this.story});
 
   final StoryModel? story;
 
   @override
+  ConsumerState<_ContinueListeningCard> createState() =>
+      _ContinueListeningCardState();
+}
+
+class _ContinueListeningCardState
+    extends ConsumerState<_ContinueListeningCard> {
+  bool _hasOpenedStory = false;
+
+  void _openStorytime(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 420),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return const StorytimeScreen();
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          );
+
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _openStoryPlayer(BuildContext context) {
+    final selectedStory = widget.story;
+    if (selectedStory == null) {
+      _openStorytime(context);
+      return;
+    }
+
+    if (!_hasOpenedStory) {
+      setState(() => _hasOpenedStory = true);
+    }
+
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 420),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return StoryPlayerScreen(
+            storyId: selectedStory.id,
+            title: selectedStory.title,
+          );
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          );
+
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final selectedStory = widget.story;
+    final imageUrl =
+        selectedStory?.coverUrl ??
+        selectedStory?.imageUrl ??
+        selectedStory?.thumbnailUrl;
+    final playerPosition = selectedStory != null && _hasOpenedStory
+        ? ref.watch(
+            storyPlayerProvider(selectedStory.id).select(
+              (state) => (
+                pageIndex: state.currentPageIndex,
+                pageCount: state.pageCount,
+                isComplete: state.isComplete,
+              ),
+            ),
+          )
+        : null;
+    final progress = playerPosition == null || playerPosition.pageCount == 0
+        ? 0.0
+        : playerPosition.isComplete
+        ? 1.0
+        : playerPosition.pageIndex / playerPosition.pageCount;
 
     return _HomePanel(
-      child: Column(
-        children: [
-          _SectionTitle(
-            icon: Icons.headphones_rounded,
-            title: 'Continue Listening',
-            trailing: 'View all',
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF283A8C), Color(0xFF101839)],
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _openStoryPlayer(context),
+        child: Column(
+          children: [
+            _SectionTitle(
+              icon: Icons.headphones_rounded,
+              title: 'Continue Listening',
+              trailing: 'View all',
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF283A8C), Color(0xFF101839)],
+                    ),
                   ),
-                ),
-                child: Stack(
-                  children: [
-                    const Positioned(
-                      top: 12,
-                      left: 14,
-                      child: Icon(
-                        Icons.nightlight_round,
-                        color: Color(0xFFFFECA1),
-                        size: 28,
-                      ),
-                    ),
-                    Center(
-                      child: Icon(
-                        Icons.child_care_rounded,
-                        color: colors.primary,
-                        size: 38,
-                      ),
-                    ),
-                    Positioned(
-                      right: 7,
-                      bottom: 7,
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF252A4A,
-                          ).withValues(alpha: 0.92),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.28),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.pause_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      story?.title ?? 'Open Storytime to choose a tale',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: colors.onSurface,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: LinearProgressIndicator(
-                        value: 0.48,
-                        minHeight: 4,
-                        backgroundColor: _kWhiteAlpha14,
-                        valueColor: AlwaysStoppedAnimation(colors.primary),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Stack(
                       children: [
-                        Text(
-                          story == null
-                              ? 'No story selected'
-                              : story!.durationLabel,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.onSurface.withValues(alpha: 0.58),
-                            fontSize: 12,
+                        if (imageUrl != null && imageUrl.isNotEmpty)
+                          Positioned.fill(
+                            child: Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const SizedBox.shrink();
+                              },
+                            ),
                           ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          story?.category ?? 'Storytime',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.onSurface.withValues(alpha: 0.58),
-                            fontSize: 12,
+                        Positioned(
+                          right: 7,
+                          bottom: 7,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _openStoryPlayer(context),
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFF252A4A,
+                                ).withValues(alpha: 0.92),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.28),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        selectedStory?.title ??
+                            'Open Storytime to choose a tale',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: colors.onSurface,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 4,
+                          backgroundColor: _kWhiteAlpha14,
+                          valueColor: AlwaysStoppedAnimation(colors.primary),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text(
+                            selectedStory == null
+                                ? 'No story selected'
+                                : selectedStory.durationLabel,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colors.onSurface.withValues(alpha: 0.58),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            selectedStory?.category ?? 'Storytime',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colors.onSurface.withValues(alpha: 0.58),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -716,10 +813,11 @@ class _LessonCard extends StatelessWidget {
 }
 
 class _CompanionCard extends StatelessWidget {
-  const _CompanionCard({this.name, this.description});
+  const _CompanionCard({this.name, this.description, this.imageUrl});
 
   final String? name;
   final String? description;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -752,10 +850,24 @@ class _CompanionCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(
-                  Icons.child_friendly_rounded,
-                  color: const Color(0xFF152153),
-                  size: 42,
+                child: ClipOval(
+                  child: imageUrl != null && imageUrl!.isNotEmpty
+                      ? Image.network(
+                          imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.auto_stories_rounded,
+                              color: colors.primary,
+                              size: 36,
+                            );
+                          },
+                        )
+                      : Icon(
+                          Icons.auto_stories_rounded,
+                          color: colors.primary,
+                          size: 36,
+                        ),
                 ),
               ),
               const SizedBox(width: 14),
