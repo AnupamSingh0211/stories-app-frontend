@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/theme/app_colors.dart';
+
 class StoryControls extends StatelessWidget {
   const StoryControls({
     required this.isPlaying,
@@ -27,36 +29,36 @@ class StoryControls extends StatelessWidget {
       children: [
         _ControlCircle(
           size: 54,
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.playerSurface,
           onPressed: isEnabled ? onToggleFavorite : null,
           child: Icon(
             isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
             color: isFavorite
-                ? const Color(0xFFFF6B5A)
-                : const Color(0xFF756A82),
+                ? AppColors.playerPrimary
+                : AppColors.playerDisabled,
             size: 27,
           ),
         ),
         const SizedBox(width: 30),
         _ControlCircle(
           size: 82,
-          backgroundColor: const Color(0xFFFF6B5A),
+          backgroundColor: AppColors.playerPrimary,
           onPressed: isEnabled ? onTogglePlayback : null,
           child: Icon(
             isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-            color: Colors.white,
+            color: AppColors.textPrimary,
             size: 48,
           ),
         ),
         const SizedBox(width: 30),
         _ControlCircle(
           size: 54,
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.playerSurface,
           onPressed: isEnabled ? onChangeSpeed : null,
           child: Text(
             _speedLabel(playbackSpeed),
             style: const TextStyle(
-              color: Color(0xFF5F8F68),
+              color: AppColors.playerGreen,
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
@@ -110,16 +112,16 @@ class _ControlCircleState extends State<_ControlCircle> {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: const Color(
-                0xFF5B4636,
-              ).withValues(alpha: enabled ? 0.18 : 0.06),
+              color: AppColors.playerShadow.withValues(
+                alpha: enabled ? 0.18 : 0.06,
+              ),
               blurRadius: widget.size > 70 ? 22 : 14,
               offset: const Offset(0, 8),
             ),
           ],
         ),
         child: Material(
-          color: Colors.transparent,
+          color: AppColors.transparent,
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),

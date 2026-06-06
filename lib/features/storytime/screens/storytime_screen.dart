@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/theme/app_border_radius.dart';
+import '../../../shared/theme/app_colors.dart';
+import '../../../shared/theme/app_gradients.dart';
+import '../../../shared/theme/app_shadows.dart';
 import '../models/story_model.dart';
 import '../providers/story_player_provider.dart';
 import '../widgets/story_image_view.dart';
 import 'story_player_screen.dart';
 
-const _backgroundGradient = LinearGradient(
-  begin: Alignment.topCenter,
-  end: Alignment.bottomCenter,
-  colors: [Color(0xFF10163A), Color(0xFF0B1027), Color(0xFF070B19)],
-);
-
-final _softBorder = Border.all(color: Colors.white.withValues(alpha: 0.08));
+final _softBorder = Border.all(color: AppColors.surfaceWhite08);
 
 class StorytimeScreen extends ConsumerStatefulWidget {
   const StorytimeScreen({super.key});
@@ -37,7 +35,9 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
 
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: _backgroundGradient),
+        decoration: const BoxDecoration(
+          gradient: AppGradients.storytimeBackground,
+        ),
         child: Stack(
           children: [
             SafeArea(
@@ -260,33 +260,19 @@ class _FeaturedStoryCard extends StatelessWidget {
     return _Pressable(
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: AppBorderRadius.panel,
           border: _softBorder,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 28,
-              offset: const Offset(0, 16),
-            ),
-          ],
+          boxShadow: const [AppShadows.elevation3],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: AppBorderRadius.panel,
           child: Stack(
             fit: StackFit.expand,
             children: [
               StoryImageView(imageUrl: banner.imageUrl),
               DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      const Color(0xFF050914).withValues(alpha: 0.18),
-                      const Color(0xFF050914).withValues(alpha: 0.82),
-                    ],
-                  ),
+                  gradient: AppGradients.featuredImageOverlay,
                 ),
               ),
               Positioned(
@@ -556,8 +542,8 @@ class _CategoryCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF121936).withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(22),
+        color: AppColors.surfaceCard.withValues(alpha: 0.72),
+        borderRadius: AppBorderRadius.card,
         border: _softBorder,
       ),
       child: Padding(
@@ -601,13 +587,7 @@ class _ImageCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         border: _softBorder,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow: const [AppShadows.elevation2],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
@@ -635,9 +615,9 @@ class _EmptyHeartButton extends StatelessWidget {
       width: 30,
       height: 30,
       decoration: BoxDecoration(
-        color: const Color(0xFF080C19).withValues(alpha: 0.46),
+        color: AppColors.surfaceDark.withValues(alpha: 0.46),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        border: Border.all(color: AppColors.surfaceWhite16),
       ),
       child: Icon(
         Icons.favorite_border_rounded,
@@ -670,16 +650,16 @@ class _GlassBadge extends StatelessWidget {
 
     return DefaultTextStyle(
       style: theme.textTheme.labelSmall!.copyWith(
-        color: Colors.white,
+        color: AppColors.textPrimary,
         fontSize: 10,
         fontWeight: FontWeight.w700,
       ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFF080C19).withValues(alpha: 0.62),
+          color: AppColors.surfaceDark.withValues(alpha: 0.62),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(color: AppColors.surfaceWhite12),
         ),
         child: child,
       ),
@@ -734,7 +714,7 @@ class _RoundIconButton extends StatelessWidget {
         dimension: 48,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.07),
+            color: AppColors.borderDark,
             shape: BoxShape.circle,
             border: _softBorder,
           ),
@@ -865,10 +845,10 @@ class _ShimmerBoxState extends State<_ShimmerBox>
             gradient: LinearGradient(
               begin: Alignment(-1.2 + _controller.value * 2.4, -0.7),
               end: Alignment(-0.2 + _controller.value * 2.4, 0.7),
-              colors: [
-                Colors.white.withValues(alpha: 0.05),
-                Colors.white.withValues(alpha: 0.12),
-                Colors.white.withValues(alpha: 0.05),
+              colors: const [
+                AppColors.surfaceWhite05,
+                AppColors.surfaceWhite12,
+                AppColors.surfaceWhite05,
               ],
             ),
           ),
@@ -901,8 +881,8 @@ class _EmptyImageCard extends StatelessWidget {
       height: height,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFF121936).withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(22),
+          color: AppColors.surfaceCard.withValues(alpha: 0.72),
+          borderRadius: AppBorderRadius.card,
           border: _softBorder,
         ),
         child: Padding(
@@ -979,15 +959,9 @@ class _BedtimeBottomNavigation extends StatelessWidget {
       height: 80,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111735).withValues(alpha: 0.96),
+        color: AppColors.surfaceNavigation.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        boxShadow: const [AppShadows.elevation3],
       ),
       child: Row(
         children: [

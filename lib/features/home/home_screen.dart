@@ -1,23 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/theme/app_border_radius.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_gradients.dart';
+import '../../shared/theme/app_shadows.dart';
 import '../../shared/widgets/pill_button.dart';
 import '../auth/companion_notifier.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/story_player_provider.dart';
 import '../storytime/screens/story_player_screen.dart';
 import '../storytime/screens/storytime_screen.dart';
-
-final _kWhiteAlpha08 = Colors.white.withValues(alpha: 0.08);
-final _kWhiteAlpha14 = Colors.white.withValues(alpha: 0.14);
-final _kCardRadius = BorderRadius.circular(22);
-final _kPanelRadius = BorderRadius.circular(24);
-
-const _kHeroCardGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFF182560), Color(0xFF10183D), Color(0xFF0B102A)],
-);
 
 String _greeting() {
   final hour = DateTime.now().hour;
@@ -48,13 +41,7 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF11184A), Color(0xFF0C1230), Color(0xFF080D1D)],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppGradients.background),
         child: Stack(
           children: [
             const _NightGlow(),
@@ -123,7 +110,7 @@ class _NightGlow extends StatelessWidget {
             right: 34,
             child: Icon(
               Icons.nightlight_round,
-              color: const Color(0xFFFFECA1).withValues(alpha: 0.88),
+              color: AppColors.emotionalWarmthSoft.withValues(alpha: 0.88),
               size: 92,
             ),
           ),
@@ -138,7 +125,7 @@ class _NightGlow extends StatelessWidget {
             top: 122,
             child: _GlowBall(
               size: 210,
-              color: Color(0xFF756BFF),
+              color: AppColors.accentPrimary,
               opacity: 0.13,
             ),
           ),
@@ -147,7 +134,7 @@ class _NightGlow extends StatelessWidget {
             top: 282,
             child: _GlowBall(
               size: 250,
-              color: Color(0xFFFFD96B),
+              color: AppColors.emotionalWarmth,
               opacity: 0.08,
             ),
           ),
@@ -202,11 +189,11 @@ class _Star extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: const Color(0xFFFFECA1).withValues(alpha: 0.78),
+          color: AppColors.emotionalWarmthSoft.withValues(alpha: 0.78),
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFFFECA1).withValues(alpha: 0.48),
+              color: AppColors.emotionalWarmthSoft.withValues(alpha: 0.48),
               blurRadius: 8,
               spreadRadius: 2,
             ),
@@ -287,9 +274,9 @@ class _BellButton extends StatelessWidget {
         children: [
           DecoratedBox(
             decoration: BoxDecoration(
-              color: _kWhiteAlpha08,
+              color: AppColors.surfaceWhite08,
               shape: BoxShape.circle,
-              border: Border.all(color: _kWhiteAlpha14),
+              border: Border.all(color: AppColors.borderMedium),
             ),
             child: Center(
               child: Icon(
@@ -353,16 +340,10 @@ class _HeroStoryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: _kPanelRadius,
-        gradient: _kHeroCardGradient,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.11)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        borderRadius: AppBorderRadius.panel,
+        gradient: AppGradients.heroCard,
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: const [AppShadows.elevation2],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,8 +351,8 @@ class _HeroStoryCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF7A5CFF).withValues(alpha: 0.24),
-              borderRadius: _kCardRadius,
+              color: AppColors.accentPrimary.withValues(alpha: 0.24),
+              borderRadius: AppBorderRadius.card,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -421,15 +402,13 @@ class _HeroStoryCard extends StatelessWidget {
                 child: PillButton(
                   onTap: () => _openStorytime(context),
                   height: 56,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFC8BBFF), Color(0xFFA9A7FF)],
-                  ),
+                  gradient: AppGradients.primaryButton,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(
                         Icons.play_arrow_rounded,
-                        color: Color(0xFF091026),
+                        color: AppColors.textOnAccent,
                         size: 28,
                       ),
                       const SizedBox(width: 8),
@@ -439,7 +418,7 @@ class _HeroStoryCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelLarge?.copyWith(
-                            color: const Color(0xFF18172E),
+                            color: AppColors.textOnAccentSoft,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
@@ -454,8 +433,8 @@ class _HeroStoryCard extends StatelessWidget {
                 child: PillButton(
                   onTap: null,
                   height: 56,
-                  color: _kWhiteAlpha08,
-                  border: Border.all(color: _kWhiteAlpha14),
+                  color: AppColors.surfaceWhite08,
+                  border: Border.all(color: AppColors.borderMedium),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -652,15 +631,15 @@ class _ContinueListeningCardState
                   width: 84,
                   height: 84,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF283A8C), Color(0xFF101839)],
+                    borderRadius: BorderRadius.circular(
+                      AppBorderRadius.radiusLg,
                     ),
+                    gradient: AppGradients.storyCoverFallback,
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(
+                      AppBorderRadius.radiusLg,
+                    ),
                     child: Stack(
                       children: [
                         if (imageUrl != null && imageUrl.isNotEmpty)
@@ -683,17 +662,17 @@ class _ContinueListeningCardState
                               width: 34,
                               height: 34,
                               decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF252A4A,
-                                ).withValues(alpha: 0.92),
+                                color: AppColors.surfaceElevated.withValues(
+                                  alpha: 0.92,
+                                ),
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.28),
+                                  color: AppColors.borderStrong,
                                 ),
                               ),
                               child: Icon(
                                 Icons.play_arrow_rounded,
-                                color: Colors.white,
+                                color: AppColors.textPrimary,
                                 size: 22,
                               ),
                             ),
@@ -725,7 +704,7 @@ class _ContinueListeningCardState
                         child: LinearProgressIndicator(
                           value: progress,
                           minHeight: 4,
-                          backgroundColor: _kWhiteAlpha14,
+                          backgroundColor: AppColors.borderMedium,
                           valueColor: AlwaysStoppedAnimation(colors.primary),
                         ),
                       ),
@@ -794,7 +773,7 @@ class _LessonCard extends StatelessWidget {
                 Text(
                   category?.isNotEmpty == true ? category! : 'Bedtime Story',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: const Color(0xFFFFE06B),
+                    color: AppColors.emotionalWarmthBright,
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
                   ),
@@ -840,9 +819,7 @@ class _CompanionCard extends StatelessWidget {
                 height: 74,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFE6A4), Color(0xFF8192FF)],
-                  ),
+                  gradient: AppGradients.companion,
                   boxShadow: [
                     BoxShadow(
                       color: colors.primary.withValues(alpha: 0.18),
@@ -897,23 +874,23 @@ class _CompanionCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFFFD45B,
-                            ).withValues(alpha: 0.14),
+                            color: AppColors.emotionalWarmth.withValues(
+                              alpha: 0.14,
+                            ),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
                             children: [
                               const Icon(
                                 Icons.lock_outline_rounded,
-                                color: Color(0xFFFFD45B),
+                                color: AppColors.emotionalWarmth,
                                 size: 11,
                               ),
                               const SizedBox(width: 3),
                               Text(
                                 'Locked',
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: const Color(0xFFFFD45B),
+                                  color: AppColors.emotionalWarmth,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -961,9 +938,9 @@ class _HomePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF121936).withValues(alpha: 0.84),
-        borderRadius: _kCardRadius,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        color: AppColors.surfaceCard.withValues(alpha: 0.84),
+        borderRadius: AppBorderRadius.card,
+        border: Border.all(color: AppColors.borderDark),
       ),
       child: Padding(padding: padding, child: child),
     );
@@ -1049,15 +1026,9 @@ class _BottomNavigation extends StatelessWidget {
       height: 80,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111735).withValues(alpha: 0.96),
+        color: AppColors.surfaceNavigation.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        boxShadow: const [AppShadows.elevation3],
       ),
       child: Row(
         children: const [

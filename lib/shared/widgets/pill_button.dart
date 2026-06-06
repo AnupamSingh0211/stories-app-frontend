@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_border_radius.dart';
+
 class PillButton extends StatelessWidget {
   const PillButton({
     required this.onTap,
@@ -7,7 +9,7 @@ class PillButton extends StatelessWidget {
     super.key,
     this.height = 50,
     this.padding = const EdgeInsets.symmetric(horizontal: 20),
-    this.borderRadius = 30,
+    this.borderRadius = AppBorderRadius.radiusButton,
     this.color,
     this.gradient,
     this.border,
