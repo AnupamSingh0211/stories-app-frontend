@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../../shared/theme/app_gradients.dart';
+
 class StoryImageView extends StatelessWidget {
   const StoryImageView({
     required this.imageUrl,
@@ -97,13 +99,7 @@ class _StoryImagePlaceholder extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF202A5F), Color(0xFF111832)],
-        ),
-      ),
+      decoration: const BoxDecoration(gradient: AppGradients.imageFallback),
       child: Center(
         child: Icon(
           icon,

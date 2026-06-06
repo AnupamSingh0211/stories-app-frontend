@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/theme/app_colors.dart';
+
 class SpeedButton extends StatelessWidget {
   const SpeedButton({
     required this.speed,
@@ -26,8 +28,8 @@ class SpeedButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
-          foregroundColor: selected ? const Color(0xFF091026) : colors.primary,
-          backgroundColor: selected ? colors.primary : Colors.transparent,
+          foregroundColor: selected ? AppColors.textOnAccent : colors.primary,
+          backgroundColor: selected ? colors.primary : AppColors.transparent,
           side: BorderSide(
             color: selected
                 ? colors.primary

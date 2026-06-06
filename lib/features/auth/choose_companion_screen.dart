@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/theme/app_gradients.dart';
+import '../../shared/theme/app_shadows.dart';
 import '../../shared/widgets/pill_button.dart';
 import 'companion_model.dart';
 import 'companions_provider.dart';
@@ -12,23 +14,13 @@ class ChooseCompanionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final companions = ref.watch(companionsProvider);
 
     return Scaffold(
       body: RepaintBoundary(
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                const Color(0xFF15162F),
-                colors.surface,
-                const Color(0xFF090E1A),
-              ],
-            ),
+          decoration: const BoxDecoration(
+            gradient: AppGradients.authBackground,
           ),
           child: SafeArea(
             child: companions.when(
@@ -147,11 +139,7 @@ class _CompanionCard extends StatelessWidget {
             blurRadius: 22,
             spreadRadius: -5,
           ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.24),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
+          AppShadows.elevation2,
         ],
       ),
       child: Column(

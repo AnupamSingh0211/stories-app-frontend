@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_gradients.dart';
 import '../../shared/widgets/pill_button.dart';
 import 'companion_model.dart';
 import 'companion_notifier.dart';
@@ -19,16 +21,8 @@ class ConfirmCompanionScreen extends ConsumerWidget {
     return Scaffold(
       body: RepaintBoundary(
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                const Color(0xFF151333),
-                colors.surface,
-                const Color(0xFF090E1A),
-              ],
-            ),
+          decoration: const BoxDecoration(
+            gradient: AppGradients.authPurpleBackground,
           ),
           child: SafeArea(
             child: LayoutBuilder(
@@ -254,12 +248,12 @@ class _PolicyCard extends StatelessWidget {
             height: 48,
             width: 48,
             decoration: BoxDecoration(
-              color: const Color(0xFF332B2C).withValues(alpha: 0.82),
+              color: AppColors.companionBadgeSurface.withValues(alpha: 0.82),
               borderRadius: BorderRadius.circular(15),
             ),
             child: const Icon(
               Icons.info_outline_rounded,
-              color: Color(0xFFFFD65B),
+              color: AppColors.companionGold,
               size: 25,
             ),
           ),
@@ -271,7 +265,7 @@ class _PolicyCard extends StatelessWidget {
                 Text(
                   'Free Choice Policy',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFFFFEB80),
+                    color: AppColors.companionGoldLight,
                     fontWeight: FontWeight.w700,
                     fontSize: 17,
                   ),

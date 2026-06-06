@@ -4,12 +4,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/theme/app_border_radius.dart';
+import '../../../shared/theme/app_colors.dart';
+import '../../../shared/theme/app_shadows.dart';
 import '../providers/story_player_provider.dart';
 import '../repositories/story_repository.dart';
 import '../widgets/story_controls.dart';
 import '../widgets/story_image_view.dart';
-
-const _playerBackgroundColor = Color(0xFFFFF8EE);
 
 class StoryPlayerScreen extends ConsumerStatefulWidget {
   const StoryPlayerScreen({
@@ -48,13 +49,13 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen> {
     });
 
     return Scaffold(
-      backgroundColor: _playerBackgroundColor,
+      backgroundColor: AppColors.playerBackground,
       body: SafeArea(
         child: isLoading
             ? const Center(
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Color(0xFFFF6B5A),
+                  color: AppColors.playerPrimary,
                 ),
               )
             : _PlayerBodyConsumer(
@@ -161,14 +162,18 @@ class _PlayerHeader extends StatelessWidget {
           const Positioned(
             left: 92,
             top: 12,
-            child: Icon(Icons.star_rounded, color: Color(0xFFFFC95C), size: 14),
+            child: Icon(
+              Icons.star_rounded,
+              color: AppColors.playerWarmGold,
+              size: 14,
+            ),
           ),
           const Positioned(
             left: 126,
             top: 35,
             child: Icon(
               Icons.nightlight_round,
-              color: Color(0xFFFFD47A),
+              color: AppColors.playerWarmGoldLight,
               size: 20,
             ),
           ),
@@ -185,8 +190,8 @@ class _PlayerHeader extends StatelessWidget {
             top: 10,
             child: PopupMenuButton<String>(
               onSelected: onLanguageChanged,
-              color: Colors.white,
-              surfaceTintColor: Colors.white,
+              color: AppColors.playerSurface,
+              surfaceTintColor: AppColors.playerSurface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
@@ -195,7 +200,7 @@ class _PlayerHeader extends StatelessWidget {
                   value: 'हिंदी',
                   child: Text(
                     'हिंदी',
-                    style: TextStyle(color: Color(0xFF4B3A73)),
+                    style: TextStyle(color: AppColors.playerPurple),
                   ),
                 ),
               ],
@@ -203,36 +208,30 @@ class _PlayerHeader extends StatelessWidget {
                 height: 44,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.playerSurface,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF4B3A73).withValues(alpha: 0.12),
-                      blurRadius: 14,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
+                  boxShadow: [AppShadows.playerElevation],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
                       Icons.language_rounded,
-                      color: Color(0xFF6D5C9F),
+                      color: AppColors.playerPurpleMuted,
                       size: 19,
                     ),
                     const SizedBox(width: 7),
                     Text(
                       language,
                       style: const TextStyle(
-                        color: Color(0xFF4B3A73),
+                        color: AppColors.playerPurple,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(width: 4),
                     const Icon(
                       Icons.keyboard_arrow_down_rounded,
-                      color: Color(0xFF6D5C9F),
+                      color: AppColors.playerPurpleMuted,
                       size: 18,
                     ),
                   ],
@@ -258,20 +257,14 @@ class _HeaderCircleButton extends StatelessWidget {
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.playerSurface,
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4B3A73).withValues(alpha: 0.12),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        boxShadow: const [AppShadows.playerElevation],
       ),
       child: IconButton(
         padding: EdgeInsets.zero,
         onPressed: onPressed,
-        icon: Icon(icon, color: const Color(0xFF4B3A73), size: 22),
+        icon: Icon(icon, color: AppColors.playerPurple, size: 22),
       ),
     );
   }
@@ -332,15 +325,9 @@ class _PlayerBody extends StatelessWidget {
                 height: imageHeight,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1E7D8),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF5B4636).withValues(alpha: 0.14),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+                    color: AppColors.playerBorder,
+                    borderRadius: AppBorderRadius.panel,
+                    boxShadow: const [AppShadows.playerElevation],
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: AnimatedSwitcher(
@@ -390,13 +377,13 @@ class _MiniPageCounter extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF2D216F).withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(24),
+        color: AppColors.playerPurpleDeep.withValues(alpha: 0.72),
+        borderRadius: AppBorderRadius.panel,
       ),
       child: Text(
         '$pageNumber / $pageCount',
         style: const TextStyle(
-          color: Colors.white,
+          color: AppColors.textPrimary,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -417,15 +404,9 @@ class _ErrorPanel extends StatelessWidget {
     return Center(
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4B3A73).withValues(alpha: 0.12),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          color: AppColors.playerSurface,
+          borderRadius: AppBorderRadius.panel,
+          boxShadow: const [AppShadows.playerElevation],
         ),
         child: Padding(
           padding: const EdgeInsets.all(22),
@@ -434,14 +415,14 @@ class _ErrorPanel extends StatelessWidget {
             children: [
               const Icon(
                 Icons.cloud_off_rounded,
-                color: Color(0xFFFF6B5A),
+                color: AppColors.playerPrimary,
                 size: 38,
               ),
               const SizedBox(height: 14),
               Text(
                 'Could not play story',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: const Color(0xFF3B3451),
+                  color: AppColors.playerText,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -450,7 +431,7 @@ class _ErrorPanel extends StatelessWidget {
                 message,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF746B84),
+                  color: AppColors.playerTextSecondary,
                 ),
               ),
             ],
