@@ -5,6 +5,8 @@ import '../../../shared/theme/app_border_radius.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_gradients.dart';
 import '../../../shared/theme/app_shadows.dart';
+import '../../auth/profile_notifier.dart';
+import '../../profile/profile_screen.dart';
 import '../models/story_model.dart';
 import '../providers/story_player_provider.dart';
 import '../widgets/story_image_view.dart';
@@ -32,6 +34,7 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
   @override
   Widget build(BuildContext context) {
     final contentState = ref.watch(storytimeContentProvider);
+    final profile = ref.watch(profileNotifierProvider).valueOrNull;
 
     return Scaffold(
       body: DecoratedBox(
@@ -80,6 +83,14 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
               child: _BedtimeBottomNavigation(
                 selectedItem: _NavigationItem.library,
                 onHomeTap: () => Navigator.maybePop(context),
+                onProfileTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => ProfileScreen(
+                      fallbackChildName: profile?.childName,
+                      fallbackChildAge: profile?.age,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -948,10 +959,15 @@ class _PressableState extends State<_Pressable> {
 enum _NavigationItem { home, library, profile }
 
 class _BedtimeBottomNavigation extends StatelessWidget {
-  const _BedtimeBottomNavigation({required this.selectedItem, this.onHomeTap});
+  const _BedtimeBottomNavigation({
+    required this.selectedItem,
+    this.onHomeTap,
+    this.onProfileTap,
+  });
 
   final _NavigationItem selectedItem;
   final VoidCallback? onHomeTap;
+  final VoidCallback? onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -986,7 +1002,7 @@ class _BedtimeBottomNavigation extends StatelessWidget {
               icon: Icons.account_circle_outlined,
               label: 'Profile',
               selected: selectedItem == _NavigationItem.profile,
-              onTap: () {},
+              onTap: onProfileTap,
             ),
           ),
         ],

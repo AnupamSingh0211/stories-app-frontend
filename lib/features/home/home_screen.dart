@@ -7,6 +7,7 @@ import '../../shared/theme/app_gradients.dart';
 import '../../shared/theme/app_shadows.dart';
 import '../../shared/widgets/pill_button.dart';
 import '../auth/companion_notifier.dart';
+import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/story_player_provider.dart';
 import '../storytime/screens/story_player_screen.dart';
@@ -84,11 +85,20 @@ class HomeScreen extends ConsumerWidget {
                 },
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 24,
               right: 24,
               bottom: 18,
-              child: _BottomNavigation(),
+              child: _BottomNavigation(
+                onProfileTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => ProfileScreen(
+                      fallbackChildName: childName,
+                      fallbackChildAge: childAge,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -1018,7 +1028,9 @@ class _SquareIcon extends StatelessWidget {
 }
 
 class _BottomNavigation extends StatelessWidget {
-  const _BottomNavigation();
+  const _BottomNavigation({required this.onProfileTap});
+
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1031,21 +1043,22 @@ class _BottomNavigation extends StatelessWidget {
         boxShadow: const [AppShadows.elevation3],
       ),
       child: Row(
-        children: const [
-          Expanded(
+        children: [
+          const Expanded(
             child: _NavItem(
               icon: Icons.home_rounded,
               label: 'Home',
               selected: true,
             ),
           ),
-          Expanded(
+          const Expanded(
             child: _NavItem(icon: Icons.menu_book_outlined, label: 'Library'),
           ),
           Expanded(
             child: _NavItem(
               icon: Icons.account_circle_outlined,
               label: 'Profile',
+              onTap: onProfileTap,
             ),
           ),
         ],
@@ -1059,11 +1072,13 @@ class _NavItem extends StatelessWidget {
     required this.icon,
     required this.label,
     this.selected = false,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1073,7 +1088,7 @@ class _NavItem extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {},
+      onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

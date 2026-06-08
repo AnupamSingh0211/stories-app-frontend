@@ -14,9 +14,9 @@ class ProfileModel {
   factory ProfileModel.fromMap(Map<String, dynamic> row) {
     return ProfileModel(
       id: row['id'].toString(),
-      childName: row['child_name'] as String,
-      age: row['age'] as int,
-      gender: row['gender'] as String,
+      childName: row['child_name'] as String? ?? '',
+      age: row['age'] as int? ?? 0,
+      gender: row['gender'] as String? ?? '',
       companionId: row['companion_id'] as String?,
       avatarUrl: row['avatar_url'] as String?,
       userId: row['user_id'] as String?,
@@ -34,6 +34,31 @@ class ProfileModel {
 
 class ProfileRepository {
   const ProfileRepository();
+
+  static ProfileModel? _cachedProfile;
+
+  Future<ProfileModel?> fetchProfile() async {
+    final client = SupabaseClientProvider.client;
+    final userId = client.auth.currentUser?.id;
+
+    try {
+      var query = client.from('profiles').select();
+      if (userId != null) {
+        query = query.eq('user_id', userId);
+      }
+
+      final rows = await query.order('created_at', ascending: false).limit(1);
+
+      if (rows.isEmpty) {
+        return _cachedProfile;
+      }
+
+      _cachedProfile = ProfileModel.fromMap(rows.first);
+      return _cachedProfile;
+    } catch (_) {
+      return _cachedProfile;
+    }
+  }
 
   Future<ProfileModel> saveProfile({
     required String name,
@@ -55,7 +80,7 @@ class ProfileRepository {
 
     await client.from('profiles').insert(profile);
 
-    return ProfileModel(
+    final savedProfile = ProfileModel(
       id: '',
       childName: name,
       age: age,
@@ -64,5 +89,8 @@ class ProfileRepository {
       avatarUrl: avatarUrl,
       userId: userId,
     );
+    _cachedProfile = savedProfile;
+
+    return savedProfile;
   }
 }
