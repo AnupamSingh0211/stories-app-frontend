@@ -9,7 +9,7 @@ class ProfileNotifier extends _$ProfileNotifier {
   final ProfileRepository _repository = const ProfileRepository();
 
   @override
-  Future<ProfileModel?> build() async => null;
+  Future<ProfileModel?> build() => _repository.fetchProfile();
 
   Future<ProfileModel> saveProfile({
     required String name,
