@@ -7,6 +7,7 @@ import '../../shared/theme/app_gradients.dart';
 import '../../shared/theme/app_shadows.dart';
 import '../../shared/widgets/pill_button.dart';
 import '../auth/companion_notifier.dart';
+import '../library/library_screen.dart';
 import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/story_player_provider.dart';
@@ -90,6 +91,16 @@ class HomeScreen extends ConsumerWidget {
               right: 24,
               bottom: 18,
               child: _BottomNavigation(
+                onStoriesTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const StorytimeScreen(),
+                  ),
+                ),
+                onLibraryTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const LibraryScreen(),
+                  ),
+                ),
                 onProfileTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => ProfileScreen(
@@ -1028,15 +1039,21 @@ class _SquareIcon extends StatelessWidget {
 }
 
 class _BottomNavigation extends StatelessWidget {
-  const _BottomNavigation({required this.onProfileTap});
+  const _BottomNavigation({
+    required this.onStoriesTap,
+    required this.onLibraryTap,
+    required this.onProfileTap,
+  });
 
+  final VoidCallback onStoriesTap;
+  final VoidCallback onLibraryTap;
   final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: AppColors.surfaceNavigation.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(28),
@@ -1051,8 +1068,19 @@ class _BottomNavigation extends StatelessWidget {
               selected: true,
             ),
           ),
-          const Expanded(
-            child: _NavItem(icon: Icons.menu_book_outlined, label: 'Library'),
+          Expanded(
+            child: _NavItem(
+              icon: Icons.auto_stories_rounded,
+              label: 'Stories',
+              onTap: onStoriesTap,
+            ),
+          ),
+          Expanded(
+            child: _NavItem(
+              icon: Icons.menu_book_outlined,
+              label: 'Library',
+              onTap: onLibraryTap,
+            ),
           ),
           Expanded(
             child: _NavItem(
@@ -1092,7 +1120,7 @@ class _NavItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: selected ? activeColor : inactiveColor, size: 28),
+          Icon(icon, color: selected ? activeColor : inactiveColor, size: 25),
           const SizedBox(height: 5),
           Text(
             label,
@@ -1100,7 +1128,7 @@ class _NavItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: selected ? colors.onSurface : inactiveColor,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),

@@ -11,6 +11,7 @@ const _audioExtensions = {'.aac', '.m4a', '.mp3', '.wav'};
 class StoryRepository {
   const StoryRepository();
 
+  static const savedStoryLimit = 10;
   static const morningWhispersStoryId = 'morning-whispers';
   static const _storyAssetsBucket = 'story-assets';
   static const _storyPageCacheDuration = Duration(minutes: 5);
@@ -333,6 +334,165 @@ class StoryRepository {
     }
   }
 
+  Future<List<StoryModel>> fetchSavedStories() async {
+    final client = SupabaseClientProvider.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      return const [];
+    }
+
+    try {
+      final rows = await client
+          .from('saved_stories')
+          .select('story_id, created_at, stories($_storyColumns)')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+
+      final savedRows = _mapRows(rows);
+      final joinedStories = savedRows
+          .map((row) => row['stories'])
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false);
+
+      if (joinedStories.isNotEmpty) {
+        return _storyModelsFromRows(client, joinedStories);
+      }
+
+      final storyIds = savedRows
+          .map((row) => row['story_id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false);
+
+      if (storyIds.isEmpty) {
+        return const [];
+      }
+
+      final storyRows = await client
+          .from('stories')
+          .select(_storyColumns)
+          .inFilter('id', storyIds);
+
+      final storiesById = {
+        for (final story in await _storyModelsFromRows(
+          client,
+          _mapRows(storyRows),
+        ))
+          story.id: story,
+      };
+
+      return storyIds
+          .map((id) => storiesById[id])
+          .whereType<StoryModel>()
+          .toList(growable: false);
+    } catch (error) {
+      debugPrint('StoryRepository: saved stories lookup failed. $error');
+      throw const StoryRepositoryException(
+        'Saved stories could not be loaded.',
+      );
+    }
+  }
+
+  Future<int> fetchSavedStoryCount() async {
+    final client = SupabaseClientProvider.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      return 0;
+    }
+
+    try {
+      final rows = await client
+          .from('saved_stories')
+          .select('id')
+          .eq('user_id', userId);
+
+      return _mapRows(rows).length;
+    } catch (error) {
+      debugPrint('StoryRepository: saved stories count failed. $error');
+      throw const StoryRepositoryException(
+        'Saved story count could not be loaded.',
+      );
+    }
+  }
+
+  Future<bool> isStorySaved(String storyId) async {
+    final client = SupabaseClientProvider.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      return false;
+    }
+
+    try {
+      final rows = await client
+          .from('saved_stories')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('story_id', storyId)
+          .limit(1);
+
+      return _mapRows(rows).isNotEmpty;
+    } catch (error) {
+      debugPrint('StoryRepository: saved story lookup failed. $error');
+      throw const StoryRepositoryException(
+        'Saved story status could not be loaded.',
+      );
+    }
+  }
+
+  Future<void> saveStoryToLibrary(String storyId) async {
+    final client = SupabaseClientProvider.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const StoryRepositoryException(
+        'Please sign in to save stories to your library.',
+      );
+    }
+
+    if (await isStorySaved(storyId)) {
+      return;
+    }
+
+    final savedCount = await fetchSavedStoryCount();
+    if (savedCount >= savedStoryLimit) {
+      throw const StoryLibraryFullException();
+    }
+
+    try {
+      await client.from('saved_stories').insert({
+        'user_id': userId,
+        'story_id': storyId,
+      });
+    } catch (error) {
+      debugPrint('StoryRepository: saved story insert failed. $error');
+      throw const StoryRepositoryException(
+        'Story could not be saved. Please try again.',
+      );
+    }
+  }
+
+  Future<void> removeSavedStory(String storyId) async {
+    final client = SupabaseClientProvider.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const StoryRepositoryException(
+        'Please sign in to update your library.',
+      );
+    }
+
+    try {
+      await client
+          .from('saved_stories')
+          .delete()
+          .eq('user_id', userId)
+          .eq('story_id', storyId);
+    } catch (error) {
+      debugPrint('StoryRepository: saved story delete failed. $error');
+      throw const StoryRepositoryException(
+        'Story could not be removed. Please try again.',
+      );
+    }
+  }
+
   StoryPage _storyPageFromMap(
     Map<String, dynamic> row,
     StorageFileApi storage,
@@ -387,6 +547,22 @@ class StoryRepository {
       category: categoryNames[row['category_id']?.toString()] ?? 'Story',
       durationMinutes: 0,
     );
+  }
+
+  Future<List<StoryModel>> _storyModelsFromRows(
+    SupabaseClient client,
+    List<Map<String, dynamic>> rows,
+  ) async {
+    final storage = client.storage.from('app-assets');
+    final categories = await client
+        .from('story_categories')
+        .select('id, title, name, display_order')
+        .order('display_order');
+    final categoryNames = _categoryNamesById(_mapRows(categories));
+
+    return rows
+        .map((row) => _storyFromMap(row, categoryNames, storage))
+        .toList(growable: false);
   }
 
   List<FeaturedBannerModel> _featuredBanners(
@@ -860,6 +1036,13 @@ class StoryRepositoryException implements Exception {
   String toString() {
     return message;
   }
+}
+
+class StoryLibraryFullException extends StoryRepositoryException {
+  const StoryLibraryFullException()
+    : super(
+        'Your library is full! Delete an older story to make room, or upgrade to Premium for unlimited saves.',
+      );
 }
 
 class _CachedStoryPages {

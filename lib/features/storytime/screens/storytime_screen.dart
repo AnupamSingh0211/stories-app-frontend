@@ -6,6 +6,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_gradients.dart';
 import '../../../shared/theme/app_shadows.dart';
 import '../../auth/profile_notifier.dart';
+import '../../library/library_screen.dart';
 import '../../profile/profile_screen.dart';
 import '../models/story_model.dart';
 import '../providers/story_player_provider.dart';
@@ -81,8 +82,13 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
               right: 24,
               bottom: 18,
               child: _BedtimeBottomNavigation(
-                selectedItem: _NavigationItem.library,
+                selectedItem: _NavigationItem.stories,
                 onHomeTap: () => Navigator.maybePop(context),
+                onLibraryTap: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const LibraryScreen(),
+                  ),
+                ),
                 onProfileTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => ProfileScreen(
@@ -956,24 +962,26 @@ class _PressableState extends State<_Pressable> {
   }
 }
 
-enum _NavigationItem { home, library, profile }
+enum _NavigationItem { home, stories, library, profile }
 
 class _BedtimeBottomNavigation extends StatelessWidget {
   const _BedtimeBottomNavigation({
     required this.selectedItem,
     this.onHomeTap,
+    this.onLibraryTap,
     this.onProfileTap,
   });
 
   final _NavigationItem selectedItem;
   final VoidCallback? onHomeTap;
+  final VoidCallback? onLibraryTap;
   final VoidCallback? onProfileTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: AppColors.surfaceNavigation.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(28),
@@ -991,10 +999,18 @@ class _BedtimeBottomNavigation extends StatelessWidget {
           ),
           Expanded(
             child: _NavItem(
+              icon: Icons.auto_stories_rounded,
+              label: 'Stories',
+              selected: selectedItem == _NavigationItem.stories,
+              onTap: () {},
+            ),
+          ),
+          Expanded(
+            child: _NavItem(
               icon: Icons.menu_book_outlined,
               label: 'Library',
               selected: selectedItem == _NavigationItem.library,
-              onTap: () {},
+              onTap: onLibraryTap,
             ),
           ),
           Expanded(
@@ -1036,7 +1052,7 @@ class _NavItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: selected ? activeColor : inactiveColor, size: 28),
+          Icon(icon, color: selected ? activeColor : inactiveColor, size: 25),
           const SizedBox(height: 5),
           Text(
             label,
@@ -1044,7 +1060,7 @@ class _NavItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: selected ? colors.onSurface : inactiveColor,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
