@@ -13,6 +13,8 @@ import '../auth/companions_provider.dart';
 import '../auth/profile_notifier.dart';
 import '../auth/profile_repository.dart';
 import '../home/home_screen.dart';
+import '../library/library_screen.dart';
+import '../storytime/screens/storytime_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({
@@ -87,6 +89,8 @@ class ProfileScreen extends ConsumerWidget {
               bottom: 18,
               child: _ProfileBottomNavigation(
                 onHomeTap: () => _openHome(context, profile),
+                onStoriesTap: () => _openStories(context),
+                onLibraryTap: () => _openLibrary(context),
               ),
             ),
           ],
@@ -148,7 +152,13 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _openHome(BuildContext context, ProfileModel? profile) {
-    Navigator.of(context).pushReplacement(
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+
+    navigator.pushReplacement(
       MaterialPageRoute<void>(
         builder: (context) => HomeScreen(
           childName: _displayValue(
@@ -159,6 +169,18 @@ class ProfileScreen extends ConsumerWidget {
               : fallbackChildAge ?? 2,
         ),
       ),
+    );
+  }
+
+  void _openStories(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (context) => const StorytimeScreen()),
+    );
+  }
+
+  void _openLibrary(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (context) => const LibraryScreen()),
     );
   }
 }
@@ -578,15 +600,21 @@ class _GlowBall extends StatelessWidget {
 }
 
 class _ProfileBottomNavigation extends StatelessWidget {
-  const _ProfileBottomNavigation({required this.onHomeTap});
+  const _ProfileBottomNavigation({
+    required this.onHomeTap,
+    required this.onStoriesTap,
+    required this.onLibraryTap,
+  });
 
   final VoidCallback onHomeTap;
+  final VoidCallback onStoriesTap;
+  final VoidCallback onLibraryTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: AppColors.surfaceNavigation.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(28),
@@ -602,11 +630,20 @@ class _ProfileBottomNavigation extends StatelessWidget {
               onTap: onHomeTap,
             ),
           ),
-          const Expanded(
+          Expanded(
+            child: _NavItem(
+              icon: Icons.auto_stories_rounded,
+              label: 'Stories',
+              selected: false,
+              onTap: onStoriesTap,
+            ),
+          ),
+          Expanded(
             child: _NavItem(
               icon: Icons.menu_book_outlined,
               label: 'Library',
               selected: false,
+              onTap: onLibraryTap,
             ),
           ),
           const Expanded(
@@ -647,7 +684,7 @@ class _NavItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: selected ? activeColor : inactiveColor, size: 28),
+          Icon(icon, color: selected ? activeColor : inactiveColor, size: 25),
           const SizedBox(height: 5),
           Text(
             label,
@@ -655,7 +692,7 @@ class _NavItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: selected ? colors.onSurface : inactiveColor,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
