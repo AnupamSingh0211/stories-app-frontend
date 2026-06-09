@@ -6,6 +6,7 @@ import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_gradients.dart';
 import '../../shared/theme/app_shadows.dart';
 import '../../shared/widgets/pill_button.dart';
+import '../auth/assets_provider.dart';
 import '../auth/companion_notifier.dart';
 import '../library/library_screen.dart';
 import '../profile/profile_screen.dart';
@@ -34,6 +35,9 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final appAssets = ref.watch(appAssetsProvider);
+    final backgroundImageUrl = appAssets['home_screen_story'];
+    final storyCardImageUrl = appAssets['home_screen_story_portrait'];
     final storytimeContent = ref.watch(storytimeContentProvider);
     final companion = ref.watch(companionNotifierProvider);
     final stories = storytimeContent.valueOrNull?.sections
@@ -46,7 +50,8 @@ class HomeScreen extends ConsumerWidget {
         decoration: const BoxDecoration(gradient: AppGradients.background),
         child: Stack(
           children: [
-            const _NightGlow(),
+            if (backgroundImageUrl != null)
+              _HomeBackground(imageUrl: backgroundImageUrl),
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -66,6 +71,7 @@ class HomeScreen extends ConsumerWidget {
                             childName: childName,
                             age: childAge,
                             story: featuredStory,
+                            backgroundImageUrl: storyCardImageUrl,
                           ),
                           const SizedBox(height: 12),
                           _StoryTraits(colors: theme.colorScheme, theme: theme),
@@ -118,105 +124,43 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _NightGlow extends StatelessWidget {
-  const _NightGlow();
+class _HomeBackground extends StatelessWidget {
+  const _HomeBackground({required this.imageUrl});
+
+  final String imageUrl;
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          Positioned(
-            top: 58,
-            right: 34,
-            child: Icon(
-              Icons.nightlight_round,
-              color: AppColors.emotionalWarmthSoft.withValues(alpha: 0.88),
-              size: 92,
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                opacity: const AlwaysStoppedAnimation(0.35),
+                errorBuilder: (context, error, stackTrace) {
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
-          ),
-          ...const [
-            _Star(top: 44, left: 184, size: 3),
-            _Star(top: 96, left: 318, size: 4),
-            _Star(top: 152, left: 42, size: 3),
-            _Star(top: 210, left: 282, size: 3),
-          ],
-          const Positioned(
-            left: -76,
-            top: 122,
-            child: _GlowBall(
-              size: 210,
-              color: AppColors.accentPrimary,
-              opacity: 0.13,
-            ),
-          ),
-          const Positioned(
-            right: -94,
-            top: 282,
-            child: _GlowBall(
-              size: 250,
-              color: AppColors.emotionalWarmth,
-              opacity: 0.08,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlowBall extends StatelessWidget {
-  const _GlowBall({
-    required this.size,
-    required this.color,
-    required this.opacity,
-  });
-
-  final double size;
-  final Color color;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: opacity),
-            blurRadius: size * 0.55,
-            spreadRadius: size * 0.22,
-          ),
-        ],
-      ),
-      child: SizedBox(width: size, height: size),
-    );
-  }
-}
-
-class _Star extends StatelessWidget {
-  const _Star({required this.top, required this.left, required this.size});
-
-  final double top;
-  final double left;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: top,
-      left: left,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: AppColors.emotionalWarmthSoft.withValues(alpha: 0.78),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.emotionalWarmthSoft.withValues(alpha: 0.48),
-              blurRadius: 8,
-              spreadRadius: 2,
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.surfaceDark.withValues(alpha: 0.12),
+                      AppColors.surfaceDark.withValues(alpha: 0.46),
+                      AppColors.surfaceDark.withValues(alpha: 0.78),
+                    ],
+                    stops: const [0, 0.48, 1],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -318,11 +262,13 @@ class _HeroStoryCard extends StatelessWidget {
     required this.childName,
     required this.age,
     this.story,
+    this.backgroundImageUrl,
   });
 
   final String childName;
   final int age;
   final StoryModel? story;
+  final String? backgroundImageUrl;
 
   void _openStorytime(BuildContext context) {
     Navigator.of(context).push(
@@ -358,132 +304,177 @@ class _HeroStoryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
+    return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: AppBorderRadius.panel,
-        gradient: AppGradients.heroCard,
-        border: Border.all(color: AppColors.borderLight),
         boxShadow: const [AppShadows.elevation2],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.accentPrimary.withValues(alpha: 0.24),
-              borderRadius: AppBorderRadius.card,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  color: colors.primary,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  "Tonight's Story",
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onSurface,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+      child: ClipRRect(
+        borderRadius: AppBorderRadius.panel,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: AppGradients.heroCard,
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: Stack(
+            children: [
+              if (backgroundImageUrl != null && backgroundImageUrl!.isNotEmpty)
+                Positioned.fill(
+                  child: Image.network(
+                    backgroundImageUrl!,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    opacity: const AlwaysStoppedAnimation(0.78),
+                    errorBuilder: (context, error, stackTrace) {
+                      return const SizedBox.shrink();
+                    },
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            story?.title ?? 'Choose a bedtime story',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              color: colors.onSurface,
-              fontSize: 23,
-              height: 1.28,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Personalized for $childName - Age $age',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onSurface.withValues(alpha: 0.64),
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 28),
-          Row(
-            children: [
-              Expanded(
-                child: PillButton(
-                  onTap: () => _openStorytime(context),
-                  height: 56,
-                  gradient: AppGradients.primaryButton,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.play_arrow_rounded,
-                        color: AppColors.textOnAccent,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'Storytime',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: AppColors.textOnAccentSoft,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        AppColors.surfaceCard.withValues(alpha: 0.72),
+                        AppColors.surfaceCard.withValues(alpha: 0.5),
+                        AppColors.surfaceCard.withValues(alpha: 0.28),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: PillButton(
-                  onTap: null,
-                  height: 56,
-                  color: AppColors.surfaceWhite08,
-                  border: Border.all(color: AppColors.borderMedium),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.auto_awesome_rounded,
-                        color: colors.primary,
-                        size: 18,
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
                       ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'Surprise Me',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: colors.onSurface.withValues(alpha: 0.8),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
+                      decoration: BoxDecoration(
+                        color: AppColors.accentPrimary.withValues(alpha: 0.24),
+                        borderRadius: AppBorderRadius.card,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            color: colors.primary,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Tonight's Story",
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: colors.onSurface,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      story?.title ?? 'Choose a bedtime story',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: colors.onSurface,
+                        fontSize: 23,
+                        height: 1.28,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Personalized for $childName - Age $age',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurface.withValues(alpha: 0.64),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: PillButton(
+                            onTap: () => _openStorytime(context),
+                            height: 56,
+                            gradient: AppGradients.primaryButton,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: AppColors.textOnAccent,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    'Storytime',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.labelLarge?.copyWith(
+                                      color: AppColors.textOnAccentSoft,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: PillButton(
+                            onTap: null,
+                            height: 56,
+                            color: AppColors.surfaceWhite08,
+                            border: Border.all(color: AppColors.borderMedium),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome_rounded,
+                                  color: colors.primary,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    'Surprise Me',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.labelLarge?.copyWith(
+                                      color: colors.onSurface.withValues(
+                                        alpha: 0.8,
+                                      ),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

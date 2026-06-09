@@ -12,6 +12,12 @@ Map<String, String> appAssets(AppAssetsRef ref) {
     'profile_setup_bg': storage.getPublicUrl(
       'backgrounds/profileSetup_bg.webp',
     ),
+    'home_screen_story': storage.getPublicUrl(
+      'backgrounds/home_screen_story.png',
+    ),
+    'home_screen_story_portrait': storage.getPublicUrl(
+      'backgrounds/home_screen_story_portrait.png',
+    ),
     'ios_icon': storage.getPublicUrl('icons/ios_icon.png'),
     'google_icon': storage.getPublicUrl('icons/google_icon.png'),
     'email_icon': storage.getPublicUrl('icons/email_icon.png'),
