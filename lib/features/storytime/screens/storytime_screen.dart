@@ -89,7 +89,7 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
                     builder: (context) => const LibraryScreen(),
                   ),
                 ),
-                onProfileTap: () => Navigator.of(context).push(
+                onProfileTap: () => Navigator.of(context).pushReplacement(
                   MaterialPageRoute<void>(
                     builder: (context) => ProfileScreen(
                       fallbackChildName: profile?.childName,
