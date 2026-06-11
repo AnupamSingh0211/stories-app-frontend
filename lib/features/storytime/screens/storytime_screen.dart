@@ -35,7 +35,10 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
   @override
   Widget build(BuildContext context) {
     final contentState = ref.watch(storytimeContentProvider);
-    final profile = ref.watch(profileNotifierProvider).valueOrNull;
+    final profile = ref
+        .watch(profileNotifierProvider)
+        .valueOrNull
+        ?.selectedChild;
 
     return Scaffold(
       body: DecoratedBox(

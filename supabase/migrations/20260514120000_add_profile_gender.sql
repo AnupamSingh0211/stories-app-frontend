@@ -1,6 +1,16 @@
 alter table public.profiles
   add column if not exists gender text;
 
+update public.profiles
+set gender = case lower(trim(gender))
+  when 'male' then 'boy'
+  when 'boy' then 'boy'
+  when 'female' then 'girl'
+  when 'girl' then 'girl'
+  else null
+end
+where gender is not null;
+
 do $$
 begin
   if not exists (

@@ -16,7 +16,9 @@ const _genderOptions = [
 ];
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
-  const ProfileSetupScreen({super.key});
+  const ProfileSetupScreen({super.key, this.popOnSave = false});
+
+  final bool popOnSave;
 
   @override
   ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -28,6 +30,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   int _selectedAge = 2;
   String _selectedGender = 'boy';
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -36,14 +39,16 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
+    if (_isSubmitting || !_formKey.currentState!.validate()) {
       return;
     }
 
+    setState(() => _isSubmitting = true);
+
     try {
-      await ref
+      final child = await ref
           .read(profileNotifierProvider.notifier)
-          .saveProfile(
+          .addChild(
             name: _nameController.text.trim(),
             gender: _selectedGender,
             age: _selectedAge,
@@ -59,15 +64,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Profile saved')));
+      ).showSnackBar(const SnackBar(content: Text('Child profile added')));
+
+      if (widget.popOnSave) {
+        Navigator.pop(context, child);
+        return;
+      }
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => HomeScreen(
-            childName: _nameController.text.trim(),
-            childAge: _selectedAge,
-          ),
+          builder: (context) =>
+              HomeScreen(childName: child.childName, childAge: child.age),
         ),
       );
     } catch (error) {
@@ -76,6 +84,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Could not save profile: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -204,11 +216,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                             const Spacer(),
                             Consumer(
                               builder: (context, ref, child) {
-                                final isSaving = ref.watch(
-                                  profileNotifierProvider.select(
-                                    (state) => state.isLoading,
-                                  ),
-                                );
+                                final isSaving =
+                                    _isSubmitting ||
+                                    ref.watch(
+                                      profileNotifierProvider.select(
+                                        (state) => state.isLoading,
+                                      ),
+                                    );
 
                                 return _CreateProfileButton(
                                   isSaving: isSaving,
@@ -385,7 +399,7 @@ class _TitleText extends StatelessWidget {
     final colors = this.colors;
 
     return Text(
-      'Who are we telling\nstories to today?',
+      'Add a Child\nProfile',
       textAlign: TextAlign.center,
       style: theme.textTheme.headlineMedium?.copyWith(
         color: colors.onSurface,
@@ -406,7 +420,7 @@ class _SubtitleText extends StatelessWidget {
     final colors = theme.colorScheme;
 
     return Text(
-      'Create a profile to tailor bedtime adventures\nand gentle dreamscapes.',
+      'Add another little dreamer and personalize\ntheir bedtime adventures.',
       textAlign: TextAlign.center,
       style: theme.textTheme.bodyMedium?.copyWith(
         color: colors.onSurface.withValues(alpha: 0.68),
@@ -813,7 +827,7 @@ class _CreateProfileButton extends StatelessWidget {
               ),
             )
           : Text(
-              'Create Profile',
+              'Add Child',
               style: theme.textTheme.labelLarge?.copyWith(
                 color: colors.onPrimary,
                 fontWeight: FontWeight.w700,
