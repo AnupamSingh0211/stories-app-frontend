@@ -7,7 +7,9 @@ import '../../shared/theme/app_gradients.dart';
 import '../../shared/theme/app_shadows.dart';
 import '../../shared/widgets/pill_button.dart';
 import '../auth/assets_provider.dart';
+import '../auth/companions_provider.dart';
 import '../auth/companion_notifier.dart';
+import '../auth/profile_notifier.dart';
 import '../library/library_screen.dart';
 import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
@@ -23,14 +25,10 @@ String _greeting() {
 }
 
 class HomeScreen extends ConsumerWidget {
-  const HomeScreen({
-    required this.childName,
-    required this.childAge,
-    super.key,
-  });
+  const HomeScreen({this.childName, this.childAge, super.key});
 
-  final String childName;
-  final int childAge;
+  final String? childName;
+  final int? childAge;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,7 +37,17 @@ class HomeScreen extends ConsumerWidget {
     final backgroundImageUrl = appAssets['home_screen_story'];
     final storyCardImageUrl = appAssets['home_screen_story_portrait'];
     final storytimeContent = ref.watch(storytimeContentProvider);
-    final companion = ref.watch(companionNotifierProvider);
+    final childProfiles = ref.watch(profileNotifierProvider);
+    final selectedChild = childProfiles.valueOrNull?.selectedChild;
+    final effectiveChildName =
+        selectedChild?.childName ?? childName ?? 'Little Dreamer';
+    final effectiveChildAge = selectedChild?.age ?? childAge ?? 2;
+    final selectedCompanion = ref.watch(companionNotifierProvider);
+    final companions = ref.watch(companionsProvider).valueOrNull;
+    final companionId = selectedChild?.companionId;
+    final companion = selectedChild == null
+        ? selectedCompanion
+        : companions?.where((item) => item.id == companionId).firstOrNull;
     final stories = storytimeContent.valueOrNull?.sections
         .expand((section) => section.stories)
         .toList(growable: false);
@@ -65,11 +73,11 @@ class HomeScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _Header(childName: childName),
+                          _Header(childName: effectiveChildName),
                           const SizedBox(height: 24),
                           _HeroStoryCard(
-                            childName: childName,
-                            age: childAge,
+                            childName: effectiveChildName,
+                            age: effectiveChildAge,
                             story: featuredStory,
                             backgroundImageUrl: storyCardImageUrl,
                           ),
@@ -110,8 +118,8 @@ class HomeScreen extends ConsumerWidget {
                 onProfileTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => ProfileScreen(
-                      fallbackChildName: childName,
-                      fallbackChildAge: childAge,
+                      fallbackChildName: effectiveChildName,
+                      fallbackChildAge: effectiveChildAge,
                     ),
                   ),
                 ),

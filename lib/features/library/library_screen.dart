@@ -35,7 +35,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final library = ref.watch(savedLibraryProvider);
-    final profile = ref.watch(profileNotifierProvider).valueOrNull;
+    final profile = ref
+        .watch(profileNotifierProvider)
+        .valueOrNull
+        ?.selectedChild;
 
     return Scaffold(
       body: DecoratedBox(

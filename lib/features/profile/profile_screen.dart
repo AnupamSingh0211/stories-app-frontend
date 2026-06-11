@@ -12,6 +12,7 @@ import '../auth/companion_notifier.dart';
 import '../auth/companions_provider.dart';
 import '../auth/profile_notifier.dart';
 import '../auth/profile_repository.dart';
+import '../auth/profile_setup_screen.dart';
 import '../home/home_screen.dart';
 import '../library/library_screen.dart';
 import '../storytime/screens/storytime_screen.dart';
@@ -29,7 +30,8 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileState = ref.watch(profileNotifierProvider);
-    final profile = profileState.valueOrNull;
+    final childProfiles = profileState.valueOrNull;
+    final profile = childProfiles?.selectedChild;
     final companionsState = ref.watch(companionsProvider);
     final selectedCompanion = ref.watch(companionNotifierProvider);
     final companionName = _companionName(
@@ -63,18 +65,33 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                     ),
                     const SizedBox(height: 22),
+                    _ChildSwitcher(
+                      children: childProfiles?.children ?? const [],
+                      selectedChildId: profile?.id,
+                      onSelected: (childId) {
+                        ref
+                            .read(profileNotifierProvider.notifier)
+                            .selectChild(childId);
+                      },
+                      onAddChild: () => _addChild(context),
+                    ),
+                    const SizedBox(height: 20),
                     _ProfileHeader(email: email, avatarUrl: profile?.avatarUrl),
                     const SizedBox(height: 20),
                     profileState.isLoading
                         ? const _LoadingPanel()
+                        : profile == null
+                        ? _EmptyChildrenCard(
+                            onAddChild: () => _addChild(context),
+                          )
                         : _ProfileDetailsCard(
                             name: _displayValue(
                               _firstNonEmpty(
-                                profile?.childName,
+                                profile.childName,
                                 fallbackChildName,
                               ),
                             ),
-                            age: _ageValue(profile?.age ?? fallbackChildAge),
+                            age: _ageValue(profile.age),
                             companion: companionName,
                           ),
                     const SizedBox(height: 16),
@@ -129,29 +146,41 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   static String _companionName({
-    required ProfileModel? profile,
+    required ChildProfileModel? profile,
     required CompanionModel? selectedCompanion,
     required List<CompanionModel>? companions,
   }) {
-    if (selectedCompanion != null) {
-      return selectedCompanion.displayName;
+    final companionId = profile?.companionId;
+    if (profile == null) {
+      return selectedCompanion?.displayName ?? 'Not set';
     }
 
-    final companionId = profile?.companionId;
-    if (companionId == null || companionId.isEmpty || companions == null) {
+    if (companionId == null || companionId.isEmpty) {
       return 'Not set';
     }
 
-    for (final companion in companions) {
+    for (final companion in companions ?? const <CompanionModel>[]) {
       if (companion.id == companionId) {
         return companion.displayName;
       }
     }
 
+    if (selectedCompanion?.id == companionId) {
+      return selectedCompanion!.displayName;
+    }
+
     return 'Not set';
   }
 
-  void _openHome(BuildContext context, ProfileModel? profile) {
+  Future<void> _addChild(BuildContext context) async {
+    await Navigator.of(context).push<ChildProfileModel>(
+      MaterialPageRoute(
+        builder: (context) => const ProfileSetupScreen(popOnSave: true),
+      ),
+    );
+  }
+
+  void _openHome(BuildContext context, ChildProfileModel? profile) {
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop();
@@ -181,6 +210,112 @@ class ProfileScreen extends ConsumerWidget {
   void _openLibrary(BuildContext context) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (context) => const LibraryScreen()),
+    );
+  }
+}
+
+class _ChildSwitcher extends StatelessWidget {
+  const _ChildSwitcher({
+    required this.children,
+    required this.selectedChildId,
+    required this.onSelected,
+    required this.onAddChild,
+  });
+
+  final List<ChildProfileModel> children;
+  final String? selectedChildId;
+  final ValueChanged<String> onSelected;
+  final VoidCallback onAddChild;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
+        children: [
+          for (final child in children) ...[
+            ChoiceChip(
+              label: Text(child.childName),
+              selected: child.id == selectedChildId,
+              onSelected: (_) => onSelected(child.id),
+              selectedColor: colors.secondaryContainer,
+              backgroundColor: AppColors.surfaceCard.withValues(alpha: 0.88),
+              side: BorderSide(
+                color: child.id == selectedChildId
+                    ? colors.primary
+                    : colors.outline.withValues(alpha: 0.16),
+              ),
+              labelStyle: theme.textTheme.labelMedium?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+              showCheckmark: false,
+              shape: const StadiumBorder(),
+            ),
+            const SizedBox(width: 10),
+          ],
+          ActionChip(
+            avatar: Icon(Icons.add_rounded, color: colors.primary, size: 18),
+            label: const Text('Add Child'),
+            onPressed: onAddChild,
+            backgroundColor: AppColors.surfaceCard.withValues(alpha: 0.72),
+            side: BorderSide(color: colors.primary.withValues(alpha: 0.32)),
+            labelStyle: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+            shape: const StadiumBorder(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyChildrenCard extends StatelessWidget {
+  const _EmptyChildrenCard({required this.onAddChild});
+
+  final VoidCallback onAddChild;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return _ProfilePanel(
+      child: Column(
+        children: [
+          Icon(Icons.family_restroom_rounded, color: colors.primary, size: 34),
+          const SizedBox(height: 12),
+          Text(
+            'No child profiles yet',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: colors.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add a child to personalize stories, lessons, and companions.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurface.withValues(alpha: 0.64),
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onAddChild,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add Child'),
+          ),
+        ],
+      ),
     );
   }
 }

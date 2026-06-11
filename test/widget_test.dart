@@ -7,6 +7,8 @@ import 'package:dharma_app/features/auth/assets_provider.dart';
 import 'package:dharma_app/features/auth/companions_provider.dart';
 import 'package:dharma_app/features/auth/profile_notifier.dart';
 import 'package:dharma_app/features/auth/profile_repository.dart';
+import 'package:dharma_app/features/auth/profile_setup_screen.dart';
+import 'package:dharma_app/features/home/home_screen.dart';
 import 'package:dharma_app/features/profile/profile_screen.dart';
 import 'package:dharma_app/features/storytime/models/story_model.dart';
 import 'package:dharma_app/features/storytime/providers/saved_library_provider.dart';
@@ -74,6 +76,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Aarav'), findsWidgets);
+    expect(find.text('Meera'), findsOneWidget);
+    await tester.tap(find.text('Meera'));
+    await tester.pump();
+    expect(find.text('5'), findsOneWidget);
+
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Stories'), findsOneWidget);
     expect(find.text('Library'), findsOneWidget);
@@ -96,18 +104,217 @@ void main() {
 
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Aarav'), findsWidgets);
+    expect(find.textContaining('Meera'), findsWidgets);
   });
+
+  testWidgets('onboarding saves a child and replaces setup with home', (
+    WidgetTester tester,
+  ) async {
+    final notifier = _OnboardingProfileNotifier(
+      savedChild: _child(name: 'Saved Aarav', age: 4),
+    );
+
+    await _pumpProfileSetup(tester, notifier: notifier);
+    await tester.enterText(find.byType(TextFormField), 'Typed Aarav');
+    await tester.ensureVisible(find.text('Add Child'));
+    await tester.tap(find.text('Add Child'));
+    await tester.pumpAndSettle();
+
+    expect(notifier.addChildCalls, 1);
+    expect(find.byType(ProfileSetupScreen), findsNothing);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.textContaining('Saved Aarav'), findsWidgets);
+  });
+
+  testWidgets('failed child creation stays on profile setup', (
+    WidgetTester tester,
+  ) async {
+    final notifier = _OnboardingProfileNotifier(
+      error: StateError('Could not start a guest session'),
+    );
+
+    await _pumpProfileSetup(tester, notifier: notifier);
+    await tester.enterText(find.byType(TextFormField), 'Aarav');
+    await tester.ensureVisible(find.text('Add Child'));
+    await tester.tap(find.text('Add Child'));
+    await tester.pumpAndSettle();
+
+    expect(notifier.addChildCalls, 1);
+    expect(find.byType(ProfileSetupScreen), findsOneWidget);
+    expect(find.byType(HomeScreen), findsNothing);
+    expect(find.textContaining('Could not save profile'), findsOneWidget);
+  });
+
+  testWidgets('popOnSave returns the created child', (
+    WidgetTester tester,
+  ) async {
+    final savedChild = _child(name: 'Meera', age: 3);
+    final notifier = _OnboardingProfileNotifier(savedChild: savedChild);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(() => notifier),
+          appAssetsProvider.overrideWithValue(_testAssets),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const _ProfileSetupLauncher(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open setup'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'Meera');
+    await tester.ensureVisible(find.text('Add Child'));
+    await tester.tap(find.text('Add Child'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProfileSetupScreen), findsNothing);
+    expect(find.text('Created Meera (3)'), findsOneWidget);
+  });
+}
+
+const _testAssets = {
+  'profile_setup_bg': 'https://example.com/profile_setup_bg.webp',
+};
+
+Future<void> _pumpProfileSetup(
+  WidgetTester tester, {
+  required _OnboardingProfileNotifier notifier,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        profileNotifierProvider.overrideWith(() => notifier),
+        appAssetsProvider.overrideWithValue(_testAssets),
+        companionsProvider.overrideWith((ref) async => const []),
+        storytimeContentProvider.overrideWith(
+          (ref) async => StorytimeContent.empty(),
+        ),
+      ],
+      child: MaterialApp(
+        themeMode: ThemeMode.dark,
+        darkTheme: AppTheme.darkTheme,
+        home: const ProfileSetupScreen(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+ChildProfileModel _child({required String name, required int age}) {
+  return ChildProfileModel(
+    id: 'saved-child',
+    parentId: 'parent-1',
+    childName: name,
+    age: age,
+    gender: 'boy',
+    createdAt: DateTime.utc(2026, 6, 9),
+  );
 }
 
 class _TestProfileNotifier extends ProfileNotifier {
   @override
-  Future<ProfileModel?> build() async {
-    return const ProfileModel(
-      id: 'profile-1',
-      childName: 'Aarav',
-      age: 2,
-      gender: 'boy',
+  Future<ChildProfilesState> build() async {
+    return ChildProfilesState(
+      selectedChildId: 'profile-1',
+      children: [
+        ChildProfileModel(
+          id: 'profile-1',
+          parentId: 'parent-1',
+          childName: 'Aarav',
+          age: 2,
+          gender: 'boy',
+          createdAt: DateTime.utc(2026, 6, 9),
+        ),
+        ChildProfileModel(
+          id: 'profile-2',
+          parentId: 'parent-1',
+          childName: 'Meera',
+          age: 5,
+          gender: 'girl',
+          createdAt: DateTime.utc(2026, 6, 8),
+        ),
+      ],
+    );
+  }
+}
+
+class _OnboardingProfileNotifier extends ProfileNotifier {
+  _OnboardingProfileNotifier({this.savedChild, this.error});
+
+  final ChildProfileModel? savedChild;
+  final Object? error;
+  int addChildCalls = 0;
+
+  @override
+  Future<ChildProfilesState> build() async => const ChildProfilesState();
+
+  @override
+  Future<ChildProfileModel> addChild({
+    required String name,
+    required String gender,
+    required int age,
+    required String? companionId,
+  }) async {
+    addChildCalls++;
+    if (error case final error?) {
+      state = AsyncError(error, StackTrace.current);
+      throw error;
+    }
+
+    final child =
+        savedChild ??
+        ChildProfileModel(
+          id: 'saved-child',
+          parentId: 'parent-1',
+          childName: name,
+          age: age,
+          gender: gender,
+          companionId: companionId,
+          createdAt: DateTime.utc(2026, 6, 9),
+        );
+    state = AsyncData(
+      ChildProfilesState(children: [child], selectedChildId: child.id),
+    );
+    return child;
+  }
+}
+
+class _ProfileSetupLauncher extends StatefulWidget {
+  const _ProfileSetupLauncher();
+
+  @override
+  State<_ProfileSetupLauncher> createState() => _ProfileSetupLauncherState();
+}
+
+class _ProfileSetupLauncherState extends State<_ProfileSetupLauncher> {
+  ChildProfileModel? _createdChild;
+
+  Future<void> _openSetup() async {
+    final child = await Navigator.push<ChildProfileModel>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ProfileSetupScreen(popOnSave: true),
+      ),
+    );
+    if (mounted) {
+      setState(() => _createdChild = child);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = _createdChild;
+    return Scaffold(
+      body: Center(
+        child: child == null
+            ? TextButton(onPressed: _openSetup, child: const Text('Open setup'))
+            : Text('Created ${child.childName} (${child.age})'),
+      ),
     );
   }
 }

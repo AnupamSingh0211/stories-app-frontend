@@ -1,96 +1,149 @@
 import '../../core/supabase_client.dart';
 
-class ProfileModel {
-  const ProfileModel({
+abstract class ProfileDataSource {
+  const ProfileDataSource();
+
+  String? get currentUserId;
+
+  Future<String?> signInAnonymously();
+
+  Future<List<Map<String, dynamic>>> fetchChildProfiles(String parentId);
+
+  Future<Map<String, dynamic>> insertChildProfile(Map<String, dynamic> profile);
+}
+
+class SupabaseProfileDataSource extends ProfileDataSource {
+  const SupabaseProfileDataSource();
+
+  @override
+  String? get currentUserId =>
+      SupabaseClientProvider.client.auth.currentUser?.id;
+
+  @override
+  Future<String?> signInAnonymously() async {
+    final response = await SupabaseClientProvider.client.auth
+        .signInAnonymously();
+    return response.user?.id ??
+        SupabaseClientProvider.client.auth.currentUser?.id;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchChildProfiles(String parentId) async {
+    final rows = await SupabaseClientProvider.client
+        .from('child_profiles')
+        .select()
+        .eq('parent_id', parentId)
+        .order('created_at', ascending: false);
+
+    return rows;
+  }
+
+  @override
+  Future<Map<String, dynamic>> insertChildProfile(
+    Map<String, dynamic> profile,
+  ) {
+    return SupabaseClientProvider.client
+        .from('child_profiles')
+        .insert(profile)
+        .select()
+        .single();
+  }
+}
+
+class ChildProfileModel {
+  const ChildProfileModel({
     required this.id,
+    required this.parentId,
     required this.childName,
     required this.age,
     required this.gender,
+    required this.createdAt,
     this.companionId,
     this.avatarUrl,
-    this.userId,
   });
 
-  factory ProfileModel.fromMap(Map<String, dynamic> row) {
-    return ProfileModel(
+  factory ChildProfileModel.fromMap(Map<String, dynamic> row) {
+    return ChildProfileModel(
       id: row['id'].toString(),
+      parentId: row['parent_id'].toString(),
       childName: row['child_name'] as String? ?? '',
-      age: row['age'] as int? ?? 0,
-      gender: row['gender'] as String? ?? '',
+      age: row['age'] as int? ?? 2,
+      gender: row['gender'] as String? ?? 'boy',
       companionId: row['companion_id'] as String?,
       avatarUrl: row['avatar_url'] as String?,
-      userId: row['user_id'] as String?,
+      createdAt:
+          DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
 
   final String id;
+  final String parentId;
   final String childName;
   final int age;
   final String gender;
   final String? companionId;
   final String? avatarUrl;
-  final String? userId;
+  final DateTime createdAt;
 }
 
 class ProfileRepository {
-  const ProfileRepository();
+  const ProfileRepository({
+    ProfileDataSource dataSource = const SupabaseProfileDataSource(),
+  }) : _dataSource = dataSource;
 
-  static ProfileModel? _cachedProfile;
+  final ProfileDataSource _dataSource;
 
-  Future<ProfileModel?> fetchProfile() async {
-    final client = SupabaseClientProvider.client;
-    final userId = client.auth.currentUser?.id;
-
-    try {
-      var query = client.from('profiles').select();
-      if (userId != null) {
-        query = query.eq('user_id', userId);
-      }
-
-      final rows = await query.order('created_at', ascending: false).limit(1);
-
-      if (rows.isEmpty) {
-        return _cachedProfile;
-      }
-
-      _cachedProfile = ProfileModel.fromMap(rows.first);
-      return _cachedProfile;
-    } catch (_) {
-      return _cachedProfile;
+  Future<List<ChildProfileModel>> fetchChildProfiles() async {
+    final parentId = _dataSource.currentUserId;
+    if (parentId == null) {
+      return const [];
     }
+
+    final rows = await _dataSource.fetchChildProfiles(parentId);
+
+    return rows.map(ChildProfileModel.fromMap).toList(growable: false);
   }
 
-  Future<ProfileModel> saveProfile({
+  Future<ChildProfileModel> createChildProfile({
     required String name,
     required String gender,
     required int age,
     required String? companionId,
     String? avatarUrl,
   }) async {
-    final client = SupabaseClientProvider.client;
-    final userId = client.auth.currentUser?.id;
-    final profile = <String, dynamic>{
+    final parentId = await _requireUserId();
+
+    final row = await _dataSource.insertChildProfile({
+      'parent_id': parentId,
       'child_name': name,
       'gender': gender,
       'age': age,
       'companion_id': companionId,
       'avatar_url': avatarUrl,
-      'user_id': userId,
-    };
+    });
 
-    await client.from('profiles').insert(profile);
+    return ChildProfileModel.fromMap(row);
+  }
 
-    final savedProfile = ProfileModel(
-      id: '',
-      childName: name,
-      age: age,
-      gender: gender,
-      companionId: companionId,
-      avatarUrl: avatarUrl,
-      userId: userId,
+  Future<String> _requireUserId() async {
+    final currentUserId = _dataSource.currentUserId;
+    if (currentUserId != null && currentUserId.isNotEmpty) {
+      return currentUserId;
+    }
+
+    try {
+      final anonymousUserId = await _dataSource.signInAnonymously();
+      if (anonymousUserId != null && anonymousUserId.isNotEmpty) {
+        return anonymousUserId;
+      }
+    } catch (error) {
+      throw StateError('Could not start a guest session: $error');
+    }
+
+    throw StateError(
+      'Could not start a guest session. '
+      'Confirm anonymous sign-ins are enabled in Supabase.',
     );
-    _cachedProfile = savedProfile;
-
-    return savedProfile;
   }
 }
