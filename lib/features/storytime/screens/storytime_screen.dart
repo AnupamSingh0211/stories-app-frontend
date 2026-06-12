@@ -14,6 +14,7 @@ import '../widgets/story_image_view.dart';
 import 'story_player_screen.dart';
 
 final _softBorder = Border.all(color: AppColors.surfaceWhite08);
+const _initialFeaturedPage = 10000;
 
 class StorytimeScreen extends ConsumerStatefulWidget {
   const StorytimeScreen({super.key});
@@ -23,7 +24,10 @@ class StorytimeScreen extends ConsumerStatefulWidget {
 }
 
 class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
-  final _pageController = PageController(viewportFraction: 0.9);
+  final _pageController = PageController(
+    initialPage: _initialFeaturedPage,
+    viewportFraction: 0.9,
+  );
   int _activePage = 0;
 
   @override
@@ -435,8 +439,7 @@ class _StoryCard extends StatelessWidget {
   final StoryModel story;
   final bool isTall;
 
-  bool get _opensPlayer =>
-      isTall && story.title.trim().toLowerCase() == 'morning whispers';
+  bool get _opensPlayer => story.id.trim().isNotEmpty;
 
   void _openPlayer(BuildContext context) {
     Navigator.of(context).push(

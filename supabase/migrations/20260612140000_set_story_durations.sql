@@ -1,0 +1,9 @@
+update public.stories
+set duration_seconds = case id
+  when '11111111-1111-4111-8111-111111111111'::uuid then 180
+  when '22222222-2222-4222-8222-222222222222'::uuid then 240
+end
+where id in (
+  '11111111-1111-4111-8111-111111111111'::uuid,
+  '22222222-2222-4222-8222-222222222222'::uuid
+);

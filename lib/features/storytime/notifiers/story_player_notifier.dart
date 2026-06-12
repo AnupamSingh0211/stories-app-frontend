@@ -17,17 +17,15 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
         _setError('Audio playback failed. Please try again.');
       },
     );
-    _currentIndexSubscription = _audioPlayer.currentIndexStream.listen(
-      _handleCurrentIndex,
-    );
   }
 
   final StoryRepository _repository;
   final String _storyId;
   final AudioPlayer _audioPlayer = AudioPlayer();
   StreamSubscription<PlayerState>? _playerStateSubscription;
-  StreamSubscription<int?>? _currentIndexSubscription;
   bool _disposed = false;
+  bool _isPreparingPageAudio = false;
+  int _audioLoadGeneration = 0;
 
   static const List<double> allowedSpeeds = [1, 1.25, 1.5, 1.75, 2];
 
@@ -59,13 +57,18 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
       await _audioPlayer.setSpeed(state.playbackSpeed);
       unawaited(_loadFavorite());
-      await _loadPlaylistAndPlay();
+      await _loadPageAudio(0);
     } catch (error) {
       _setError(_friendlyError(error));
     }
   }
 
   Future<void> play() async {
+    if (state.isComplete) {
+      await _loadPageAudio(0);
+      return;
+    }
+
     if (state.currentAudioUrl.isEmpty) {
       _setError('This page does not have audio yet.');
       return;
@@ -140,8 +143,8 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
   Future<void> disposePlayer() async {
     _disposed = true;
+    _audioLoadGeneration++;
     await _playerStateSubscription?.cancel();
-    await _currentIndexSubscription?.cancel();
     await _audioPlayer.dispose();
   }
 
@@ -157,33 +160,55 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     await session.setActive(true);
   }
 
-  Future<void> _loadPlaylistAndPlay() async {
+  Future<void> _loadPageAudio(int pageIndex, {bool autoPlay = true}) async {
     if (state.pages.isEmpty) {
       _setError('This story does not have any pages yet.');
       return;
     }
-    if (state.pages.any((page) => page.audioUrl.isEmpty)) {
+    if (pageIndex < 0 || pageIndex >= state.pages.length) {
+      _setError('This story page is unavailable.');
+      return;
+    }
+
+    final page = state.pages[pageIndex];
+    if (page.audioUrl.isEmpty) {
       _setError('This story page is missing audio.');
       return;
     }
 
-    try {
-      final audioSources = state.pages
-          .map((page) => AudioSource.uri(Uri.parse(page.audioUrl)))
-          .toList(growable: false);
+    final loadGeneration = ++_audioLoadGeneration;
+    _isPreparingPageAudio = true;
+    state = state.copyWith(
+      currentPageIndex: pageIndex,
+      isPlaying: false,
+      isComplete: false,
+      clearError: true,
+    );
 
+    try {
       await _audioPlayer.setAudioSource(
-        ConcatenatingAudioSource(
-          useLazyPreparation: true,
-          children: audioSources,
-        ),
-        initialIndex: state.currentPageIndex,
+        AudioSource.uri(Uri.parse(page.audioUrl)),
       );
+
+      if (_disposed || loadGeneration != _audioLoadGeneration) {
+        return;
+      }
+
       await _audioPlayer.setSpeed(state.playbackSpeed);
-      _startPlayback();
-      state = state.copyWith(isPlaying: true, clearError: true);
+
+      if (autoPlay) {
+        _startPlayback();
+      }
+      state = state.copyWith(isPlaying: autoPlay, clearError: true);
     } catch (error) {
+      if (_disposed || loadGeneration != _audioLoadGeneration) {
+        return;
+      }
       _setError('This story page could not be played. Please try again.');
+    } finally {
+      if (loadGeneration == _audioLoadGeneration) {
+        _isPreparingPageAudio = false;
+      }
     }
   }
 
@@ -192,8 +217,13 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
       return;
     }
 
-    if (playerState.processingState == ProcessingState.completed) {
-      await _finishStory();
+    if (playerState.processingState == ProcessingState.completed &&
+        !_isPreparingPageAudio) {
+      if (state.hasNextPage) {
+        await _loadPageAudio(state.currentPageIndex + 1);
+      } else {
+        await _finishStory();
+      }
       return;
     }
 
@@ -202,35 +232,8 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     }
   }
 
-  void _handleCurrentIndex(int? index) {
-    if (_disposed ||
-        index == null ||
-        index < 0 ||
-        index >= state.pages.length ||
-        index == state.currentPageIndex) {
-      return;
-    }
-
-    state = state.copyWith(
-      currentPageIndex: index,
-      isComplete: false,
-      clearError: true,
-    );
-  }
-
   Future<void> _seekToPage(int index) async {
-    try {
-      await _audioPlayer.seek(Duration.zero, index: index);
-      _startPlayback();
-      state = state.copyWith(
-        currentPageIndex: index,
-        isPlaying: true,
-        isComplete: false,
-        clearError: true,
-      );
-    } catch (error) {
-      _setError('This story page could not be played. Please try again.');
-    }
+    await _loadPageAudio(index);
   }
 
   void _startPlayback() {
@@ -255,9 +258,8 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
   Future<void> _finishStory() async {
     try {
       await _audioPlayer.pause();
-      await _audioPlayer.seek(Duration.zero, index: 0);
+      await _audioPlayer.seek(Duration.zero);
       state = state.copyWith(
-        currentPageIndex: 0,
         isPlaying: false,
         isComplete: true,
         clearError: true,
