@@ -18,7 +18,7 @@ import '../widgets/story_image_view.dart';
 class StoryPlayerScreen extends ConsumerStatefulWidget {
   const StoryPlayerScreen({
     this.storyId = StoryRepository.morningWhispersStoryId,
-    this.title = 'Morning Whispers',
+    this.title = 'Kanha Ki Sunheri Subah',
     super.key,
   });
 
@@ -495,6 +495,19 @@ class _PlayerBodyConsumerState extends ConsumerState<_PlayerBodyConsumer> {
       unawaited(_syncPageController(next, animate: shouldAnimate));
     });
 
+    ref.listen<int>(provider.select((state) => state.pageCount), (
+      previous,
+      next,
+    ) {
+      if ((previous ?? 0) == 0 && next > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _pageController.hasClients) {
+            _pageController.jumpToPage(0);
+          }
+        });
+      }
+    });
+
     return _PlayerBody(
       pages: state.pages,
       currentPageIndex: state.currentPageIndex,
@@ -803,19 +816,23 @@ class _StoryPageView extends StatelessWidget {
         boxShadow: const [AppShadows.playerElevation],
       ),
       clipBehavior: Clip.antiAlias,
-      child: PageView.builder(
-        controller: controller,
-        physics: const PageScrollPhysics(),
-        itemCount: pages.length,
-        onPageChanged: onPageChanged,
-        itemBuilder: (context, index) {
-          return StoryImageView(
-            key: ValueKey(pages[index].imageUrl),
-            imageUrl: pages[index].imageUrl,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-          );
-        },
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: PageView.builder(
+          controller: controller,
+          reverse: false,
+          physics: const PageScrollPhysics(),
+          itemCount: pages.length,
+          onPageChanged: onPageChanged,
+          itemBuilder: (context, index) {
+            return StoryImageView(
+              key: ValueKey(pages[index].imageUrl),
+              imageUrl: pages[index].imageUrl,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            );
+          },
+        ),
       ),
     );
   }
