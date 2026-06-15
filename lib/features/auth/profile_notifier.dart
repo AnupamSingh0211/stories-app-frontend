@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'auth_provider.dart';
 import 'profile_repository.dart';
 
 part 'profile_notifier.g.dart';
@@ -44,7 +45,12 @@ class ProfileNotifier extends _$ProfileNotifier {
 
   @override
   Future<ChildProfilesState> build() async {
-    final children = await _repository.fetchChildProfiles();
+    final session = ref.watch(activeSessionProvider);
+    if (session == null) {
+      return const ChildProfilesState();
+    }
+
+    final children = await _repository.fetchChildProfiles(session.userId);
     return ChildProfilesState(
       children: children,
       selectedChildId: children.firstOrNull?.id,
@@ -58,6 +64,10 @@ class ProfileNotifier extends _$ProfileNotifier {
     required String? companionId,
   }) async {
     final previous = state.valueOrNull ?? const ChildProfilesState();
+    if (previous.children.length >= maxChildProfiles) {
+      throw const ChildProfileLimitException();
+    }
+
     state = const AsyncLoading();
 
     final result = await AsyncValue.guard(
@@ -99,9 +109,15 @@ class ProfileNotifier extends _$ProfileNotifier {
 
   Future<void> refresh() async {
     final selectedId = state.valueOrNull?.selectedChildId;
+    final session = ref.read(activeSessionProvider);
+    if (session == null) {
+      state = const AsyncData(ChildProfilesState());
+      return;
+    }
+
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final children = await _repository.fetchChildProfiles();
+      final children = await _repository.fetchChildProfiles(session.userId);
       final selectionExists = children.any((child) => child.id == selectedId);
       return ChildProfilesState(
         children: children,

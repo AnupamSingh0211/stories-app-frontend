@@ -4,16 +4,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:dharma_app/features/auth/assets_provider.dart';
+import 'package:dharma_app/features/auth/auth_provider.dart';
 import 'package:dharma_app/features/auth/companions_provider.dart';
 import 'package:dharma_app/features/auth/profile_notifier.dart';
 import 'package:dharma_app/features/auth/profile_repository.dart';
 import 'package:dharma_app/features/auth/profile_setup_screen.dart';
+import 'package:dharma_app/features/auth/welcome_screen.dart';
 import 'package:dharma_app/features/home/home_screen.dart';
+import 'package:dharma_app/features/library/library_screen.dart';
 import 'package:dharma_app/features/profile/profile_screen.dart';
 import 'package:dharma_app/features/storytime/models/story_model.dart';
 import 'package:dharma_app/features/storytime/providers/saved_library_provider.dart';
 import 'package:dharma_app/features/storytime/providers/story_player_provider.dart';
 import 'package:dharma_app/features/storytime/repositories/story_repository.dart';
+import 'package:dharma_app/features/storytime/screens/storytime_screen.dart';
 import 'package:dharma_app/main.dart';
 import 'package:dharma_app/shared/theme/app_theme.dart';
 
@@ -33,6 +37,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authSessionProvider.overrideWith((ref) => Stream.value(null)),
           appAssetsProvider.overrideWithValue({
             'welcome_bg': 'https://example.com/welcome_bg.webp',
             'profile_setup_bg': 'https://example.com/profile_setup_bg.webp',
@@ -44,9 +49,63 @@ void main() {
         child: const MyApp(),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text('Welcome to\nBedtime Stories'), findsOneWidget);
     expect(find.text('Browse as a Guest ->'), findsOneWidget);
+  });
+
+  testWidgets('signed-out app does not render stale child profiles', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authSessionProvider.overrideWith((ref) => Stream.value(null)),
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          appAssetsProvider.overrideWithValue({
+            'welcome_bg': 'https://example.com/welcome_bg.webp',
+            'ios_icon': 'https://example.com/ios_icon.png',
+            'google_icon': 'https://example.com/google_icon.png',
+            'email_icon': 'https://example.com/email_icon.png',
+          }),
+        ],
+        child: const MyApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WelcomeScreen), findsOneWidget);
+    expect(find.text('Aarav'), findsNothing);
+    expect(find.text('Meera'), findsNothing);
+  });
+
+  testWidgets('returning authenticated parent resumes with their child', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authSessionProvider.overrideWith(
+            (ref) => Stream.value(
+              const AppSessionIdentity(userId: 'parent-1', isAnonymous: false),
+            ),
+          ),
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          appAssetsProvider.overrideWithValue(const {}),
+          companionsProvider.overrideWith((ref) async => const []),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+        ],
+        child: const MyApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.textContaining('Aarav'), findsWidgets);
+    expect(find.byType(WelcomeScreen), findsNothing);
   });
 
   testWidgets('profile navigation exposes and reaches all four tabs', (
@@ -105,6 +164,91 @@ void main() {
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Meera'), findsWidgets);
+  });
+
+  testWidgets('two children blocks child creation with the limit message', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          companionsProvider.overrideWith((ref) async => const []),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const ProfileScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add Child'));
+    await tester.pump();
+
+    expect(find.text(childProfileLimitMessage), findsOneWidget);
+    expect(find.byType(ProfileSetupScreen), findsNothing);
+  });
+
+  testWidgets('stories header profile icon opens the profile page', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          companionsProvider.overrideWith((ref) async => const []),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const StorytimeScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Open profile'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProfileScreen), findsOneWidget);
+    expect(find.text('Aarav'), findsWidgets);
+  });
+
+  testWidgets('profile favourites opens the library page', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          companionsProvider.overrideWith((ref) async => const []),
+          savedLibraryProvider.overrideWith(
+            (ref) => _TestSavedLibraryNotifier(),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const ProfileScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Favourites'));
+    await tester.tap(find.text('Favourites'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LibraryScreen), findsOneWidget);
+    expect(
+      find.text('Replay the stories your child loves most.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('onboarding saves a child and replaces setup with home', (
