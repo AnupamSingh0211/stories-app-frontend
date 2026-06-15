@@ -58,7 +58,18 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
                 slivers: [
-                  const SliverToBoxAdapter(child: _TopAppBar()),
+                  SliverToBoxAdapter(
+                    child: _TopAppBar(
+                      onProfileTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => ProfileScreen(
+                            fallbackChildName: profile?.childName,
+                            fallbackChildAge: profile?.age,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   contentState.when(
                     data: (content) => _StoryLibrary(
                       content: content,
@@ -114,7 +125,9 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
 }
 
 class _TopAppBar extends StatelessWidget {
-  const _TopAppBar();
+  const _TopAppBar({required this.onProfileTap});
+
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +165,7 @@ class _TopAppBar extends StatelessWidget {
           ),
           _RoundIconButton(icon: Icons.search_rounded, onTap: () {}),
           const SizedBox(width: 12),
-          _ChildAvatar(colors: colors),
+          _ChildAvatar(colors: colors, onTap: onProfileTap),
         ],
       ),
     );
@@ -749,23 +762,32 @@ class _RoundIconButton extends StatelessWidget {
 }
 
 class _ChildAvatar extends StatelessWidget {
-  const _ChildAvatar({required this.colors});
+  const _ChildAvatar({required this.colors, required this.onTap});
 
   final ColorScheme colors;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: colors.primary, width: 2),
-      ),
-      child: Icon(
-        Icons.person_outline_rounded,
-        color: colors.primary,
-        size: 28,
+    return Semantics(
+      button: true,
+      label: 'Open profile',
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: colors.primary, width: 2),
+          ),
+          child: Icon(
+            Icons.person_outline_rounded,
+            color: colors.primary,
+            size: 28,
+          ),
+        ),
       ),
     );
   }

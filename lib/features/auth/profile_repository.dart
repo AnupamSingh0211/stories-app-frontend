@@ -94,12 +94,7 @@ class ProfileRepository {
 
   final ProfileDataSource _dataSource;
 
-  Future<List<ChildProfileModel>> fetchChildProfiles() async {
-    final parentId = _dataSource.currentUserId;
-    if (parentId == null) {
-      return const [];
-    }
-
+  Future<List<ChildProfileModel>> fetchChildProfiles(String parentId) async {
     final rows = await _dataSource.fetchChildProfiles(parentId);
 
     return rows.map(ChildProfileModel.fromMap).toList(growable: false);
@@ -146,4 +141,16 @@ class ProfileRepository {
       'Confirm anonymous sign-ins are enabled in Supabase.',
     );
   }
+}
+
+const maxChildProfiles = 2;
+const childProfileLimitMessage =
+    'You can add up to two child profiles. To add another, please update or '
+    'remove an existing profile.';
+
+class ChildProfileLimitException implements Exception {
+  const ChildProfileLimitException();
+
+  @override
+  String toString() => childProfileLimitMessage;
 }

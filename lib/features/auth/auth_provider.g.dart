@@ -6,22 +6,23 @@ part of 'auth_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$authStateHash() => r'4de49fc8547d39c6e1a8186fda8192c557bb144b';
+String _$authSessionHash() => r'915b613e7490f5bf476a7a14f199ea196c39d1a8';
 
-/// See also [authState].
-@ProviderFor(authState)
-final authStateProvider = AutoDisposeStreamProvider<AuthState>.internal(
-  authState,
-  name: r'authStateProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$authStateHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+/// See also [authSession].
+@ProviderFor(authSession)
+final authSessionProvider =
+    AutoDisposeStreamProvider<AppSessionIdentity?>.internal(
+      authSession,
+      name: r'authSessionProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$authSessionHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef AuthStateRef = AutoDisposeStreamProviderRef<AuthState>;
+typedef AuthSessionRef = AutoDisposeStreamProviderRef<AppSessionIdentity?>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

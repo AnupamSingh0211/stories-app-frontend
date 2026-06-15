@@ -73,7 +73,10 @@ class ProfileScreen extends ConsumerWidget {
                             .read(profileNotifierProvider.notifier)
                             .selectChild(childId);
                       },
-                      onAddChild: () => _addChild(context),
+                      onAddChild: () => _addChild(
+                        context,
+                        childProfiles?.children.length ?? 0,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     _ProfileHeader(email: email, avatarUrl: profile?.avatarUrl),
@@ -82,7 +85,7 @@ class ProfileScreen extends ConsumerWidget {
                         ? const _LoadingPanel()
                         : profile == null
                         ? _EmptyChildrenCard(
-                            onAddChild: () => _addChild(context),
+                            onAddChild: () => _addChild(context, 0),
                           )
                         : _ProfileDetailsCard(
                             name: _displayValue(
@@ -95,7 +98,9 @@ class ProfileScreen extends ConsumerWidget {
                             companion: companionName,
                           ),
                     const SizedBox(height: 16),
-                    const _ProfileMenuCard(),
+                    _ProfileMenuCard(
+                      onFavouritesTap: () => _openLibrary(context),
+                    ),
                   ],
                 ),
               ),
@@ -172,7 +177,19 @@ class ProfileScreen extends ConsumerWidget {
     return 'Not set';
   }
 
-  Future<void> _addChild(BuildContext context) async {
+  Future<void> _addChild(BuildContext context, int childCount) async {
+    if (childCount >= maxChildProfiles) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(childProfileLimitMessage),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      return;
+    }
+
     await Navigator.of(context).push<ChildProfileModel>(
       MaterialPageRoute(
         builder: (context) => const ProfileSetupScreen(popOnSave: true),
@@ -520,7 +537,9 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _ProfileMenuCard extends StatelessWidget {
-  const _ProfileMenuCard();
+  const _ProfileMenuCard({required this.onFavouritesTap});
+
+  final VoidCallback onFavouritesTap;
 
   static const _items = [
     _MenuItem(Icons.favorite_border_rounded, 'Favourites'),
@@ -536,7 +555,10 @@ class _ProfileMenuCard extends StatelessWidget {
       child: Column(
         children: [
           for (final entry in _items.asMap().entries) ...[
-            _MenuRow(item: entry.value),
+            _MenuRow(
+              item: entry.value,
+              onTap: entry.key == 0 ? onFavouritesTap : null,
+            ),
             if (entry.key != _items.length - 1) const _DividerLine(),
           ],
         ],
@@ -546,44 +568,49 @@ class _ProfileMenuCard extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.item});
+  const _MenuRow({required this.item, this.onTap});
 
   final _MenuItem item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.accentPrimary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(14),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.accentPrimary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(item.icon, color: colors.primary, size: 21),
             ),
-            child: Icon(item.icon, color: colors.primary, size: 21),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              item.label,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: colors.onSurface,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                item.label,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: colors.onSurface,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: colors.onSurface.withValues(alpha: 0.44),
-          ),
-        ],
+            Icon(
+              Icons.chevron_right_rounded,
+              color: colors.onSurface.withValues(alpha: 0.44),
+            ),
+          ],
+        ),
       ),
     );
   }
