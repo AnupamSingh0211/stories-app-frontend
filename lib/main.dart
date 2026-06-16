@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -12,16 +13,23 @@ import 'features/auth/welcome_screen.dart';
 import 'features/home/home_screen.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  await dotenv.load();
+  try {
+    await dotenv.load();
 
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    anonKey: SupabaseConfig.anonKey,
-  );
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+  } catch (_) {
+    FlutterNativeSplash.remove();
+    rethrow;
+  }
 
   runApp(const ProviderScope(child: MyApp()));
+  FlutterNativeSplash.remove();
 }
 
 class MyApp extends ConsumerWidget {

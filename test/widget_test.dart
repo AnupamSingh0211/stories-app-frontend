@@ -41,9 +41,6 @@ void main() {
           appAssetsProvider.overrideWithValue({
             'welcome_bg': 'https://example.com/welcome_bg.webp',
             'profile_setup_bg': 'https://example.com/profile_setup_bg.webp',
-            'ios_icon': 'https://example.com/ios_icon.png',
-            'google_icon': 'https://example.com/google_icon.png',
-            'email_icon': 'https://example.com/email_icon.png',
           }),
         ],
         child: const MyApp(),
@@ -52,7 +49,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Welcome to\nBedtime Stories'), findsOneWidget);
-    expect(find.text('Browse as a Guest ->'), findsOneWidget);
+    expect(find.text('Browse as Guest →'), findsOneWidget);
   });
 
   testWidgets('signed-out app does not render stale child profiles', (
@@ -65,9 +62,6 @@ void main() {
           profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
           appAssetsProvider.overrideWithValue({
             'welcome_bg': 'https://example.com/welcome_bg.webp',
-            'ios_icon': 'https://example.com/ios_icon.png',
-            'google_icon': 'https://example.com/google_icon.png',
-            'email_icon': 'https://example.com/email_icon.png',
           }),
         ],
         child: const MyApp(),
