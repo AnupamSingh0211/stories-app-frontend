@@ -1,5 +1,27 @@
 import '../../core/supabase_client.dart';
 
+const defaultProfileLocale = 'en-IN';
+const supportedProfileLocales = ['en-IN', 'hi-IN'];
+
+String normalizeProfileLocale(String? locale) {
+  final value = locale?.trim();
+  if (value == null || value.isEmpty) {
+    return defaultProfileLocale;
+  }
+
+  return supportedProfileLocales.contains(value) ? value : defaultProfileLocale;
+}
+
+String profileLocaleLabel(String locale) {
+  switch (normalizeProfileLocale(locale)) {
+    case 'hi-IN':
+      return 'Hindi';
+    case 'en-IN':
+    default:
+      return 'English';
+  }
+}
+
 abstract class ProfileDataSource {
   const ProfileDataSource();
 
@@ -60,6 +82,7 @@ class ChildProfileModel {
     required this.createdAt,
     this.companionId,
     this.avatarUrl,
+    this.locale = defaultProfileLocale,
   });
 
   factory ChildProfileModel.fromMap(Map<String, dynamic> row) {
@@ -71,6 +94,7 @@ class ChildProfileModel {
       gender: row['gender'] as String? ?? 'boy',
       companionId: row['companion_id'] as String?,
       avatarUrl: row['avatar_url'] as String?,
+      locale: normalizeProfileLocale(row['locale'] as String?),
       createdAt:
           DateTime.tryParse(row['created_at']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
@@ -84,6 +108,7 @@ class ChildProfileModel {
   final String gender;
   final String? companionId;
   final String? avatarUrl;
+  final String locale;
   final DateTime createdAt;
 }
 
@@ -105,6 +130,7 @@ class ProfileRepository {
     required String gender,
     required int age,
     required String? companionId,
+    String locale = defaultProfileLocale,
     String? avatarUrl,
   }) async {
     final parentId = await _requireUserId();
@@ -116,6 +142,7 @@ class ProfileRepository {
       'age': age,
       'companion_id': companionId,
       'avatar_url': avatarUrl,
+      'locale': normalizeProfileLocale(locale),
     });
 
     return ChildProfileModel.fromMap(row);

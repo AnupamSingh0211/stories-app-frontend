@@ -105,6 +105,27 @@ void main() {
     );
   });
 
+  test('restores the previous state when creating a child fails', () async {
+    final repository = _FakeProfileRepository(
+      childCount: 0,
+      createError: StateError('locale column is missing'),
+    );
+    final container = _authenticatedContainer(repository);
+    addTearDown(container.dispose);
+    await container.read(profileNotifierProvider.future);
+
+    await expectLater(
+      container
+          .read(profileNotifierProvider.notifier)
+          .addChild(name: 'Kabir', gender: 'boy', age: 3, companionId: null),
+      throwsA(isA<StateError>()),
+    );
+
+    final state = container.read(profileNotifierProvider);
+    expect(state.hasError, isFalse);
+    expect(state.requireValue.children, isEmpty);
+  });
+
   group('ProfileRepository authentication', () {
     test(
       'uses the existing authenticated user when creating a child',
@@ -121,9 +142,26 @@ void main() {
 
         expect(dataSource.anonymousSignInCalls, 0);
         expect(dataSource.insertedProfile?['parent_id'], 'user-1');
+        expect(dataSource.insertedProfile?['locale'], defaultProfileLocale);
         expect(child.parentId, 'user-1');
       },
     );
+
+    test('stores the supplied locale when creating a child', () async {
+      final dataSource = _FakeProfileDataSource(currentUserId: 'user-1');
+      final repository = ProfileRepository(dataSource: dataSource);
+
+      final child = await repository.createChildProfile(
+        name: 'Aarav',
+        gender: 'boy',
+        age: 2,
+        companionId: null,
+        locale: 'hi-IN',
+      );
+
+      expect(dataSource.insertedProfile?['locale'], 'hi-IN');
+      expect(child.locale, 'hi-IN');
+    });
 
     test('fetches children only for the supplied parent identifier', () async {
       final dataSource = _FakeProfileDataSource(currentUserId: 'user-1');
@@ -174,6 +212,29 @@ void main() {
 
       expect(dataSource.insertedProfile, isNull);
     });
+
+    test('falls back to en-IN for missing or unsupported row locale', () {
+      final missing = ChildProfileModel.fromMap({
+        'id': 'child-1',
+        'parent_id': 'parent-1',
+        'child_name': 'Aarav',
+        'age': 2,
+        'gender': 'boy',
+        'created_at': '2026-06-09T00:00:00Z',
+      });
+      final unsupported = ChildProfileModel.fromMap({
+        'id': 'child-2',
+        'parent_id': 'parent-1',
+        'child_name': 'Meera',
+        'age': 3,
+        'gender': 'girl',
+        'locale': 'fr-FR',
+        'created_at': '2026-06-09T00:00:00Z',
+      });
+
+      expect(missing.locale, defaultProfileLocale);
+      expect(unsupported.locale, defaultProfileLocale);
+    });
   });
 }
 
@@ -189,7 +250,7 @@ ProviderContainer _authenticatedContainer(ProfileRepository repository) {
 }
 
 class _FakeProfileRepository extends ProfileRepository {
-  _FakeProfileRepository({required int childCount})
+  _FakeProfileRepository({required int childCount, this.createError})
     : children = [
         ChildProfileModel(
           id: 'child-1',
@@ -210,6 +271,7 @@ class _FakeProfileRepository extends ProfileRepository {
       ].take(childCount).toList();
 
   final List<ChildProfileModel> children;
+  final Object? createError;
   String? fetchedParentId;
   int createCalls = 0;
 
@@ -225,9 +287,14 @@ class _FakeProfileRepository extends ProfileRepository {
     required String gender,
     required int age,
     required String? companionId,
+    String locale = defaultProfileLocale,
     String? avatarUrl,
   }) async {
     createCalls++;
+    if (createError case final error?) {
+      throw error;
+    }
+
     final child = ChildProfileModel(
       id: 'child-${children.length + 1}',
       parentId: 'parent-1',
@@ -236,6 +303,7 @@ class _FakeProfileRepository extends ProfileRepository {
       gender: gender,
       companionId: companionId,
       avatarUrl: avatarUrl,
+      locale: locale,
       createdAt: DateTime.utc(2026, 6, 9, 1),
     );
     children.insert(0, child);

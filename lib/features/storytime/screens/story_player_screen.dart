@@ -3,11 +3,15 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../../../shared/theme/app_border_radius.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_shadows.dart';
+import '../../auth/profile_notifier.dart';
+import '../../auth/profile_repository.dart';
 import '../../library/library_screen.dart';
+import '../audio/background_music_resolver.dart';
 import '../models/story_page.dart';
 import '../providers/saved_library_provider.dart';
 import '../providers/story_player_provider.dart';
@@ -30,9 +34,17 @@ class StoryPlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen> {
+  final AudioPlayer _backgroundMusicPlayer = AudioPlayer();
   bool _hasShownSavePrompt = false;
+  bool _hasLoadedBackgroundMusic = false;
 
   String _language = 'हिंदी';
+
+  @override
+  void dispose() {
+    unawaited(_backgroundMusicPlayer.dispose());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +62,19 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen> {
 
       if (!_hasShownSavePrompt) {
         _hasShownSavePrompt = true;
+        unawaited(_stopBackgroundMusic());
         Future.microtask(_showSaveStoryPrompt);
+      }
+    });
+
+    ref.listen<bool>(provider.select((state) => state.isPlaying), (
+      previous,
+      next,
+    ) {
+      if (next) {
+        unawaited(_playBackgroundMusic());
+      } else {
+        unawaited(_backgroundMusicPlayer.pause());
       }
     });
 
@@ -90,6 +114,47 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen> {
               ),
       ),
     );
+  }
+
+  Future<void> _playBackgroundMusic() async {
+    try {
+      if (!_hasLoadedBackgroundMusic) {
+        final locale =
+            ref
+                .read(profileNotifierProvider)
+                .valueOrNull
+                ?.selectedChild
+                ?.locale ??
+            defaultProfileLocale;
+        final assetPath = backgroundMusicAssetForStory(
+          storyId: widget.storyId,
+          locale: locale,
+        );
+        if (assetPath == null) {
+          return;
+        }
+
+        await _backgroundMusicPlayer.setAudioSource(
+          AudioSource.asset(assetPath),
+        );
+        await _backgroundMusicPlayer.setLoopMode(LoopMode.one);
+        await _backgroundMusicPlayer.setVolume(storyBackgroundMusicVolume);
+        _hasLoadedBackgroundMusic = true;
+      }
+
+      await _backgroundMusicPlayer.play();
+    } catch (error) {
+      debugPrint('StoryPlayerScreen: background music failed. $error');
+    }
+  }
+
+  Future<void> _stopBackgroundMusic() async {
+    try {
+      await _backgroundMusicPlayer.stop();
+      await _backgroundMusicPlayer.seek(Duration.zero);
+    } catch (error) {
+      debugPrint('StoryPlayerScreen: background music stop failed. $error');
+    }
   }
 
   Future<void> _showSaveStoryPrompt() async {

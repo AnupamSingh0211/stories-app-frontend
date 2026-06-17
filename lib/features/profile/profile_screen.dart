@@ -96,6 +96,7 @@ class ProfileScreen extends ConsumerWidget {
                             ),
                             age: _ageValue(profile.age),
                             companion: companionName,
+                            language: profileLocaleLabel(profile.locale),
                           ),
                     const SizedBox(height: 16),
                     _ProfileMenuCard(
@@ -470,11 +471,13 @@ class _ProfileDetailsCard extends StatelessWidget {
     required this.name,
     required this.age,
     required this.companion,
+    required this.language,
   });
 
   final String name;
   final String age;
   final String companion;
+  final String language;
 
   @override
   Widget build(BuildContext context) {
@@ -486,6 +489,8 @@ class _ProfileDetailsCard extends StatelessWidget {
           _DetailRow(label: 'Age', value: age),
           const _DividerLine(),
           _DetailRow(label: 'Companion', value: companion),
+          const _DividerLine(),
+          _DetailRow(label: 'Language', value: language),
         ],
       ),
     );

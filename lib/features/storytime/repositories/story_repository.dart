@@ -10,6 +10,7 @@ class StoryRepository {
 
   static const savedStoryLimit = 10;
   static const morningWhispersStoryId = '11111111-1111-4111-8111-111111111111';
+  static const arrivalNewsStoryId = '22222222-2222-4222-8222-222222222222';
   static const _storyAssetsBucket = 'story-assets';
   static const _storyPageCacheDuration = Duration(minutes: 5);
   static const _storyColumns =
