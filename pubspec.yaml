@@ -71,6 +71,7 @@ flutter:
 
   assets:
     - .env
+    - assets/audio/background/
 
   # To add assets to your application, add an assets section, like this:
   #assets:

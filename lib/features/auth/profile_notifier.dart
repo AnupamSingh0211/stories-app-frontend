@@ -62,6 +62,7 @@ class ProfileNotifier extends _$ProfileNotifier {
     required String gender,
     required int age,
     required String? companionId,
+    String locale = defaultProfileLocale,
   }) async {
     final previous = state.valueOrNull ?? const ChildProfilesState();
     if (previous.children.length >= maxChildProfiles) {
@@ -76,11 +77,12 @@ class ProfileNotifier extends _$ProfileNotifier {
         gender: gender,
         age: age,
         companionId: companionId,
+        locale: locale,
       ),
     );
 
     if (result.hasError) {
-      state = AsyncError(result.error!, result.stackTrace!);
+      state = AsyncData(previous);
       Error.throwWithStackTrace(result.error!, result.stackTrace!);
     }
 

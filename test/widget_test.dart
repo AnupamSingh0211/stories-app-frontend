@@ -397,6 +397,7 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
     required String gender,
     required int age,
     required String? companionId,
+    String locale = defaultProfileLocale,
   }) async {
     addChildCalls++;
     if (error case final error?) {
@@ -413,6 +414,7 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
           age: age,
           gender: gender,
           companionId: companionId,
+          locale: locale,
           createdAt: DateTime.utc(2026, 6, 9),
         );
     state = AsyncData(

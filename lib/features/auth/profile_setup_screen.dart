@@ -6,6 +6,7 @@ import '../../shared/widgets/pill_button.dart';
 import 'assets_provider.dart';
 import 'choose_companion_screen.dart';
 import 'companion_notifier.dart';
+import 'profile_repository.dart';
 import '../home/home_screen.dart';
 import 'profile_notifier.dart';
 
@@ -13,6 +14,10 @@ const _ageOptions = [1, 2, 3, 4];
 const _genderOptions = [
   _GenderOption(label: 'Boy', value: 'boy', icon: Icons.face_rounded),
   _GenderOption(label: 'Girl', value: 'girl', icon: Icons.face_3_rounded),
+];
+const _localeOptions = [
+  _LocaleOption(label: 'English', value: 'en-IN'),
+  _LocaleOption(label: 'Hindi', value: 'hi-IN'),
 ];
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
@@ -30,6 +35,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   int _selectedAge = 2;
   String _selectedGender = 'boy';
+  String _selectedLocale = defaultProfileLocale;
   bool _isSubmitting = false;
 
   @override
@@ -53,6 +59,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             gender: _selectedGender,
             age: _selectedAge,
             companionId: ref.read(companionNotifierProvider)?.id,
+            locale: _selectedLocale,
           );
 
       if (!mounted) return;
@@ -195,6 +202,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               onAgeChanged: (age) =>
                                   setState(() => _selectedAge = age),
                             ),
+                            const SizedBox(height: 28),
+                            _FieldLabel(
+                              text: 'Preferred language',
+                              theme: theme,
+                              colors: colors,
+                            ),
+                            const SizedBox(height: 12),
+                            _LocaleSelector(
+                              selectedLocale: _selectedLocale,
+                              onLocaleChanged: (locale) =>
+                                  setState(() => _selectedLocale = locale),
+                            ),
                             const SizedBox(height: 40),
                             Consumer(
                               builder: (context, ref, child) {
@@ -263,6 +282,13 @@ class _GenderOption {
   final String label;
   final String value;
   final IconData icon;
+}
+
+class _LocaleOption {
+  const _LocaleOption({required this.label, required this.value});
+
+  final String label;
+  final String value;
 }
 
 class _ProfileBackground extends StatelessWidget {
@@ -727,6 +753,120 @@ class _AgeButton extends StatelessWidget {
                 : colors.onSurface.withValues(alpha: 0.64),
             fontWeight: FontWeight.w700,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LocaleSelector extends StatelessWidget {
+  const _LocaleSelector({
+    required this.selectedLocale,
+    required this.onLocaleChanged,
+  });
+
+  final String selectedLocale;
+  final ValueChanged<String> onLocaleChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Row(
+      children: _localeOptions.map((locale) {
+        final isSelected = locale.value == selectedLocale;
+
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: locale == _localeOptions.first ? 12 : 0,
+              left: locale == _localeOptions.last ? 12 : 0,
+            ),
+            child: _LocaleButton(
+              option: locale,
+              isSelected: isSelected,
+              onTap: () => onLocaleChanged(locale.value),
+              colors: colors,
+              theme: theme,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _LocaleButton extends StatelessWidget {
+  const _LocaleButton({
+    required this.option,
+    required this.isSelected,
+    required this.onTap,
+    required this.colors,
+    required this.theme,
+  });
+
+  final _LocaleOption option;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final ColorScheme colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 54,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colors.secondaryContainer
+              : colors.surface.withValues(alpha: 0.88),
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          border: Border.all(
+            color: isSelected
+                ? colors.primary
+                : colors.outline.withValues(alpha: 0.16),
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: colors.secondary.withValues(alpha: 0.32),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.language_rounded,
+              color: isSelected
+                  ? colors.onSecondaryContainer
+                  : colors.onSurface.withValues(alpha: 0.64),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                option.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: isSelected
+                      ? colors.onSecondaryContainer
+                      : colors.onSurface.withValues(alpha: 0.64),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
