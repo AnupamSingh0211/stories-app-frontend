@@ -8,9 +8,13 @@ import '../repositories/story_repository.dart';
 import 'story_player_state.dart';
 
 class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
-  StoryPlayerNotifier(this._repository, {required String storyId})
-    : _storyId = storyId,
-      super(StoryPlayerState.initial()) {
+  StoryPlayerNotifier(
+    this._repository, {
+    required String storyId,
+    int initialPageIndex = 0,
+  }) : _storyId = storyId,
+       _initialPageIndex = initialPageIndex,
+       super(StoryPlayerState.initial()) {
     _playerStateSubscription = _audioPlayer.playerStateStream.listen(
       _handlePlayerState,
       onError: (Object error) {
@@ -21,6 +25,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
   final StoryRepository _repository;
   final String _storyId;
+  final int _initialPageIndex;
   final AudioPlayer _audioPlayer = AudioPlayer();
   StreamSubscription<PlayerState>? _playerStateSubscription;
   bool _disposed = false;
@@ -46,9 +51,13 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
         return;
       }
 
+      final initialPageIndex = pages.isEmpty
+          ? 0
+          : _initialPageIndex.clamp(0, pages.length - 1).toInt();
+
       state = state.copyWith(
         pages: pages,
-        currentPageIndex: 0,
+        currentPageIndex: initialPageIndex,
         playbackSpeed: 1,
         isLoading: false,
         isComplete: false,
@@ -57,7 +66,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
       await _audioPlayer.setSpeed(state.playbackSpeed);
       unawaited(_loadFavorite());
-      await _loadPageAudio(0);
+      await _loadPageAudio(initialPageIndex);
     } catch (error) {
       _setError(_friendlyError(error));
     }

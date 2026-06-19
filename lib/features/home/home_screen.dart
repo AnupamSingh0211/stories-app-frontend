@@ -5,6 +5,7 @@ import '../../shared/theme/app_border_radius.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_gradients.dart';
 import '../../shared/theme/app_shadows.dart';
+import '../../shared/layout/responsive_layout.dart';
 import '../../shared/widgets/pill_button.dart';
 import '../auth/assets_provider.dart';
 import '../auth/companions_provider.dart';
@@ -13,6 +14,7 @@ import '../auth/profile_notifier.dart';
 import '../library/library_screen.dart';
 import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
+import '../storytime/providers/continue_listening_provider.dart';
 import '../storytime/providers/story_player_provider.dart';
 import '../storytime/screens/story_player_screen.dart';
 import '../storytime/screens/storytime_screen.dart';
@@ -63,12 +65,20 @@ class HomeScreen extends ConsumerWidget {
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  final horizontalPadding = pageHorizontalPadding(context);
                   return SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(24, 18, 24, 114),
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      18,
+                      horizontalPadding,
+                      floatingNavigationScrollPadding(context),
+                    ),
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight - 132,
+                        minHeight:
+                            constraints.maxHeight -
+                            floatingNavigationScrollPadding(context),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -101,9 +111,9 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             Positioned(
-              left: 24,
-              right: 24,
-              bottom: 18,
+              left: pageHorizontalPadding(context),
+              right: pageHorizontalPadding(context),
+              bottom: floatingNavigationBottom(context),
               child: _BottomNavigation(
                 onStoriesTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -186,6 +196,8 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final width = MediaQuery.sizeOf(context).width;
+    final titleSize = responsiveValue(width: width, compact: 25, regular: 28);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,17 +218,21 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                "Ready for tonight's\nbedtime story?",
+                "Ready for tonight's bedtime story?",
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.headlineMedium?.copyWith(
                   color: colors.onSurface,
-                  fontSize: 28,
+                  fontSize: titleSize,
                   height: 1.16,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 14),
               Text(
-                "Let's create a calm and magical\nstorytime for your little one.",
+                "Let's create a calm and magical storytime for your little one.",
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colors.onSurface.withValues(alpha: 0.68),
                   fontSize: 14,
@@ -312,177 +328,233 @@ class _HeroStoryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: AppBorderRadius.panel,
-        boxShadow: const [AppShadows.elevation2],
-      ),
-      child: ClipRRect(
-        borderRadius: AppBorderRadius.panel,
-        child: DecoratedBox(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stackButtons = constraints.maxWidth < 340;
+        final cardPadding = constraints.maxWidth < 340 ? 16.0 : 20.0;
+
+        return DecoratedBox(
           decoration: BoxDecoration(
-            gradient: AppGradients.heroCard,
-            border: Border.all(color: AppColors.borderLight),
+            borderRadius: AppBorderRadius.panel,
+            boxShadow: const [AppShadows.elevation2],
           ),
-          child: Stack(
-            children: [
-              if (backgroundImageUrl != null && backgroundImageUrl!.isNotEmpty)
-                Positioned.fill(
-                  child: Image.network(
-                    backgroundImageUrl!,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                    opacity: const AlwaysStoppedAnimation(0.78),
-                    errorBuilder: (context, error, stackTrace) {
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        AppColors.surfaceCard.withValues(alpha: 0.72),
-                        AppColors.surfaceCard.withValues(alpha: 0.5),
-                        AppColors.surfaceCard.withValues(alpha: 0.28),
-                      ],
-                    ),
-                  ),
-                ),
+          child: ClipRRect(
+            borderRadius: AppBorderRadius.panel,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppGradients.heroCard,
+                border: Border.all(color: AppColors.borderLight),
               ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
+              child: Stack(
+                children: [
+                  if (backgroundImageUrl != null &&
+                      backgroundImageUrl!.isNotEmpty)
+                    Positioned.fill(
+                      child: Image.network(
+                        backgroundImageUrl!,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        opacity: const AlwaysStoppedAnimation(0.78),
+                        errorBuilder: (context, error, stackTrace) {
+                          return const SizedBox.shrink();
+                        },
                       ),
+                    ),
+                  Positioned.fill(
+                    child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: AppColors.accentPrimary.withValues(alpha: 0.24),
-                        borderRadius: AppBorderRadius.card,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            color: colors.primary,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            "Tonight's Story",
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: colors.onSurface,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            AppColors.surfaceCard.withValues(alpha: 0.72),
+                            AppColors.surfaceCard.withValues(alpha: 0.5),
+                            AppColors.surfaceCard.withValues(alpha: 0.28),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    Text(
-                      story?.title ?? 'Choose a bedtime story',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: colors.onSurface,
-                        fontSize: 23,
-                        height: 1.28,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Personalized for $childName - Age $age',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurface.withValues(alpha: 0.64),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Row(
+                  ),
+                  Padding(
+                    padding: EdgeInsets.all(cardPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: PillButton(
-                            onTap: () => _openStorytime(context),
-                            height: 56,
-                            gradient: AppGradients.primaryButton,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.play_arrow_rounded,
-                                  color: AppColors.textOnAccent,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    'Storytime',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelLarge?.copyWith(
-                                      color: AppColors.textOnAccentSoft,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentPrimary.withValues(
+                              alpha: 0.24,
                             ),
+                            borderRadius: AppBorderRadius.card,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome_rounded,
+                                color: colors.primary,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Tonight's Story",
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: colors.onSurface,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: PillButton(
-                            onTap: null,
-                            height: 56,
-                            color: AppColors.surfaceWhite08,
-                            border: Border.all(color: AppColors.borderMedium),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.auto_awesome_rounded,
-                                  color: colors.primary,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    'Surprise Me',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelLarge?.copyWith(
-                                      color: colors.onSurface.withValues(
-                                        alpha: 0.8,
-                                      ),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        const SizedBox(height: 18),
+                        Text(
+                          story?.title ?? 'Choose a bedtime story',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: colors.onSurface,
+                            fontSize: constraints.maxWidth < 340 ? 21 : 23,
+                            height: 1.28,
+                            fontWeight: FontWeight.w700,
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Personalized for $childName - Age $age',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colors.onSurface.withValues(alpha: 0.64),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        _HeroActions(
+                          stackButtons: stackButtons,
+                          colors: colors,
+                          theme: theme,
+                          onStorytimeTap: () => _openStorytime(context),
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        );
+      },
+    );
+  }
+}
+
+class _HeroActions extends StatelessWidget {
+  const _HeroActions({
+    required this.stackButtons,
+    required this.colors,
+    required this.theme,
+    required this.onStorytimeTap,
+  });
+
+  final bool stackButtons;
+  final ColorScheme colors;
+  final ThemeData theme;
+  final VoidCallback onStorytimeTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = _HeroActionButton(
+      onTap: onStorytimeTap,
+      gradient: AppGradients.primaryButton,
+      icon: const Icon(
+        Icons.play_arrow_rounded,
+        color: AppColors.textOnAccent,
+        size: 28,
+      ),
+      label: 'Storytime',
+      textColor: AppColors.textOnAccentSoft,
+      theme: theme,
+    );
+    final secondary = _HeroActionButton(
+      onTap: null,
+      color: AppColors.surfaceWhite08,
+      border: Border.all(color: AppColors.borderMedium),
+      icon: Icon(Icons.auto_awesome_rounded, color: colors.primary, size: 18),
+      label: 'Surprise Me',
+      textColor: colors.onSurface.withValues(alpha: 0.8),
+      theme: theme,
+    );
+
+    if (stackButtons) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [primary, const SizedBox(height: 10), secondary],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: primary),
+        const SizedBox(width: 14),
+        Expanded(child: secondary),
+      ],
+    );
+  }
+}
+
+class _HeroActionButton extends StatelessWidget {
+  const _HeroActionButton({
+    required this.onTap,
+    required this.icon,
+    required this.label,
+    required this.textColor,
+    required this.theme,
+    this.gradient,
+    this.color,
+    this.border,
+  });
+
+  final VoidCallback? onTap;
+  final Widget icon;
+  final String label;
+  final Color textColor;
+  final ThemeData theme;
+  final Gradient? gradient;
+  final Color? color;
+  final Border? border;
+
+  @override
+  Widget build(BuildContext context) {
+    return PillButton(
+      onTap: onTap,
+      height: 56,
+      gradient: gradient,
+      color: color,
+      border: border,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          icon,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: textColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -522,19 +594,10 @@ class _StoryTraits extends StatelessWidget {
   }
 }
 
-class _ContinueListeningCard extends ConsumerStatefulWidget {
+class _ContinueListeningCard extends ConsumerWidget {
   const _ContinueListeningCard({this.story});
 
   final StoryModel? story;
-
-  @override
-  ConsumerState<_ContinueListeningCard> createState() =>
-      _ContinueListeningCardState();
-}
-
-class _ContinueListeningCardState
-    extends ConsumerState<_ContinueListeningCard> {
-  bool _hasOpenedStory = false;
 
   void _openStorytime(BuildContext context) {
     Navigator.of(context).push(
@@ -565,15 +628,10 @@ class _ContinueListeningCardState
     );
   }
 
-  void _openStoryPlayer(BuildContext context) {
-    final selectedStory = widget.story;
+  void _openStoryPlayer(BuildContext context, StoryModel? selectedStory) {
     if (selectedStory == null) {
       _openStorytime(context);
       return;
-    }
-
-    if (!_hasOpenedStory) {
-      setState(() => _hasOpenedStory = true);
     }
 
     Navigator.of(context).push(
@@ -584,6 +642,7 @@ class _ContinueListeningCardState
           return StoryPlayerScreen(
             storyId: selectedStory.id,
             title: selectedStory.title,
+            story: selectedStory,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -608,35 +667,21 @@ class _ContinueListeningCardState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final selectedStory = widget.story;
+    final continueEntry = ref.watch(continueListeningProvider);
+    final selectedStory = continueEntry?.story ?? story;
     final imageUrl =
         selectedStory?.coverUrl ??
         selectedStory?.imageUrl ??
         selectedStory?.thumbnailUrl;
-    final playerPosition = selectedStory != null && _hasOpenedStory
-        ? ref.watch(
-            storyPlayerProvider(selectedStory.id).select(
-              (state) => (
-                pageIndex: state.currentPageIndex,
-                pageCount: state.pageCount,
-                isComplete: state.isComplete,
-              ),
-            ),
-          )
-        : null;
-    final progress = playerPosition == null || playerPosition.pageCount == 0
-        ? 0.0
-        : playerPosition.isComplete
-        ? 1.0
-        : playerPosition.pageIndex / playerPosition.pageCount;
+    final progress = continueEntry?.progress ?? 0.0;
 
     return _HomePanel(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => _openStoryPlayer(context),
+        onTap: () => _openStoryPlayer(context, selectedStory),
         child: Column(
           children: [
             _SectionTitle(
@@ -677,7 +722,8 @@ class _ContinueListeningCardState
                           bottom: 7,
                           child: GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onTap: () => _openStoryPlayer(context),
+                            onTap: () =>
+                                _openStoryPlayer(context, selectedStory),
                             child: Container(
                               width: 34,
                               height: 34,
@@ -731,21 +777,30 @@ class _ContinueListeningCardState
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Text(
-                            selectedStory == null
-                                ? 'No story selected'
-                                : selectedStory.durationLabel,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colors.onSurface.withValues(alpha: 0.58),
-                              fontSize: 12,
+                          Flexible(
+                            child: Text(
+                              selectedStory == null
+                                  ? 'No story selected'
+                                  : selectedStory.durationLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colors.onSurface.withValues(alpha: 0.58),
+                                fontSize: 12,
+                              ),
                             ),
                           ),
-                          const Spacer(),
-                          Text(
-                            selectedStory?.category ?? 'Storytime',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colors.onSurface.withValues(alpha: 0.58),
-                              fontSize: 12,
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Text(
+                              selectedStory?.category ?? 'Storytime',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colors.onSurface.withValues(alpha: 0.58),
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ],

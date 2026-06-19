@@ -5,6 +5,7 @@ import '../../../shared/theme/app_border_radius.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_gradients.dart';
 import '../../../shared/theme/app_shadows.dart';
+import '../../../shared/layout/responsive_layout.dart';
 import '../../auth/profile_notifier.dart';
 import '../../library/library_screen.dart';
 import '../../profile/profile_screen.dart';
@@ -91,14 +92,18 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
                       onPageChanged: (_) {},
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 118)),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: floatingNavigationScrollPadding(context),
+                    ),
+                  ),
                 ],
               ),
             ),
             Positioned(
-              left: 24,
-              right: 24,
-              bottom: 18,
+              left: pageHorizontalPadding(context),
+              right: pageHorizontalPadding(context),
+              bottom: floatingNavigationBottom(context),
               child: _BedtimeBottomNavigation(
                 selectedItem: _NavigationItem.stories,
                 onHomeTap: () => Navigator.maybePop(context),
@@ -133,13 +138,21 @@ class _TopAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final horizontalPadding = pageHorizontalPadding(context);
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < 360;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        14,
+        horizontalPadding,
+        18,
+      ),
       child: Row(
         children: [
           SizedBox.square(
-            dimension: 40,
+            dimension: compact ? 36 : 40,
             child: IconButton(
               padding: EdgeInsets.zero,
               onPressed: () => Navigator.maybePop(context),
@@ -150,7 +163,7 @@ class _TopAppBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: compact ? 6 : 10),
           Expanded(
             child: Text(
               'Dreamy Tales',
@@ -158,14 +171,22 @@ class _TopAppBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.headlineSmall?.copyWith(
                 color: colors.onSurface,
-                fontSize: 30,
+                fontSize: compact ? 25 : 30,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          _RoundIconButton(icon: Icons.search_rounded, onTap: () {}),
-          const SizedBox(width: 12),
-          _ChildAvatar(colors: colors, onTap: onProfileTap),
+          _RoundIconButton(
+            icon: Icons.search_rounded,
+            size: compact ? 42 : 48,
+            onTap: () {},
+          ),
+          SizedBox(width: compact ? 8 : 12),
+          _ChildAvatar(
+            colors: colors,
+            size: compact ? 46 : 52,
+            onTap: onProfileTap,
+          ),
         ],
       ),
     );
@@ -414,51 +435,84 @@ class _HorizontalStorySection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        SizedBox(
-          height: isTall ? 278 : 260,
-          child: stories.isEmpty
-              ? ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  children: [
-                    _EmptyImageCard(
-                      width: isTall ? 150 : 178,
-                      height: isTall ? 248 : 224,
-                      icon: Icons.auto_stories_rounded,
-                      label: 'Stories are loading',
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final screenWidth = MediaQuery.sizeOf(context).width;
+            final cardWidth = _storyCardWidth(screenWidth, isTall: isTall);
+            final imageHeight = isTall ? cardWidth / 0.78 : cardWidth;
+            final rowHeight = imageHeight + (isTall ? 82 : 72);
+
+            return SizedBox(
+              height: rowHeight,
+              child: stories.isEmpty
+                  ? ListView(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: pageHorizontalPadding(context),
+                      ),
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      children: [
+                        _EmptyImageCard(
+                          width: cardWidth,
+                          height: imageHeight,
+                          icon: Icons.auto_stories_rounded,
+                          label: 'Stories are loading',
+                        ),
+                      ],
+                    )
+                  : ListView.separated(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: pageHorizontalPadding(context),
+                      ),
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: stories.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(width: 16),
+                      itemBuilder: (context, index) => _StoryCard(
+                        story: stories[index],
+                        isTall: isTall,
+                        width: cardWidth,
+                      ),
                     ),
-                  ],
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: stories.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(width: 16),
-                  itemBuilder: (context, index) =>
-                      _StoryCard(story: stories[index], isTall: isTall),
-                ),
+            );
+          },
         ),
       ],
     );
   }
 }
 
+double _storyCardWidth(double screenWidth, {required bool isTall}) {
+  final gutters = pageHorizontalPaddingForWidth(screenWidth) * 2;
+  final twoCardWidth = (screenWidth - gutters - 16) / 2;
+  if (isTall) {
+    return twoCardWidth.clamp(136.0, 150.0);
+  }
+  return twoCardWidth.clamp(150.0, 178.0);
+}
+
 class _StoryCard extends StatelessWidget {
-  const _StoryCard({required this.story, required this.isTall});
+  const _StoryCard({
+    required this.story,
+    required this.isTall,
+    required this.width,
+  });
 
   final StoryModel story;
   final bool isTall;
+  final double width;
 
   bool get _opensPlayer => story.id.trim().isNotEmpty;
 
   void _openPlayer(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) =>
-            StoryPlayerScreen(storyId: story.id, title: story.title),
+        builder: (context) => StoryPlayerScreen(
+          storyId: story.id,
+          title: story.title,
+          story: story,
+        ),
       ),
     );
   }
@@ -469,7 +523,7 @@ class _StoryCard extends StatelessWidget {
     final colors = theme.colorScheme;
 
     return SizedBox(
-      width: isTall ? 150 : 178,
+      width: width,
       child: _Pressable(
         onTap: _opensPlayer ? () => _openPlayer(context) : null,
         child: Column(
@@ -735,10 +789,15 @@ class _PageDots extends StatelessWidget {
 }
 
 class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({required this.icon, required this.onTap});
+  const _RoundIconButton({
+    required this.icon,
+    required this.onTap,
+    this.size = 48,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -747,7 +806,7 @@ class _RoundIconButton extends StatelessWidget {
     return _Pressable(
       onTap: onTap,
       child: SizedBox.square(
-        dimension: 48,
+        dimension: size,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: AppColors.borderDark,
@@ -762,10 +821,15 @@ class _RoundIconButton extends StatelessWidget {
 }
 
 class _ChildAvatar extends StatelessWidget {
-  const _ChildAvatar({required this.colors, required this.onTap});
+  const _ChildAvatar({
+    required this.colors,
+    required this.onTap,
+    this.size = 52,
+  });
 
   final ColorScheme colors;
   final VoidCallback onTap;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -776,8 +840,8 @@ class _ChildAvatar extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Container(
-          width: 52,
-          height: 52,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: colors.primary, width: 2),

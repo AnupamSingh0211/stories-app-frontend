@@ -193,8 +193,11 @@ class _SavedStoryCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (context) =>
-              StoryPlayerScreen(storyId: story.id, title: story.title),
+          builder: (context) => StoryPlayerScreen(
+            storyId: story.id,
+            title: story.title,
+            story: story,
+          ),
         ),
       ),
       child: DecoratedBox(

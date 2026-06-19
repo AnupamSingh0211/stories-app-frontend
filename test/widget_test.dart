@@ -14,6 +14,7 @@ import 'package:dharma_app/features/home/home_screen.dart';
 import 'package:dharma_app/features/library/library_screen.dart';
 import 'package:dharma_app/features/profile/profile_screen.dart';
 import 'package:dharma_app/features/storytime/models/story_model.dart';
+import 'package:dharma_app/features/storytime/providers/continue_listening_provider.dart';
 import 'package:dharma_app/features/storytime/providers/saved_library_provider.dart';
 import 'package:dharma_app/features/storytime/providers/story_player_provider.dart';
 import 'package:dharma_app/features/storytime/repositories/story_repository.dart';
@@ -245,6 +246,107 @@ void main() {
     );
   });
 
+  testWidgets('home and stories stay stable on compact scaled Android layout', (
+    WidgetTester tester,
+  ) async {
+    final view = tester.view;
+    addTearDown(() {
+      view.resetPhysicalSize();
+      view.resetDevicePixelRatio();
+      view.platformDispatcher.clearTextScaleFactorTestValue();
+      view.padding = FakeViewPadding.zero;
+    });
+
+    view.devicePixelRatio = 2.75;
+    view.physicalSize = const Size(990, 1980);
+    view.platformDispatcher.textScaleFactorTestValue = 1.25;
+    view.padding = const FakeViewPadding(bottom: 72);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          companionsProvider.overrideWith((ref) async => const []),
+          appAssetsProvider.overrideWithValue(const {}),
+          storytimeContentProvider.overrideWith((ref) async => _storyContent),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const HomeScreen(childName: 'svayudh', childAge: 3),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Stories'), findsOneWidget);
+
+    await tester.tap(find.text('Stories'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Dreamy Tales'), findsWidgets);
+    expect(find.text('For You'), findsOneWidget);
+  });
+
+  testWidgets('home continue listening shows saved unfinished story', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          companionsProvider.overrideWith((ref) async => const []),
+          appAssetsProvider.overrideWithValue(const {}),
+          storytimeContentProvider.overrideWith((ref) async => _storyContent),
+          continueListeningProvider.overrideWith(
+            (ref) => _SeededContinueListeningNotifier(
+              ContinueListeningEntry(
+                story: _storyTwo,
+                currentPageIndex: 1,
+                pageCount: 4,
+                updatedAt: _testUpdatedAt,
+              ),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const HomeScreen(childName: 'Aarav', childAge: 3),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continue Listening'), findsOneWidget);
+    expect(find.text('Kanha Ke Aane Ki Khabar'), findsOneWidget);
+    expect(find.text('4 min'), findsOneWidget);
+  });
+
+  test('continue listening saves progress and clears completed story', () {
+    final notifier = ContinueListeningNotifier();
+
+    notifier.saveProgress(
+      story: _storyOne,
+      currentPageIndex: 2,
+      pageCount: 5,
+      updatedAt: _testUpdatedAt,
+    );
+
+    expect(notifier.state?.story.id, _storyOne.id);
+    expect(notifier.state?.currentPageIndex, 2);
+    expect(notifier.state?.pageCount, 5);
+
+    notifier.clearStory(_storyTwo.id);
+    expect(notifier.state?.story.id, _storyOne.id);
+
+    notifier.clearStory(_storyOne.id);
+    expect(notifier.state, isNull);
+  });
+
   testWidgets('onboarding saves a child and replaces setup with home', (
     WidgetTester tester,
   ) async {
@@ -318,6 +420,45 @@ void main() {
 const _testAssets = {
   'profile_setup_bg': 'https://example.com/profile_setup_bg.webp',
 };
+
+const _storyOne = StoryModel(
+  id: 'story-one',
+  title: 'Kanha Ki Sunheri Subah',
+  thumbnailUrl: 'https://example.com/story-one.webp',
+  category: 'Krishna Stories',
+  durationMinutes: 3,
+);
+
+const _storyTwo = StoryModel(
+  id: 'story-two',
+  title: 'Kanha Ke Aane Ki Khabar',
+  thumbnailUrl: 'https://example.com/story-two.webp',
+  category: 'Krishna Stories',
+  durationMinutes: 4,
+);
+
+const _storyContent = StorytimeContent(
+  featuredBanners: [
+    FeaturedBannerModel(
+      id: 'banner-one',
+      imageUrl: 'https://example.com/banner-one.webp',
+      title: 'Krishna playing with flute',
+      subtitle: 'Dreamy Tales',
+    ),
+  ],
+  sections: [
+    StorySectionModel(
+      id: 'for-you',
+      title: 'For You',
+      stories: [_storyOne, _storyTwo],
+    ),
+  ],
+  forYouStories: [_storyOne, _storyTwo],
+  popularStories: [],
+  categories: [],
+);
+
+final _testUpdatedAt = DateTime.utc(2026, 6, 17);
 
 Future<void> _pumpProfileSetup(
   WidgetTester tester, {
@@ -464,6 +605,12 @@ class _TestSavedLibraryNotifier extends SavedLibraryNotifier {
 
   @override
   Future<void> loadLibrary() async {}
+}
+
+class _SeededContinueListeningNotifier extends ContinueListeningNotifier {
+  _SeededContinueListeningNotifier(ContinueListeningEntry entry) {
+    state = entry;
+  }
 }
 
 class _EmptyAsyncStorage extends GotrueAsyncStorage {
