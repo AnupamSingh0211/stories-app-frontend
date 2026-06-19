@@ -12,7 +12,10 @@ import '../../auth/profile_notifier.dart';
 import '../../auth/profile_repository.dart';
 import '../../library/library_screen.dart';
 import '../audio/background_music_resolver.dart';
+import '../models/story_model.dart';
 import '../models/story_page.dart';
+import '../notifiers/story_player_state.dart';
+import '../providers/continue_listening_provider.dart';
 import '../providers/saved_library_provider.dart';
 import '../providers/story_player_provider.dart';
 import '../repositories/story_repository.dart';
@@ -23,11 +26,13 @@ class StoryPlayerScreen extends ConsumerStatefulWidget {
   const StoryPlayerScreen({
     this.storyId = StoryRepository.morningWhispersStoryId,
     this.title = 'Kanha Ki Sunheri Subah',
+    this.story,
     super.key,
   });
 
   final String storyId;
   final String title;
+  final StoryModel? story;
 
   @override
   ConsumerState<StoryPlayerScreen> createState() => _StoryPlayerScreenState();
@@ -65,6 +70,24 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen> {
         unawaited(_stopBackgroundMusic());
         Future.microtask(_showSaveStoryPrompt);
       }
+    });
+
+    ref.listen<StoryPlayerState>(provider, (previous, next) {
+      if (next.pageCount == 0) {
+        return;
+      }
+
+      final continueNotifier = ref.read(continueListeningProvider.notifier);
+      if (next.isComplete) {
+        continueNotifier.clearStory(widget.storyId);
+        return;
+      }
+
+      continueNotifier.saveProgress(
+        story: widget.story ?? _fallbackStory(next),
+        currentPageIndex: next.currentPageIndex,
+        pageCount: next.pageCount,
+      );
     });
 
     ref.listen<bool>(provider.select((state) => state.isPlaying), (
@@ -113,6 +136,19 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen> {
                 ),
               ),
       ),
+    );
+  }
+
+  StoryModel _fallbackStory(StoryPlayerState state) {
+    final imageUrl = state.currentImageUrl;
+    return StoryModel(
+      id: widget.storyId,
+      title: widget.title,
+      thumbnailUrl: imageUrl,
+      category: 'Storytime',
+      durationMinutes: 0,
+      imageUrl: imageUrl,
+      coverUrl: imageUrl,
     );
   }
 
