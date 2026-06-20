@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'app_border_radius.dart';
 import 'app_colors.dart';
+import 'app_typography.dart';
 
 abstract final class AppTheme {
-  static const _fontFamily = 'PlusJakartaSans';
+  static const _fontFamily = AppTypography.fontFamily;
 
   static final ThemeData darkTheme = _theme(
     brightness: Brightness.dark,

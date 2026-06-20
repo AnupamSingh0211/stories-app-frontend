@@ -37,6 +37,7 @@ dependencies:
   flutter_riverpod: ^2.6.1
   cached_network_image: ^3.4.1
   flutter_dotenv: ^5.2.1
+  flutter_svg: ^2.2.3
   audio_session: ^0.1.25
   just_audio: ^0.9.46
   riverpod_annotation: ^2.6.1
@@ -72,6 +73,11 @@ flutter:
   assets:
     - .env
     - assets/audio/background/
+    - assets/icons/actions/
+    - assets/icons/nav/
+    - assets/icons/notifications/
+    - assets/icons/player/
+    - assets/icons/switch/
 
   # To add assets to your application, add an assets section, like this:
   #assets:
@@ -89,13 +95,17 @@ flutter:
   # list giving the asset and other descriptors for the font. For
   # example:
   fonts:
-     - family: PlusJakartaSans
-       fonts:
-         - asset: assets/fonts/PlusJakartaSans-Regular.ttf
-           weight: 400
-         - asset: assets/fonts/PlusJakartaSans-Bold.ttf
-           weight: 700
-         
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
+
   #         style: italic
   #   - family: Trajan Pro
   #     fonts:
