@@ -42,32 +42,64 @@ class AppBottomNavigation extends StatelessWidget {
     final itemWidths = items.length == 4
         ? const [69.0, 77.0, 76.0, 74.0]
         : List<double>.filled(items.length, 69);
+    final totalItemWidth = itemWidths.fold<double>(
+      0,
+      (total, width) => total + width,
+    );
+    final totalGapWidth = 18.9 * (items.length - 1);
+    final idealContentWidth = totalItemWidth + totalGapWidth;
 
     return Container(
       width: double.infinity,
       height: 72,
       color: AppColors.surfaceWhite,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 17.47, vertical: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var index = 0; index < items.length; index += 1) ...[
-                SizedBox(
-                  width: itemWidths[index],
-                  height: 48,
-                  child: _AppBottomNavigationTile(
-                    item: items[index],
-                    selected: selectedIndex == index,
-                    onTap: () => onItemSelected(index),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final horizontalPadding = constraints.maxWidth >= 390 ? 17.47 : 8.0;
+          final availableContentWidth =
+              constraints.maxWidth - (horizontalPadding * 2);
+          return Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: 12,
+              ),
+              child: SizedBox(
+                width: availableContentWidth,
+                height: 48,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: SizedBox(
+                    width: idealContentWidth,
+                    height: 48,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (
+                          var index = 0;
+                          index < items.length;
+                          index += 1
+                        ) ...[
+                          SizedBox(
+                            width: itemWidths[index],
+                            height: 48,
+                            child: _AppBottomNavigationTile(
+                              item: items[index],
+                              selected: selectedIndex == index,
+                              onTap: () => onItemSelected(index),
+                            ),
+                          ),
+                          if (index < items.length - 1)
+                            const SizedBox(width: 18.9),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
-                if (index < items.length - 1) const SizedBox(width: 18.9),
-              ],
-            ],
-          ),
-        ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -187,6 +219,7 @@ class AppBottomNavigationIcon extends StatelessWidget {
       effectiveIcon,
       color: selected ? AppColors.blue600 : AppColors.gray500,
       size: 24,
+      applyTextScaling: false,
     );
   }
 }
@@ -241,7 +274,7 @@ class _AppBottomNavigationTile extends StatelessWidget {
         child: Container(
           width: double.infinity,
           height: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           decoration: const ShapeDecoration(shape: StadiumBorder()),
           child: Column(
             mainAxisSize: MainAxisSize.max,
@@ -254,15 +287,23 @@ class _AppBottomNavigationTile extends StatelessWidget {
                 selectedIconAsset: item.selectedIconAsset,
                 selected: selected,
               ),
-              Text(
-                item.label,
-                softWrap: false,
-                maxLines: 1,
-                overflow: TextOverflow.visible,
-                style: AppTypography.bodySmallBold.copyWith(
-                  color: color,
-                  height: 16 / 12,
-                  letterSpacing: 0.5,
+              SizedBox(
+                width: double.infinity,
+                height: 16,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    item.label,
+                    textScaler: TextScaler.noScaling,
+                    softWrap: false,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    style: AppTypography.bodySmallBold.copyWith(
+                      color: color,
+                      height: 16 / 12,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                 ),
               ),
             ],
