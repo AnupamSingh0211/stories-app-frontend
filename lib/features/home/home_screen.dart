@@ -120,12 +120,14 @@ class HomeScreen extends ConsumerWidget {
                           builder: (context) => const StorytimeScreen(),
                         ),
                       );
+                      break;
                     case 2:
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (context) => const LibraryScreen(),
                         ),
                       );
+                      break;
                     case 3:
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -135,6 +137,7 @@ class HomeScreen extends ConsumerWidget {
                           ),
                         ),
                       );
+                      break;
                   }
                 },
               ),
@@ -503,22 +506,26 @@ class _HeroStoryButton extends StatelessWidget {
                 ? Border.all(color: AppColors.blue500, width: 2)
                 : null,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              icon,
-              const SizedBox(width: 8),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.visible,
-                style: AppTypography.bodyLargeBold.copyWith(
-                  color: foregroundColor,
-                  height: 20 / 16,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                icon,
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  textScaler: TextScaler.noScaling,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodyLargeBold.copyWith(
+                    color: foregroundColor,
+                    height: 20 / 16,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

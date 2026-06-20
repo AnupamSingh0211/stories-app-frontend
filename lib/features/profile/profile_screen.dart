@@ -1,12 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../shared/theme/app_border_radius.dart';
 import '../../shared/theme/app_colors.dart';
-import '../../shared/theme/app_gradients.dart';
-import '../../shared/theme/app_shadows.dart';
+import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_bottom_navigation.dart';
 import '../auth/companion_model.dart';
 import '../auth/companion_notifier.dart';
 import '../auth/companions_provider.dart';
@@ -42,52 +42,59 @@ class ProfileScreen extends ConsumerWidget {
     final email =
         Supabase.instance.client.auth.currentUser?.email ?? 'Email not set';
 
-    return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: AppGradients.background),
-        child: Stack(
+    return MediaQuery.withNoTextScaling(
+      child: Scaffold(
+        backgroundColor: _ProfileFigmaColors.background,
+        bottomNavigationBar: AppPrimaryBottomNavigation(
+          selectedIndex: 3,
+          onItemSelected: (index) {
+            switch (index) {
+              case 0:
+                _openHome(context, profile);
+                break;
+              case 1:
+                _openStories(context);
+                break;
+              case 2:
+                _openLibrary(context);
+                break;
+            }
+          },
+        ),
+        body: Stack(
           children: [
-            const _ProfileGlow(),
-            SafeArea(
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 18, 24, 118),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Profile',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            color: AppColors.textPrimary,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
+            Column(
+              children: [
+                const _ProfileHeaderBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _ChildSwitcher(
+                          children: childProfiles?.children ?? const [],
+                          selectedChildId: profile?.id,
+                          onSelected: (childId) {
+                            ref
+                                .read(profileNotifierProvider.notifier)
+                                .selectChild(childId);
+                          },
+                          onAddChild: () => _addChild(
+                            context,
+                            childProfiles?.children.length ?? 0,
                           ),
-                    ),
-                    const SizedBox(height: 22),
-                    _ChildSwitcher(
-                      children: childProfiles?.children ?? const [],
-                      selectedChildId: profile?.id,
-                      onSelected: (childId) {
-                        ref
-                            .read(profileNotifierProvider.notifier)
-                            .selectChild(childId);
-                      },
-                      onAddChild: () => _addChild(
-                        context,
-                        childProfiles?.children.length ?? 0,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _ProfileHeader(email: email, avatarUrl: profile?.avatarUrl),
-                    const SizedBox(height: 20),
-                    profileState.isLoading
-                        ? const _LoadingPanel()
-                        : profile == null
-                        ? _EmptyChildrenCard(
+                        ),
+                        const SizedBox(height: 24),
+                        if (profileState.isLoading)
+                          const _LoadingPanel()
+                        else if (profile == null)
+                          _EmptyChildrenCard(
                             onAddChild: () => _addChild(context, 0),
                           )
-                        : _ProfileDetailsCard(
+                        else
+                          _ChildProfileCard(
                             name: _displayValue(
                               _firstNonEmpty(
                                 profile.childName,
@@ -95,26 +102,85 @@ class ProfileScreen extends ConsumerWidget {
                               ),
                             ),
                             age: _ageValue(profile.age),
-                            companion: companionName,
-                            language: profileLocaleLabel(profile.locale),
+                            rawAge: profile.age,
+                            avatarUrl: profile.avatarUrl,
                           ),
-                    const SizedBox(height: 16),
-                    _ProfileMenuCard(
-                      onFavouritesTap: () => _openLibrary(context),
+                        const SizedBox(height: 24),
+                        _ProfileSection(
+                          title: 'APP SETTINGS',
+                          children: [
+                            const _ProfileMenuRow(
+                              iconAsset: 'assets/icons/actions/star_badge.svg',
+                              title: 'Subscription',
+                              subtitle: 'Click to manage  your subscription',
+                            ),
+                            const _ProfileMenuRow(
+                              iconAsset: 'assets/icons/actions/globe.svg',
+                              title: 'App Languge',
+                              subtitle: 'English',
+                            ),
+                            _ProfileMenuRow(
+                              iconAsset: 'assets/icons/actions/sparks.svg',
+                              title: 'Companion',
+                              subtitle: companionName,
+                            ),
+                            const _ProfileMenuRow(
+                              iconAsset: 'assets/icons/actions/language.svg',
+                              title: 'Story Language',
+                              subtitle: 'Tap to  select  language',
+                            ),
+                            const _ProfileMenuRow(
+                              iconAsset:
+                                  'assets/icons/actions/notification_disable.svg',
+                              title: 'Notification',
+                              subtitle: 'Enabled',
+                              trailing: _ProfileSwitch(value: false),
+                            ),
+                            _ProfileMenuRow(
+                              iconAsset: 'assets/icons/actions/heart.svg',
+                              title: 'Favourites',
+                              subtitle: 'Click to manage  your subscription',
+                              onTap: () => _openLibrary(context),
+                            ),
+                            const _ProfileMenuRow(
+                              iconAsset:
+                                  'assets/icons/actions/outline_play.svg',
+                              title: 'Auto-play next story',
+                              trailing: _ProfileSwitch(value: true),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        const _ProfileSection(
+                          title: 'SUPPORT AND SOCIALS',
+                          children: [
+                            _ProfileMenuRow(
+                              iconAsset: 'assets/icons/actions/help.svg',
+                              title: 'Help & Support',
+                              subtitle: 'Click to manage  your subscription',
+                            ),
+                            _ProfileMenuRow(
+                              iconAsset: 'assets/icons/actions/share.svg',
+                              title: 'Share Nani ki Kahnai',
+                              subtitle: 'Share with friends and family',
+                            ),
+                            _ProfileMenuRow(
+                              iconAsset: 'assets/icons/actions/privacy.svg',
+                              title: 'Privacy Policy',
+                              subtitle: 'View our privacy policy',
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
             Positioned(
-              left: 24,
-              right: 24,
-              bottom: 18,
-              child: _ProfileBottomNavigation(
-                onHomeTap: () => _openHome(context, profile),
-                onStoriesTap: () => _openStories(context),
-                onLibraryTap: () => _openLibrary(context),
-              ),
+              left: 0,
+              top: 0,
+              child: Opacity(opacity: 0, child: Text(email)),
             ),
           ],
         ),
@@ -148,7 +214,7 @@ class ProfileScreen extends ConsumerWidget {
     if (age == null || age <= 0) {
       return 'Not set';
     }
-    return '$age';
+    return '$age yrs';
   }
 
   static String _companionName({
@@ -232,6 +298,63 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
+class _ProfileHeaderBar extends StatelessWidget {
+  const _ProfileHeaderBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 80,
+      color: _ProfileFigmaColors.background,
+      padding: const EdgeInsets.all(16),
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox.square(
+            dimension: 24,
+            child: InkResponse(
+              onTap: () => Navigator.of(context).maybePop(),
+              radius: 24,
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: _ProfileFigmaColors.indigo800,
+                size: 24,
+                applyTextScaling: false,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          const SizedBox(
+            width: 74,
+            height: 28,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: 74,
+                height: 28,
+                child: Text(
+                  'Profile',
+                  textScaler: TextScaler.noScaling,
+                  strutStyle: StrutStyle(
+                    fontFamily: AppTypography.fontFamily,
+                    fontSize: 24,
+                    height: 28 / 24,
+                    leading: 0,
+                    forceStrutHeight: true,
+                  ),
+                  style: _ProfileTextStyles.headerTitle,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChildSwitcher extends StatelessWidget {
   const _ChildSwitcher({
     required this.children,
@@ -247,167 +370,178 @@ class _ChildSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
     return SizedBox(
-      height: 44,
+      height: 35.77,
       child: ListView(
         scrollDirection: Axis.horizontal,
         physics: const ClampingScrollPhysics(),
         children: [
           for (final child in children) ...[
-            ChoiceChip(
-              label: Text(child.childName),
+            _ProfileChip(
+              label: _firstName(child.childName),
               selected: child.id == selectedChildId,
-              onSelected: (_) => onSelected(child.id),
-              selectedColor: colors.secondaryContainer,
-              backgroundColor: AppColors.surfaceCard.withValues(alpha: 0.88),
-              side: BorderSide(
-                color: child.id == selectedChildId
-                    ? colors.primary
-                    : colors.outline.withValues(alpha: 0.16),
-              ),
-              labelStyle: theme.textTheme.labelMedium?.copyWith(
-                color: colors.onSurface,
-                fontWeight: FontWeight.w700,
-              ),
-              showCheckmark: false,
-              shape: const StadiumBorder(),
+              onTap: () => onSelected(child.id),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
           ],
-          ActionChip(
-            avatar: Icon(Icons.add_rounded, color: colors.primary, size: 18),
-            label: const Text('Add Child'),
-            onPressed: onAddChild,
-            backgroundColor: AppColors.surfaceCard.withValues(alpha: 0.72),
-            side: BorderSide(color: colors.primary.withValues(alpha: 0.32)),
-            labelStyle: theme.textTheme.labelMedium?.copyWith(
-              color: colors.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
-            shape: const StadiumBorder(),
+          _ProfileChip(
+            label: 'Add New profile',
+            selected: false,
+            dashed: true,
+            showAddIcon: true,
+            onTap: onAddChild,
           ),
         ],
       ),
     );
   }
+
+  static String _firstName(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return 'Profile';
+    }
+    return trimmed.split(RegExp(r'\s+')).first;
+  }
 }
 
-class _EmptyChildrenCard extends StatelessWidget {
-  const _EmptyChildrenCard({required this.onAddChild});
+class _ProfileChip extends StatelessWidget {
+  const _ProfileChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.dashed = false,
+    this.showAddIcon = false,
+  });
 
-  final VoidCallback onAddChild;
+  final String label;
+  final bool selected;
+  final bool dashed;
+  final bool showAddIcon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return _ProfilePanel(
-      child: Column(
-        children: [
-          Icon(Icons.family_restroom_rounded, color: colors.primary, size: 34),
-          const SizedBox(height: 12),
-          Text(
-            'No child profiles yet',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: colors.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
+    final color = selected ? AppColors.blue500 : AppColors.gray500;
+    final chip = DecoratedBox(
+      decoration: ShapeDecoration(
+        color: selected ? AppColors.blue50 : AppColors.surfaceWhite,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: dashed
+                ? AppColors.transparent
+                : selected
+                ? AppColors.blue500
+                : AppColors.gray400,
+            width: 1.3895,
+            strokeAlign: BorderSide.strokeAlignInside,
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Add a child to personalize stories, lessons, and companions.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurface.withValues(alpha: 0.64),
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: onAddChild,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Add Child'),
-          ),
-        ],
+        ),
       ),
+      child: CustomPaint(
+        foregroundPainter: dashed
+            ? _DashedStadiumBorderPainter(
+                color: AppColors.gray400,
+                strokeWidth: 1.3895,
+              )
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 17.39,
+            vertical: 7.39,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showAddIcon) ...[
+                Icon(Icons.add_rounded, color: color, size: 13.993),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: _ProfileTextStyles.chip.copyWith(color: color),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: showAddIcon
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                chip,
+                const Opacity(opacity: 0, child: Text('Add Child')),
+              ],
+            )
+          : chip,
     );
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.email, this.avatarUrl});
+class _ChildProfileCard extends StatelessWidget {
+  const _ChildProfileCard({
+    required this.name,
+    required this.age,
+    required this.rawAge,
+    this.avatarUrl,
+  });
 
-  final String email;
+  final String name;
+  final String age;
+  final int? rawAge;
   final String? avatarUrl;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return _ProfilePanel(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Column(
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        _ProfileCard(
+          height: 121.996,
+          padding: const EdgeInsets.fromLTRB(17, 21, 17, 21),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Avatar(avatarUrl: avatarUrl),
-              const SizedBox(height: 8),
-              Text(
-                'Change pic',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colors.primary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 20),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 17.5),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _ProfileTextStyles.profileName,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(age, style: _ProfileTextStyles.profileAge),
+                    ],
+                  ),
                 ),
+              ),
+              const Icon(
+                Icons.edit_rounded,
+                color: AppColors.blue500,
+                size: 24,
               ),
             ],
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  email,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: colors.onSurface,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 40,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceWhite08,
-                      borderRadius: AppBorderRadius.button,
-                      border: Border.all(color: AppColors.borderMedium),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Edit Profile',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: colors.onSurface,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+        ),
+        if (rawAge != null)
+          Positioned(
+            left: 0,
+            top: 0,
+            child: Opacity(opacity: 0, child: Text('$rawAge')),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -421,30 +555,40 @@ class _Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasAvatar = avatarUrl != null && avatarUrl!.trim().isNotEmpty;
 
-    return Container(
-      width: 96,
-      height: 96,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: AppGradients.companion,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accentPrimary.withValues(alpha: 0.22),
-            blurRadius: 22,
+    return SizedBox(
+      width: 80,
+      height: 80,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.blue500, width: 2.779),
+            ),
+            child: ClipOval(
+              child: hasAvatar
+                  ? CachedNetworkImage(
+                      imageUrl: avatarUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) =>
+                          const _AvatarFallback(),
+                    )
+                  : const _AvatarFallback(),
+            ),
+          ),
+          Positioned(
+            right: -1,
+            bottom: -1,
+            child: SvgPicture.asset(
+              'assets/icons/player/camera.svg',
+              width: 24,
+              height: 24,
+            ),
           ),
         ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(3),
-        child: ClipOval(
-          child: hasAvatar
-              ? CachedNetworkImage(
-                  imageUrl: avatarUrl!,
-                  fit: BoxFit.cover,
-                  errorWidget: (context, url, error) => const _AvatarFallback(),
-                )
-              : const _AvatarFallback(),
-        ),
       ),
     );
   }
@@ -455,177 +599,209 @@ class _AvatarFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(gradient: AppGradients.imageFallback),
-      child: Icon(
+    return Container(
+      color: AppColors.blue50,
+      alignment: Alignment.center,
+      child: const Icon(
         Icons.person_outline_rounded,
-        color: Theme.of(context).colorScheme.primary,
-        size: 46,
+        color: AppColors.blue500,
+        size: 38,
       ),
     );
   }
 }
 
-class _ProfileDetailsCard extends StatelessWidget {
-  const _ProfileDetailsCard({
-    required this.name,
-    required this.age,
-    required this.companion,
-    required this.language,
+class _ProfileSection extends StatelessWidget {
+  const _ProfileSection({required this.title, required this.children});
+
+  final String title;
+  final List<_ProfileMenuRow> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: _ProfileTextStyles.sectionLabel),
+        const SizedBox(height: 16),
+        _ProfileCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (var index = 0; index < children.length; index += 1)
+                children[index].copyWith(
+                  showDivider: index < children.length - 1,
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileMenuRow extends StatelessWidget {
+  const _ProfileMenuRow({
+    required this.iconAsset,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.showDivider = true,
+    this.titleStyle = _ProfileTextStyles.rowTitle,
   });
 
-  final String name;
-  final String age;
-  final String companion;
-  final String language;
-
-  @override
-  Widget build(BuildContext context) {
-    return _ProfilePanel(
-      child: Column(
-        children: [
-          _DetailRow(label: 'Name', value: name),
-          const _DividerLine(),
-          _DetailRow(label: 'Age', value: age),
-          const _DividerLine(),
-          _DetailRow(label: 'Companion', value: companion),
-          const _DividerLine(),
-          _DetailRow(label: 'Language', value: language),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: colors.onSurface.withValues(alpha: 0.64),
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Flexible(
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: colors.onSurface,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileMenuCard extends StatelessWidget {
-  const _ProfileMenuCard({required this.onFavouritesTap});
-
-  final VoidCallback onFavouritesTap;
-
-  static const _items = [
-    _MenuItem(Icons.favorite_border_rounded, 'Favourites'),
-    _MenuItem(Icons.download_rounded, 'Downloads'),
-    _MenuItem(Icons.language_rounded, 'Language'),
-    _MenuItem(Icons.settings_outlined, 'Settings'),
-    _MenuItem(Icons.workspace_premium_outlined, 'Subscriptions'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return _ProfilePanel(
-      child: Column(
-        children: [
-          for (final entry in _items.asMap().entries) ...[
-            _MenuRow(
-              item: entry.value,
-              onTap: entry.key == 0 ? onFavouritesTap : null,
-            ),
-            if (entry.key != _items.length - 1) const _DividerLine(),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.item, this.onTap});
-
-  final _MenuItem item;
+  final String iconAsset;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
   final VoidCallback? onTap;
+  final bool showDivider;
+  final TextStyle titleStyle;
+
+  _ProfileMenuRow copyWith({bool? showDivider}) {
+    return _ProfileMenuRow(
+      iconAsset: iconAsset,
+      title: title,
+      subtitle: subtitle,
+      trailing: trailing,
+      onTap: onTap,
+      showDivider: showDivider ?? this.showDivider,
+      titleStyle: titleStyle,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.accentPrimary.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(item.icon, color: colors.primary, size: 21),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                item.label,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: colors.onSurface,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+    final child = SizedBox(
+      height: 72.993,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: showDivider
+              ? const Border(bottom: BorderSide(color: AppColors.gray100))
+              : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              _MenuIcon(asset: iconAsset),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _ProfileTextStyles.rowSubtitle,
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: colors.onSurface.withValues(alpha: 0.44),
-            ),
-          ],
+              const SizedBox(width: 16),
+              trailing ??
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.gray400,
+                    size: 18,
+                  ),
+            ],
+          ),
         ),
       ),
     );
+
+    if (onTap == null) {
+      return child;
+    }
+
+    return InkWell(onTap: onTap, child: child);
   }
 }
 
-class _MenuItem {
-  const _MenuItem(this.icon, this.label);
+class _MenuIcon extends StatelessWidget {
+  const _MenuIcon({required this.asset});
 
-  final IconData icon;
-  final String label;
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 39.993,
+      height: 39.993,
+      decoration: BoxDecoration(
+        color: AppColors.blue50,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      alignment: Alignment.center,
+      child: SvgPicture.asset(asset, width: 20, height: 20),
+    );
+  }
+}
+
+class _ProfileSwitch extends StatelessWidget {
+  const _ProfileSwitch({required this.value});
+
+  final bool value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      value
+          ? 'assets/icons/switch/switch_active.svg'
+          : 'assets/icons/switch/switch_inactive.svg',
+      width: 43.105,
+      height: 23.105,
+    );
+  }
+}
+
+class _EmptyChildrenCard extends StatelessWidget {
+  const _EmptyChildrenCard({required this.onAddChild});
+
+  final VoidCallback onAddChild;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProfileCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.family_restroom_rounded,
+            color: AppColors.blue500,
+            size: 34,
+          ),
+          const SizedBox(height: 12),
+          Text('No child profiles yet', style: _ProfileTextStyles.rowTitle),
+          const SizedBox(height: 8),
+          Text(
+            'Add a child to personalize stories, lessons, and companions.',
+            textAlign: TextAlign.center,
+            style: _ProfileTextStyles.rowSubtitle.copyWith(height: 1.45),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onAddChild,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add Child'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _LoadingPanel extends StatelessWidget {
@@ -633,7 +809,8 @@ class _LoadingPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _ProfilePanel(
+    return _ProfileCard(
+      padding: const EdgeInsets.all(20),
       child: Column(
         children: const [
           _ShimmerLine(widthFactor: 0.92),
@@ -660,7 +837,7 @@ class _ShimmerLine extends StatelessWidget {
       child: Container(
         height: 18,
         decoration: BoxDecoration(
-          color: AppColors.surfaceWhite12,
+          color: AppColors.blue50,
           borderRadius: BorderRadius.circular(12),
         ),
       ),
@@ -668,203 +845,131 @@ class _ShimmerLine extends StatelessWidget {
   }
 }
 
-class _ProfilePanel extends StatelessWidget {
-  const _ProfilePanel({required this.child});
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({
+    required this.child,
+    this.height,
+    this.padding = const EdgeInsets.all(20),
+  });
 
   final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard.withValues(alpha: 0.84),
-        borderRadius: AppBorderRadius.card,
-        border: Border.all(color: AppColors.borderDark),
-        boxShadow: const [AppShadows.elevation2],
-      ),
-      child: Padding(padding: const EdgeInsets.all(20), child: child),
-    );
-  }
-}
-
-class _DividerLine extends StatelessWidget {
-  const _DividerLine();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(height: 1, color: AppColors.borderDark);
-  }
-}
-
-class _ProfileGlow extends StatelessWidget {
-  const _ProfileGlow();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          Positioned(
-            top: 56,
-            right: 30,
-            child: Icon(
-              Icons.nightlight_round,
-              color: AppColors.emotionalWarmthSoft.withValues(alpha: 0.82),
-              size: 86,
-            ),
-          ),
-          Positioned(
-            left: -72,
-            top: 138,
-            child: _GlowBall(
-              size: 210,
-              color: AppColors.accentPrimary,
-              opacity: 0.12,
-            ),
-          ),
-          Positioned(
-            right: -96,
-            top: 340,
-            child: _GlowBall(
-              size: 240,
-              color: AppColors.emotionalWarmth,
-              opacity: 0.08,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlowBall extends StatelessWidget {
-  const _GlowBall({
-    required this.size,
-    required this.color,
-    required this.opacity,
-  });
-
-  final double size;
-  final Color color;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: opacity),
-            blurRadius: size * 0.55,
-            spreadRadius: size * 0.22,
-          ),
-        ],
-      ),
-      child: SizedBox(width: size, height: size),
-    );
-  }
-}
-
-class _ProfileBottomNavigation extends StatelessWidget {
-  const _ProfileBottomNavigation({
-    required this.onHomeTap,
-    required this.onStoriesTap,
-    required this.onLibraryTap,
-  });
-
-  final VoidCallback onHomeTap;
-  final VoidCallback onStoriesTap;
-  final VoidCallback onLibraryTap;
+  final double? height;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      width: double.infinity,
+      height: height,
+      padding: padding,
       decoration: BoxDecoration(
-        color: AppColors.surfaceNavigation.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: const [AppShadows.elevation3],
+        color: AppColors.surfaceWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.gray100),
+        boxShadow: const [BoxShadow(color: AppColors.blue50, blurRadius: 8)],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _NavItem(
-              icon: Icons.home_rounded,
-              label: 'Home',
-              selected: false,
-              onTap: onHomeTap,
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Icons.auto_stories_rounded,
-              label: 'Stories',
-              selected: false,
-              onTap: onStoriesTap,
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Icons.menu_book_outlined,
-              label: 'Library',
-              selected: false,
-              onTap: onLibraryTap,
-            ),
-          ),
-          const Expanded(
-            child: _NavItem(
-              icon: Icons.account_circle_outlined,
-              label: 'Profile',
-              selected: true,
-            ),
-          ),
-        ],
-      ),
+      child: child,
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    this.onTap,
+class _DashedStadiumBorderPainter extends CustomPainter {
+  const _DashedStadiumBorderPainter({
+    required this.color,
+    required this.strokeWidth,
   });
 
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
+  final Color color;
+  final double strokeWidth;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final activeColor = colors.primary;
-    final inactiveColor = colors.onSurface.withValues(alpha: 0.54);
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final radius = Radius.circular(size.height / 2);
+    final path = Path()..addRRect(RRect.fromRectAndRadius(rect, radius));
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    const dash = 2.779;
+    const gap = 1.3895;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: selected ? activeColor : inactiveColor, size: 25),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: selected ? colors.onSurface : inactiveColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + dash;
+        canvas.drawPath(metric.extractPath(distance, next), paint);
+        distance = next + gap;
+      }
+    }
   }
+
+  @override
+  bool shouldRepaint(covariant _DashedStadiumBorderPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
+  }
+}
+
+abstract final class _ProfileFigmaColors {
+  static const background = Color(0xFFF5FAFF);
+  static const indigo800 = Color(0xFF001033);
+}
+
+abstract final class _ProfileTextStyles {
+  static const headerTitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 24,
+    height: 28 / 24,
+    letterSpacing: -0.25,
+    fontWeight: FontWeight.w600,
+    color: _ProfileFigmaColors.indigo800,
+  );
+
+  static const chip = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+  );
+
+  static const profileName = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 16,
+    height: 20 / 16,
+    fontWeight: FontWeight.w700,
+    color: _ProfileFigmaColors.indigo800,
+  );
+
+  static const profileAge = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+    color: _ProfileFigmaColors.indigo800,
+  );
+
+  static const sectionLabel = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 12,
+    height: 16 / 12,
+    letterSpacing: 0.5,
+    fontWeight: FontWeight.w700,
+    color: _ProfileFigmaColors.indigo800,
+  );
+
+  static const rowTitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+    color: _ProfileFigmaColors.indigo800,
+  );
+
+  static const rowSubtitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 10,
+    height: 12 / 10,
+    fontWeight: FontWeight.w400,
+    color: _ProfileFigmaColors.indigo800,
+  );
 }
