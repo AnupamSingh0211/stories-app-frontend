@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../shared/theme/app_border_radius.dart';
 import '../../shared/theme/app_colors.dart';
-import '../../shared/theme/app_gradients.dart';
-import '../../shared/theme/app_shadows.dart';
-import '../../shared/layout/responsive_layout.dart';
-import '../../shared/widgets/pill_button.dart';
+import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_bottom_navigation.dart';
+import '../../shared/widgets/app_player_control_icon.dart';
 import '../auth/assets_provider.dart';
 import '../auth/companions_provider.dart';
 import '../auth/companion_notifier.dart';
@@ -18,6 +17,8 @@ import '../storytime/providers/continue_listening_provider.dart';
 import '../storytime/providers/story_player_provider.dart';
 import '../storytime/screens/story_player_screen.dart';
 import '../storytime/screens/storytime_screen.dart';
+
+const _notificationAsset = 'assets/icons/notifications/circle_notification.svg';
 
 String _greeting() {
   final hour = DateTime.now().hour;
@@ -34,9 +35,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final appAssets = ref.watch(appAssetsProvider);
-    final backgroundImageUrl = appAssets['home_screen_story'];
     final storyCardImageUrl = appAssets['home_screen_story_portrait'];
     final storytimeContent = ref.watch(storytimeContentProvider);
     final childProfiles = ref.watch(profileNotifierProvider);
@@ -54,229 +53,236 @@ class HomeScreen extends ConsumerWidget {
         .expand((section) => section.stories)
         .toList(growable: false);
     final featuredStory = stories?.isNotEmpty == true ? stories!.first : null;
+    final heroImageUrl =
+        featuredStory?.coverUrl ??
+        featuredStory?.imageUrl ??
+        featuredStory?.thumbnailUrl ??
+        storyCardImageUrl;
 
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: AppGradients.background),
-        child: Stack(
-          children: [
-            if (backgroundImageUrl != null)
-              _HomeBackground(imageUrl: backgroundImageUrl),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final horizontalPadding = pageHorizontalPadding(context);
-                  return SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(
-                      horizontalPadding,
-                      18,
-                      horizontalPadding,
-                      floatingNavigationScrollPadding(context),
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight:
-                            constraints.maxHeight -
-                            floatingNavigationScrollPadding(context),
+      backgroundColor: AppColors.blue25,
+      body: Stack(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 448),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _Header(
+                        childName: effectiveChildName,
+                        avatarImageUrl: companion?.imageUrl,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _Header(childName: effectiveChildName),
-                          const SizedBox(height: 24),
-                          _HeroStoryCard(
-                            childName: effectiveChildName,
-                            age: effectiveChildAge,
-                            story: featuredStory,
-                            backgroundImageUrl: storyCardImageUrl,
-                          ),
-                          const SizedBox(height: 12),
-                          _StoryTraits(colors: theme.colorScheme, theme: theme),
-                          const SizedBox(height: 24),
-                          _ContinueListeningCard(story: featuredStory),
-                          const SizedBox(height: 12),
-                          _LessonCard(category: featuredStory?.category),
-                          const SizedBox(height: 12),
-                          _CompanionCard(
-                            name: companion?.displayName,
-                            description: companion?.shortDescription,
-                            imageUrl: companion?.imageUrl,
-                          ),
-                        ],
+                      const SizedBox(height: 28),
+                      _IntroCopy(),
+                      const SizedBox(height: 28),
+                      _HeroStoryCard(
+                        story: featuredStory,
+                        backgroundImageUrl: heroImageUrl,
+                        childName: effectiveChildName,
+                        age: effectiveChildAge,
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Positioned(
-              left: pageHorizontalPadding(context),
-              right: pageHorizontalPadding(context),
-              bottom: floatingNavigationBottom(context),
-              child: _BottomNavigation(
-                onStoriesTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const StorytimeScreen(),
-                  ),
-                ),
-                onLibraryTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const LibraryScreen(),
-                  ),
-                ),
-                onProfileTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => ProfileScreen(
-                      fallbackChildName: effectiveChildName,
-                      fallbackChildAge: effectiveChildAge,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeBackground extends StatelessWidget {
-  const _HomeBackground({required this.imageUrl});
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-                opacity: const AlwaysStoppedAnimation(0.35),
-                errorBuilder: (context, error, stackTrace) {
-                  return const SizedBox.shrink();
-                },
-              ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.surfaceDark.withValues(alpha: 0.12),
-                      AppColors.surfaceDark.withValues(alpha: 0.46),
-                      AppColors.surfaceDark.withValues(alpha: 0.78),
+                      const SizedBox(height: 17),
+                      const _StoryTraits(),
+                      const SizedBox(height: 28),
+                      _ContinueListeningCard(story: featuredStory),
+                      const SizedBox(height: 32),
+                      _LessonCard(category: featuredStory?.category),
+                      const SizedBox(height: 32),
+                      _CompanionSection(
+                        imageUrl: companion?.imageUrl,
+                        description: companion?.shortDescription,
+                      ),
                     ],
-                    stops: const [0, 0.48, 1],
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: AppPrimaryBottomNavigation(
+                selectedIndex: 0,
+                onItemSelected: (index) {
+                  switch (index) {
+                    case 1:
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => const StorytimeScreen(),
+                        ),
+                      );
+                    case 2:
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => const LibraryScreen(),
+                        ),
+                      );
+                    case 3:
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => ProfileScreen(
+                            fallbackChildName: effectiveChildName,
+                            fallbackChildAge: effectiveChildAge,
+                          ),
+                        ),
+                      );
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.childName});
+  const _Header({required this.childName, this.avatarImageUrl});
 
   final String childName;
+  final String? avatarImageUrl;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final width = MediaQuery.sizeOf(context).width;
-    final titleSize = responsiveValue(width: width, compact: 25, regular: 28);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${_greeting()}, $childName',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colors.onSurface.withValues(alpha: 0.76),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
+    return SizedBox(
+      height: 64,
+      child: Row(
+        children: [
+          _Avatar(imageUrl: avatarImageUrl),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_greeting()},',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodyLargeRegular.copyWith(
+                    color: AppColors.gray600,
+                    height: 1,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Ready for tonight's bedtime story?",
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  color: colors.onSurface,
-                  fontSize: titleSize,
-                  height: 1.16,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 4),
+                Text(
+                  childName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.heading3Bold.copyWith(
+                    color: AppColors.gray900,
+                    fontSize: 20,
+                    height: 24 / 20,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                "Let's create a calm and magical storytime for your little one.",
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onSurface.withValues(alpha: 0.68),
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 14),
-        _BellButton(colors: colors),
-      ],
+          const SizedBox(width: 12),
+          const _CircleNotificationButton(),
+        ],
+      ),
     );
   }
 }
 
-class _BellButton extends StatelessWidget {
-  const _BellButton({required this.colors});
+class _Avatar extends StatelessWidget {
+  const _Avatar({this.imageUrl});
 
-  final ColorScheme colors;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 42,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: AppColors.surfaceWhite08,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.borderMedium),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.notifications_none_rounded,
-                color: colors.onSurface,
-                size: 23,
-              ),
-            ),
-          ),
-        ],
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceWhite,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.blue500, width: 2.8),
       ),
+      child: ClipOval(
+        child: imageUrl != null && imageUrl!.isNotEmpty
+            ? Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(
+                    Icons.auto_stories_rounded,
+                    color: AppColors.blue500,
+                    size: 24,
+                  );
+                },
+              )
+            : const Icon(
+                Icons.auto_stories_rounded,
+                color: AppColors.blue500,
+                size: 24,
+              ),
+      ),
+    );
+  }
+}
+
+class _CircleNotificationButton extends StatelessWidget {
+  const _CircleNotificationButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Notifications',
+      child: InkResponse(
+        onTap: () {},
+        radius: 28,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: SvgPicture.asset(
+            _notificationAsset,
+            width: 48,
+            height: 48,
+            semanticsLabel: 'Notifications',
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IntroCopy extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Ready for tonight's\nbedtime story?",
+          style: AppTypography.heading2Bold.copyWith(
+            color: AppColors.gray900,
+            height: 32 / 28,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          "Let's create a calm and magical storytime for\nyour little one.",
+          style: AppTypography.bodyLargeRegular.copyWith(
+            color: AppColors.gray600,
+            height: 20 / 16,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -325,233 +331,129 @@ class _HeroStoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final stackButtons = constraints.maxWidth < 340;
-        final cardPadding = constraints.maxWidth < 340 ? 16.0 : 20.0;
-
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: AppBorderRadius.panel,
-            boxShadow: const [AppShadows.elevation2],
-          ),
-          child: ClipRRect(
-            borderRadius: AppBorderRadius.panel,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: AppGradients.heroCard,
-                border: Border.all(color: AppColors.borderLight),
+    return Container(
+      height: 218.5,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceWhite,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.gray50),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (backgroundImageUrl != null && backgroundImageUrl!.isNotEmpty)
+            Image.network(
+              backgroundImageUrl!,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              errorBuilder: (context, error, stackTrace) {
+                return const ColoredBox(color: AppColors.blue200);
+              },
+            )
+          else
+            const ColoredBox(color: AppColors.blue200),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppColors.surfaceBlack.withValues(alpha: 0.1),
+                  AppColors.surfaceBlack.withValues(alpha: 0.08),
+                  AppColors.surfaceBlack.withValues(alpha: 0.3),
+                ],
               ),
-              child: Stack(
+            ),
+          ),
+          Positioned(
+            left: 25,
+            top: 25,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.gray800.withValues(alpha: 0.24),
+                borderRadius: BorderRadius.circular(9999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (backgroundImageUrl != null &&
-                      backgroundImageUrl!.isNotEmpty)
-                    Positioned.fill(
-                      child: Image.network(
-                        backgroundImageUrl!,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.center,
-                        opacity: const AlwaysStoppedAnimation(0.78),
-                        errorBuilder: (context, error, stackTrace) {
-                          return const SizedBox.shrink();
-                        },
-                      ),
-                    ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            AppColors.surfaceCard.withValues(alpha: 0.72),
-                            AppColors.surfaceCard.withValues(alpha: 0.5),
-                            AppColors.surfaceCard.withValues(alpha: 0.28),
-                          ],
-                        ),
-                      ),
-                    ),
+                  const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppColors.surfaceWhite,
+                    size: 16.5,
                   ),
-                  Padding(
-                    padding: EdgeInsets.all(cardPadding),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.accentPrimary.withValues(
-                              alpha: 0.24,
-                            ),
-                            borderRadius: AppBorderRadius.card,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.auto_awesome_rounded,
-                                color: colors.primary,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                "Tonight's Story",
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: colors.onSurface,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          story?.title ?? 'Choose a bedtime story',
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            color: colors.onSurface,
-                            fontSize: constraints.maxWidth < 340 ? 21 : 23,
-                            height: 1.28,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Personalized for $childName - Age $age',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colors.onSurface.withValues(alpha: 0.64),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        _HeroActions(
-                          stackButtons: stackButtons,
-                          colors: colors,
-                          theme: theme,
-                          onStorytimeTap: () => _openStorytime(context),
-                        ),
-                      ],
+                  const SizedBox(width: 8),
+                  Text(
+                    "TONIGHT'S STORY",
+                    style: AppTypography.bodySmallBold.copyWith(
+                      color: AppColors.surfaceWhite,
+                      height: 16 / 12,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-        );
-      },
-    );
-  }
-}
-
-class _HeroActions extends StatelessWidget {
-  const _HeroActions({
-    required this.stackButtons,
-    required this.colors,
-    required this.theme,
-    required this.onStorytimeTap,
-  });
-
-  final bool stackButtons;
-  final ColorScheme colors;
-  final ThemeData theme;
-  final VoidCallback onStorytimeTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = _HeroActionButton(
-      onTap: onStorytimeTap,
-      gradient: AppGradients.primaryButton,
-      icon: const Icon(
-        Icons.play_arrow_rounded,
-        color: AppColors.textOnAccent,
-        size: 28,
-      ),
-      label: 'Storytime',
-      textColor: AppColors.textOnAccentSoft,
-      theme: theme,
-    );
-    final secondary = _HeroActionButton(
-      onTap: null,
-      color: AppColors.surfaceWhite08,
-      border: Border.all(color: AppColors.borderMedium),
-      icon: Icon(Icons.auto_awesome_rounded, color: colors.primary, size: 18),
-      label: 'Surprise Me',
-      textColor: colors.onSurface.withValues(alpha: 0.8),
-      theme: theme,
-    );
-
-    if (stackButtons) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [primary, const SizedBox(height: 10), secondary],
-      );
-    }
-
-    return Row(
-      children: [
-        Expanded(child: primary),
-        const SizedBox(width: 14),
-        Expanded(child: secondary),
-      ],
-    );
-  }
-}
-
-class _HeroActionButton extends StatelessWidget {
-  const _HeroActionButton({
-    required this.onTap,
-    required this.icon,
-    required this.label,
-    required this.textColor,
-    required this.theme,
-    this.gradient,
-    this.color,
-    this.border,
-  });
-
-  final VoidCallback? onTap;
-  final Widget icon;
-  final String label;
-  final Color textColor;
-  final ThemeData theme;
-  final Gradient? gradient;
-  final Color? color;
-  final Border? border;
-
-  @override
-  Widget build(BuildContext context) {
-    return PillButton(
-      onTap: onTap,
-      height: 56,
-      gradient: gradient,
-      color: color,
-      border: border,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          icon,
-          const SizedBox(width: 8),
-          Flexible(
+          Positioned(
+            left: 25,
+            right: 25,
+            top: 65.5,
             child: Text(
-              label,
-              maxLines: 1,
+              story?.title ?? 'Choose a bedtime story',
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: textColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
+              style: AppTypography.heading3Bold.copyWith(
+                color: AppColors.surfaceWhite,
+                height: 32 / 24,
+                letterSpacing: 0,
               ),
+            ),
+          ),
+          Positioned(
+            left: 25,
+            right: 25,
+            bottom: 25,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final stackButtons = constraints.maxWidth < 304;
+                final storyButton = _HeroStoryButton.primary(
+                  label: 'Story Time',
+                  onPressed: () => _openStorytime(context),
+                  icon: const _HeroPlayIcon(),
+                );
+                final surpriseButton = _HeroStoryButton.secondary(
+                  label: 'Surprise Me',
+                  onPressed: () {},
+                  icon: SvgPicture.asset(
+                    'assets/icons/actions/sparks.svg',
+                    width: 21,
+                    height: 20,
+                    semanticsLabel: 'Surprise',
+                  ),
+                );
+
+                if (stackButtons) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      storyButton,
+                      const SizedBox(height: 10),
+                      surpriseButton,
+                    ],
+                  );
+                }
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    storyButton,
+                    const SizedBox(width: 12),
+                    surpriseButton,
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -560,36 +462,152 @@ class _HeroActionButton extends StatelessWidget {
   }
 }
 
-class _StoryTraits extends StatelessWidget {
-  const _StoryTraits({required this.colors, required this.theme});
+class _HeroStoryButton extends StatelessWidget {
+  const _HeroStoryButton.primary({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  }) : secondary = false;
 
-  final ColorScheme colors;
-  final ThemeData theme;
+  const _HeroStoryButton.secondary({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  }) : secondary = true;
+
+  final String label;
+  final Widget icon;
+  final VoidCallback onPressed;
+  final bool secondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final foregroundColor = secondary
+        ? AppColors.blue500
+        : AppColors.surfaceWhite;
+
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: Container(
+          width: 146,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: secondary ? AppColors.surfaceWhite : AppColors.blue500,
+            borderRadius: BorderRadius.circular(9999),
+            border: secondary
+                ? Border.all(color: AppColors.blue500, width: 2)
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              icon,
+              const SizedBox(width: 8),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.visible,
+                style: AppTypography.bodyLargeBold.copyWith(
+                  color: foregroundColor,
+                  height: 20 / 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroPlayIcon extends StatelessWidget {
+  const _HeroPlayIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 11,
+      height: 14,
+      child: OverflowBox(
+        maxWidth: 24,
+        maxHeight: 24,
+        child: SvgPicture.asset(
+          'assets/icons/player/play_small.svg',
+          width: 24,
+          height: 24,
+          semanticsLabel: 'Play',
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryTraits extends StatelessWidget {
+  const _StoryTraits();
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
+        const Icon(
           Icons.verified_user_outlined,
-          color: colors.primary.withValues(alpha: 0.8),
-          size: 14,
+          color: AppColors.gray600,
+          size: 13,
         ),
-        const SizedBox(width: 5),
-        Flexible(
-          child: Text(
-            'Calm stories  -  Positive lessons  -  Sleep friendly',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colors.onSurface.withValues(alpha: 0.6),
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-            ),
-          ),
-        ),
+        const SizedBox(width: 6),
+        _TraitText('CALM STORIES'),
+        const _TraitDot(),
+        _TraitText('POSITIVE LESSONS'),
+        const _TraitDot(),
+        _TraitText('SLEEP FRIENDLY'),
       ],
+    );
+  }
+}
+
+class _TraitText extends StatelessWidget {
+  const _TraitText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Flexible(
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppTypography.captionBold.copyWith(
+          color: AppColors.gray900.withValues(alpha: 0.6),
+          height: 12 / 10,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _TraitDot extends StatelessWidget {
+  const _TraitDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        '•',
+        style: AppTypography.captionBold.copyWith(
+          color: AppColors.gray400.withValues(alpha: 0.4),
+          height: 12 / 10,
+        ),
+      ),
     );
   }
 }
@@ -668,139 +686,84 @@ class _ContinueListeningCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final continueEntry = ref.watch(continueListeningProvider);
     final selectedStory = continueEntry?.story ?? story;
     final imageUrl =
         selectedStory?.coverUrl ??
         selectedStory?.imageUrl ??
         selectedStory?.thumbnailUrl;
-    final progress = continueEntry?.progress ?? 0.0;
-
-    return _HomePanel(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _openStoryPlayer(context, selectedStory),
-        child: Column(
-          children: [
-            _SectionTitle(
-              icon: Icons.headphones_rounded,
-              title: 'Continue Listening',
-              trailing: 'View all',
-            ),
-            const SizedBox(height: 16),
-            Row(
+    final progress = continueEntry?.progress ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionHeader(
+          icon: Icons.headphones_rounded,
+          title: 'Continue Listening',
+          trailing: 'View all',
+          onTrailingTap: () => _openStorytime(context),
+        ),
+        const SizedBox(height: 16),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _openStoryPlayer(context, selectedStory),
+          child: Container(
+            height: 130,
+            padding: const EdgeInsets.all(17),
+            decoration: _cardDecoration(radius: 16, shadow: true),
+            child: Row(
               children: [
-                Container(
-                  width: 84,
-                  height: 84,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(
-                      AppBorderRadius.radiusLg,
-                    ),
-                    gradient: AppGradients.storyCoverFallback,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(
-                      AppBorderRadius.radiusLg,
-                    ),
-                    child: Stack(
-                      children: [
-                        if (imageUrl != null && imageUrl.isNotEmpty)
-                          Positioned.fill(
-                            child: Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const SizedBox.shrink();
-                              },
-                            ),
-                          ),
-                        Positioned(
-                          right: 7,
-                          bottom: 7,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () =>
-                                _openStoryPlayer(context, selectedStory),
-                            child: Container(
-                              width: 34,
-                              height: 34,
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceElevated.withValues(
-                                  alpha: 0.92,
-                                ),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.borderStrong,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.play_arrow_rounded,
-                                color: AppColors.textPrimary,
-                                size: 22,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                _StoryThumbnail(
+                  imageUrl: imageUrl,
+                  onTap: () => _openStoryPlayer(context, selectedStory),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 24),
                 Expanded(
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         selectedStory?.title ??
                             'Open Storytime to choose a tale',
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: colors.onSurface,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                        style: AppTypography.bodyLargeBold.copyWith(
+                          color: AppColors.gray900,
+                          height: 24 / 16,
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 4,
-                          backgroundColor: AppColors.borderMedium,
-                          valueColor: AlwaysStoppedAnimation(colors.primary),
+                      const SizedBox(height: 2),
+                      Text(
+                        selectedStory?.category.toUpperCase() ?? 'STORYTIME',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodySmallBold.copyWith(
+                          color: AppColors.gray600,
+                          height: 16 / 12,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
-                          Flexible(
-                            child: Text(
-                              selectedStory == null
-                                  ? 'No story selected'
-                                  : selectedStory.durationLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colors.onSurface.withValues(alpha: 0.58),
-                                fontSize: 12,
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: progress.clamp(0, 1),
+                                minHeight: 6,
+                                backgroundColor: AppColors.gray100,
+                                valueColor: const AlwaysStoppedAnimation(
+                                  AppColors.blue500,
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Flexible(
-                            child: Text(
-                              selectedStory?.category ?? 'Storytime',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.end,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colors.onSurface.withValues(alpha: 0.58),
-                                fontSize: 12,
-                              ),
+                          Text(
+                            selectedStory?.durationLabel ?? '',
+                            style: AppTypography.captionBold.copyWith(
+                              color: AppColors.gray600,
+                              height: 15 / 10,
                             ),
                           ),
                         ],
@@ -810,8 +773,57 @@ class _ContinueListeningCard extends ConsumerWidget {
                 ),
               ],
             ),
-          ],
+          ),
         ),
+      ],
+    );
+  }
+}
+
+class _StoryThumbnail extends StatelessWidget {
+  const _StoryThumbnail({required this.onTap, this.imageUrl});
+
+  final String? imageUrl;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 80,
+      height: 96,
+      decoration: BoxDecoration(
+        color: AppColors.blue200,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.surfaceBlack.withValues(alpha: 0.22),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (imageUrl != null && imageUrl!.isNotEmpty)
+            Image.network(
+              imageUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return const SizedBox.shrink();
+              },
+            ),
+          Center(
+            child: GestureDetector(
+              onTap: onTap,
+              child: const AppPlayerControlIcon(
+                type: AppPlayerControlIconType.play,
+                semanticLabel: 'Play story',
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -824,41 +836,56 @@ class _LessonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return _HomePanel(
-      padding: const EdgeInsets.all(16),
+    return Container(
+      constraints: const BoxConstraints(minHeight: 82),
+      padding: const EdgeInsets.fromLTRB(22, 15, 14, 15),
+      decoration: _cardDecoration(radius: 16, shadow: false),
       child: Row(
         children: [
-          _SquareIcon(icon: Icons.spa_rounded, color: colors.primary),
-          const SizedBox(width: 14),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: AppColors.fuchsia50,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.local_florist_rounded,
+              color: AppColors.fuchsia500,
+              size: 27,
+            ),
+          ),
+          const SizedBox(width: 20),
           Expanded(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Tonight's Lesson",
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onSurface.withValues(alpha: 0.58),
-                    fontSize: 12,
+                  "TONIGHT'S LESSON",
+                  style: AppTypography.captionBold.copyWith(
+                    color: AppColors.gray600,
+                    height: 12 / 10,
+                    letterSpacing: 1,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   category?.isNotEmpty == true ? category! : 'Bedtime Story',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: AppColors.emotionalWarmthBright,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodyLargeBold.copyWith(
+                    color: AppColors.fuchsia500,
+                    height: 20 / 16,
                   ),
                 ),
               ],
             ),
           ),
-          Icon(
+          const Icon(
             Icons.chevron_right_rounded,
-            color: colors.onSurface.withValues(alpha: 0.44),
+            color: AppColors.gray600,
+            size: 28,
           ),
         ],
       ),
@@ -866,108 +893,72 @@ class _LessonCard extends StatelessWidget {
   }
 }
 
-class _CompanionCard extends StatelessWidget {
-  const _CompanionCard({this.name, this.description, this.imageUrl});
+class _CompanionSection extends StatelessWidget {
+  const _CompanionSection({this.imageUrl, this.description});
 
-  final String? name;
-  final String? description;
   final String? imageUrl;
+  final String? description;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return _HomePanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionTitle(
-            icon: Icons.favorite_border_rounded,
-            title: 'Your Companion',
-          ),
-          const SizedBox(height: 18),
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionHeader(
+          icon: Icons.favorite_border_rounded,
+          title: 'Your Companion',
+        ),
+        const SizedBox(height: 21),
+        Container(
+          constraints: const BoxConstraints(minHeight: 132),
+          padding: const EdgeInsets.fromLTRB(21, 21, 14, 21),
+          decoration: _cardDecoration(radius: 16, shadow: false),
+          child: Row(
             children: [
-              Container(
-                width: 74,
-                height: 74,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: AppGradients.companion,
-                  boxShadow: [
-                    BoxShadow(
-                      color: colors.primary.withValues(alpha: 0.18),
-                      blurRadius: 18,
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: imageUrl != null && imageUrl!.isNotEmpty
-                      ? Image.network(
-                          imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              Icons.auto_stories_rounded,
-                              color: colors.primary,
-                              size: 36,
-                            );
-                          },
-                        )
-                      : Icon(
-                          Icons.auto_stories_rounded,
-                          color: colors.primary,
-                          size: 36,
-                        ),
-                ),
-              ),
-              const SizedBox(width: 14),
+              _CompanionAvatar(imageUrl: imageUrl),
+              const SizedBox(width: 21),
               Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(
+                        Expanded(
                           child: Text(
-                            name ?? 'Choose Companion',
-                            maxLines: 1,
+                            'Choose\nCompanion',
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: colors.onSurface,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
+                            style: AppTypography.bodyLargeBold.copyWith(
+                              color: AppColors.gray900,
+                              height: 20 / 16,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
+                            horizontal: 10,
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.emotionalWarmth.withValues(
-                              alpha: 0.14,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
+                            color: AppColors.fuchsia500,
+                            borderRadius: BorderRadius.circular(999),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(
                                 Icons.lock_outline_rounded,
-                                color: AppColors.emotionalWarmth,
-                                size: 11,
+                                color: AppColors.surfaceWhite,
+                                size: 13,
                               ),
                               const SizedBox(width: 3),
                               Text(
-                                'Locked',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppColors.emotionalWarmth,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
+                                'LOCKED',
+                                style: AppTypography.captionBold.copyWith(
+                                  color: AppColors.surfaceWhite,
+                                  height: 12 / 10,
+                                  letterSpacing: 1,
                                 ),
                               ),
                             ],
@@ -979,215 +970,158 @@ class _CompanionCard extends StatelessWidget {
                     Text(
                       description ??
                           "Your little one's guide for all bedtime adventures",
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurface.withValues(alpha: 0.62),
-                        fontSize: 12,
-                        height: 1.42,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.bodyMediumRegular.copyWith(
+                        color: AppColors.gray600,
+                        height: 20 / 14,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(
+              const SizedBox(width: 8),
+              const Icon(
                 Icons.chevron_right_rounded,
-                color: colors.onSurface.withValues(alpha: 0.44),
+                color: AppColors.gray600,
+                size: 28,
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomePanel extends StatelessWidget {
-  const _HomePanel({
-    required this.child,
-    this.padding = const EdgeInsets.all(20),
-  });
-
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard.withValues(alpha: 0.84),
-        borderRadius: AppBorderRadius.card,
-        border: Border.all(color: AppColors.borderDark),
-      ),
-      child: Padding(padding: padding, child: child),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.icon, required this.title, this.trailing});
-
-  final IconData icon;
-  final String title;
-  final String? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Row(
-      children: [
-        Icon(icon, color: colors.primary, size: 21),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: colors.onSurface,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-          ),
         ),
-        if (trailing != null) ...[
-          Text(
-            trailing!,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colors.onSurface.withValues(alpha: 0.62),
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: colors.onSurface.withValues(alpha: 0.52),
-            size: 18,
-          ),
-        ],
       ],
     );
   }
 }
 
-class _SquareIcon extends StatelessWidget {
-  const _SquareIcon({required this.icon, required this.color});
+class _CompanionAvatar extends StatelessWidget {
+  const _CompanionAvatar({this.imageUrl});
 
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 54,
-      height: 54,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Center(child: Icon(icon, color: color, size: 28)),
-      ),
-    );
-  }
-}
-
-class _BottomNavigation extends StatelessWidget {
-  const _BottomNavigation({
-    required this.onStoriesTap,
-    required this.onLibraryTap,
-    required this.onProfileTap,
-  });
-
-  final VoidCallback onStoriesTap;
-  final VoidCallback onLibraryTap;
-  final VoidCallback onProfileTap;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      width: 90,
+      height: 90,
       decoration: BoxDecoration(
-        color: AppColors.surfaceNavigation.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: const [AppShadows.elevation3],
-      ),
-      child: Row(
-        children: [
-          const Expanded(
-            child: _NavItem(
-              icon: Icons.home_rounded,
-              label: 'Home',
-              selected: true,
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Icons.auto_stories_rounded,
-              label: 'Stories',
-              onTap: onStoriesTap,
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Icons.menu_book_outlined,
-              label: 'Library',
-              onTap: onLibraryTap,
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Icons.account_circle_outlined,
-              label: 'Profile',
-              onTap: onProfileTap,
-            ),
+        color: AppColors.blue50,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.blue500.withValues(alpha: 0.12),
+            blurRadius: 16,
           ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: ClipOval(
+          child: imageUrl != null && imageUrl!.isNotEmpty
+              ? Image.network(
+                  imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const _CompanionFallback();
+                  },
+                )
+              : const _CompanionFallback(),
+        ),
       ),
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    this.selected = false,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
+class _CompanionFallback extends StatelessWidget {
+  const _CompanionFallback();
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final activeColor = colors.primary;
-    final inactiveColor = colors.onSurface.withValues(alpha: 0.54);
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: selected ? activeColor : inactiveColor, size: 25),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: selected ? colors.onSurface : inactiveColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+    return const ColoredBox(
+      color: AppColors.blue400,
+      child: Icon(
+        Icons.menu_book_rounded,
+        color: AppColors.surfaceWhite,
+        size: 40,
       ),
     );
   }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    this.trailing,
+    this.onTrailingTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? trailing;
+  final VoidCallback? onTrailingTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: AppColors.gray900, size: 26),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.titleRegular.copyWith(
+              color: AppColors.gray900,
+              height: 20 / 18,
+            ),
+          ),
+        ),
+        if (trailing != null)
+          InkWell(
+            onTap: onTrailingTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    trailing!,
+                    style: AppTypography.bodyMediumBold.copyWith(
+                      color: AppColors.blue500,
+                      height: 20 / 14,
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.blue500,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+BoxDecoration _cardDecoration({required double radius, required bool shadow}) {
+  return BoxDecoration(
+    color: AppColors.surfaceWhite,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: AppColors.gray100),
+    boxShadow: shadow
+        ? [
+            BoxShadow(
+              color: AppColors.blue600.withValues(alpha: 0.12),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+              spreadRadius: -5,
+            ),
+          ]
+        : null,
+  );
 }
