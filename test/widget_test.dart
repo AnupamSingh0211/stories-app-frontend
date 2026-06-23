@@ -40,7 +40,8 @@ void main() {
         overrides: [
           authSessionProvider.overrideWith((ref) => Stream.value(null)),
           appAssetsProvider.overrideWithValue({
-            'welcome_bg': 'https://example.com/welcome_bg.webp',
+            'welcome_bg(1)': 'https://example.com/welcome_bg.webp',
+            'welcome_cover': 'https://example.com/welcome_cover.png',
             'profile_setup_bg': 'https://example.com/profile_setup_bg.webp',
           }),
         ],
@@ -49,8 +50,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome to\nBedtime Stories'), findsOneWidget);
-    expect(find.text('Browse as Guest →'), findsOneWidget);
+    expect(find.text('Welcome to \nBedtime Stories'), findsOneWidget);
+    expect(find.text('Send Otp'), findsOneWidget);
   });
 
   testWidgets('signed-out app does not render stale child profiles', (
@@ -62,7 +63,8 @@ void main() {
           authSessionProvider.overrideWith((ref) => Stream.value(null)),
           profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
           appAssetsProvider.overrideWithValue({
-            'welcome_bg': 'https://example.com/welcome_bg.webp',
+            'welcome_bg(1)': 'https://example.com/welcome_bg.webp',
+            'welcome_cover': 'https://example.com/welcome_cover.png',
           }),
         ],
         child: const MyApp(),

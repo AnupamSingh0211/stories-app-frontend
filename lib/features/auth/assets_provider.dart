@@ -8,7 +8,12 @@ Map<String, String> appAssets(AppAssetsRef ref) {
   final storage = Supabase.instance.client.storage.from('app-assets');
 
   return {
-    'welcome_bg': storage.getPublicUrl('backgrounds/welcome_bg.webp'),
+    'welcome_bg(1)': storage.getPublicUrl('backgrounds/welcome_bg.webp'),
+    'welcome_cover': storage.getPublicUrl('backgrounds/welcome_cover.png'),
+    'welcome_otp_bg': storage.getPublicUrl('backgrounds/welcome_otp_bg.webp'),
+    'welcome_otp_cover': storage.getPublicUrl(
+      'backgrounds/welcome_otp_cover.png',
+    ),
     'profile_setup_bg': storage.getPublicUrl(
       'backgrounds/profileSetup_bg.webp',
     ),
