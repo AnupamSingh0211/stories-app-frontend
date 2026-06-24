@@ -126,6 +126,23 @@ void main() {
     expect(state.requireValue.children, isEmpty);
   });
 
+  test('updates selected child companion in state and repository', () async {
+    final repository = _FakeProfileRepository(childCount: 1);
+    final container = _authenticatedContainer(repository);
+    addTearDown(container.dispose);
+    await container.read(profileNotifierProvider.future);
+
+    final updated = await container
+        .read(profileNotifierProvider.notifier)
+        .updateSelectedChildCompanion('krishna');
+
+    final state = container.read(profileNotifierProvider).requireValue;
+    expect(updated.companionId, 'krishna');
+    expect(state.selectedChild?.companionId, 'krishna');
+    expect(repository.updatedChildId, 'child-1');
+    expect(repository.updatedCompanionId, 'krishna');
+  });
+
   group('ProfileRepository authentication', () {
     test(
       'uses the existing authenticated user when creating a child',
@@ -161,6 +178,29 @@ void main() {
 
       expect(dataSource.insertedProfile?['locale'], 'hi-IN');
       expect(child.locale, 'hi-IN');
+    });
+
+    test('updates child companion by parent and child id', () async {
+      final dataSource = _FakeProfileDataSource(currentUserId: 'user-1');
+      final repository = ProfileRepository(dataSource: dataSource);
+      final child = ChildProfileModel(
+        id: 'child-1',
+        parentId: 'user-1',
+        childName: 'Aarav',
+        age: 2,
+        gender: 'boy',
+        createdAt: DateTime.utc(2026, 6, 9),
+      );
+
+      final updated = await repository.updateChildCompanion(
+        child: child,
+        companionId: 'krishna',
+      );
+
+      expect(dataSource.updatedChildId, 'child-1');
+      expect(dataSource.updatedParentId, 'user-1');
+      expect(dataSource.updatedProfile?['companion_id'], 'krishna');
+      expect(updated.companionId, 'krishna');
     });
 
     test('fetches children only for the supplied parent identifier', () async {
@@ -273,6 +313,8 @@ class _FakeProfileRepository extends ProfileRepository {
   final List<ChildProfileModel> children;
   final Object? createError;
   String? fetchedParentId;
+  String? updatedChildId;
+  String? updatedCompanionId;
   int createCalls = 0;
 
   @override
@@ -309,6 +351,23 @@ class _FakeProfileRepository extends ProfileRepository {
     children.insert(0, child);
     return child;
   }
+
+  @override
+  Future<ChildProfileModel> updateChildCompanion({
+    required ChildProfileModel child,
+    required String companionId,
+  }) async {
+    updatedChildId = child.id;
+    updatedCompanionId = companionId;
+    final updated = child.copyWith(companionId: companionId);
+    final index = children.indexWhere((item) => item.id == child.id);
+    if (index == -1) {
+      children.insert(0, updated);
+    } else {
+      children[index] = updated;
+    }
+    return updated;
+  }
 }
 
 class _FakeProfileDataSource extends ProfileDataSource {
@@ -324,7 +383,10 @@ class _FakeProfileDataSource extends ProfileDataSource {
   final Object? signInError;
   int anonymousSignInCalls = 0;
   Map<String, dynamic>? insertedProfile;
+  Map<String, dynamic>? updatedProfile;
   String? fetchedParentId;
+  String? updatedChildId;
+  String? updatedParentId;
 
   @override
   Future<List<Map<String, dynamic>>> fetchChildProfiles(String parentId) async {
@@ -338,6 +400,26 @@ class _FakeProfileDataSource extends ProfileDataSource {
   ) async {
     insertedProfile = profile;
     return {'id': 'child-1', ...profile, 'created_at': '2026-06-09T00:00:00Z'};
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateChildProfile(
+    String childId,
+    String parentId,
+    Map<String, dynamic> profile,
+  ) async {
+    updatedChildId = childId;
+    updatedParentId = parentId;
+    updatedProfile = profile;
+    return {
+      'id': childId,
+      'parent_id': parentId,
+      'child_name': 'Aarav',
+      'age': 2,
+      'gender': 'boy',
+      ...profile,
+      'created_at': '2026-06-09T00:00:00Z',
+    };
   }
 
   @override

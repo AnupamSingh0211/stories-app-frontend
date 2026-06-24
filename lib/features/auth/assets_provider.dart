@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 part 'assets_provider.g.dart';
 
+const profileSetupIconAsset = 'assets/icons/profile_icon.webp';
+
 @Riverpod(keepAlive: true)
 Map<String, String> appAssets(AppAssetsRef ref) {
   final storage = Supabase.instance.client.storage.from('app-assets');

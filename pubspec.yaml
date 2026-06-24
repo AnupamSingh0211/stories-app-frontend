@@ -73,6 +73,7 @@ flutter:
   assets:
     - .env
     - assets/audio/background/
+    - assets/icons/profile_icon.webp
     - assets/icons/actions/
     - assets/icons/nav/
     - assets/icons/notifications/
