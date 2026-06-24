@@ -58,7 +58,6 @@ class StoryRepository {
 
     final sections = sectionRows
         .map((row) => _sectionFromMap(row, categoryNames, storage))
-        .where((section) => section.stories.isNotEmpty)
         .toList(growable: false);
 
     if (sections.isEmpty && stories.isEmpty) {
