@@ -5,13 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_gradients.dart';
 import '../../shared/widgets/pill_button.dart';
+import 'companion_flow.dart';
 import 'companion_model.dart';
 import 'companion_notifier.dart';
+import 'profile_notifier.dart';
 
 class ConfirmCompanionScreen extends ConsumerWidget {
-  const ConfirmCompanionScreen({required this.companion, super.key});
+  const ConfirmCompanionScreen({
+    required this.companion,
+    super.key,
+    this.onComplete,
+  });
 
   final CompanionModel companion;
+  final CompanionFlowComplete? onComplete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,10 +73,33 @@ class ConfirmCompanionScreen extends ConsumerWidget {
                           const RepaintBoundary(child: _PolicyCard()),
                           const SizedBox(height: 54),
                           PillButton(
-                            onTap: () {
+                            onTap: () async {
                               ref
                                   .read(companionNotifierProvider.notifier)
                                   .selectCompanion(companion);
+                              try {
+                                await ref
+                                    .read(profileNotifierProvider.notifier)
+                                    .updateSelectedChildCompanion(companion.id);
+                              } catch (error) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Could not save companion: $error',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              if (!context.mounted) return;
+                              final onComplete = this.onComplete;
+                              if (onComplete != null) {
+                                onComplete(context);
+                                return;
+                              }
+
                               Navigator.pop(context);
                               Navigator.pop(context);
                             },

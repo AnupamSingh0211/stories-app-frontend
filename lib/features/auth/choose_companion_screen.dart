@@ -5,12 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/theme/app_gradients.dart';
 import '../../shared/theme/app_shadows.dart';
 import '../../shared/widgets/pill_button.dart';
+import 'companion_flow.dart';
 import 'companion_model.dart';
 import 'companions_provider.dart';
 import 'confirm_companion_screen.dart';
 
 class ChooseCompanionScreen extends ConsumerWidget {
-  const ChooseCompanionScreen({super.key});
+  const ChooseCompanionScreen({super.key, this.onComplete});
+
+  final CompanionFlowComplete? onComplete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -24,7 +27,8 @@ class ChooseCompanionScreen extends ConsumerWidget {
           ),
           child: SafeArea(
             child: companions.when(
-              data: (items) => _CompanionList(companions: items),
+              data: (items) =>
+                  _CompanionList(companions: items, onComplete: onComplete),
               loading: () => const _LoadingState(),
               error: (error, stackTrace) => _ErrorState(error: error),
             ),
@@ -36,9 +40,10 @@ class ChooseCompanionScreen extends ConsumerWidget {
 }
 
 class _CompanionList extends StatelessWidget {
-  const _CompanionList({required this.companions});
+  const _CompanionList({required this.companions, required this.onComplete});
 
   final List<CompanionModel> companions;
+  final CompanionFlowComplete? onComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +89,15 @@ class _CompanionList extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.fromLTRB(20, 30, 20, 0),
             child: PillButton(
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                final onComplete = this.onComplete;
+                if (onComplete != null) {
+                  onComplete(context);
+                  return;
+                }
+
+                Navigator.pop(context);
+              },
               height: 40,
               border: Border.all(color: colors.outline.withValues(alpha: 0.24)),
               color: colors.surface.withValues(alpha: 0.18),
@@ -107,7 +120,10 @@ class _CompanionList extends StatelessWidget {
             bottom: companionIndex == companions.length - 1 ? 0 : 24,
           ),
           child: RepaintBoundary(
-            child: _CompanionCard(companion: companions[companionIndex]),
+            child: _CompanionCard(
+              companion: companions[companionIndex],
+              onComplete: onComplete,
+            ),
           ),
         );
       },
@@ -116,9 +132,10 @@ class _CompanionList extends StatelessWidget {
 }
 
 class _CompanionCard extends StatelessWidget {
-  const _CompanionCard({required this.companion});
+  const _CompanionCard({required this.companion, required this.onComplete});
 
   final CompanionModel companion;
+  final CompanionFlowComplete? onComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -203,8 +220,10 @@ class _CompanionCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      ConfirmCompanionScreen(companion: companion),
+                  builder: (context) => ConfirmCompanionScreen(
+                    companion: companion,
+                    onComplete: onComplete,
+                  ),
                 ),
               );
             },

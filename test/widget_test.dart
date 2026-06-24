@@ -5,7 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:dharma_app/features/auth/assets_provider.dart';
 import 'package:dharma_app/features/auth/auth_provider.dart';
+import 'package:dharma_app/features/auth/companion_model.dart';
+import 'package:dharma_app/features/auth/companion_flow.dart';
 import 'package:dharma_app/features/auth/companions_provider.dart';
+import 'package:dharma_app/features/auth/choose_companion_screen.dart';
+import 'package:dharma_app/features/auth/confirm_companion_screen.dart';
 import 'package:dharma_app/features/auth/profile_notifier.dart';
 import 'package:dharma_app/features/auth/profile_repository.dart';
 import 'package:dharma_app/features/auth/profile_setup_screen.dart';
@@ -103,6 +107,34 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.textContaining('Aarav'), findsWidgets);
     expect(find.byType(WelcomeScreen), findsNothing);
+  });
+
+  testWidgets('pending companion selection opens chooser instead of home', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authSessionProvider.overrideWith(
+            (ref) => Stream.value(
+              const AppSessionIdentity(userId: 'parent-1', isAnonymous: false),
+            ),
+          ),
+          companionSelectionPendingProvider.overrideWith((ref) => true),
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          appAssetsProvider.overrideWithValue(const {}),
+          companionsProvider.overrideWith((ref) async => const []),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+        ],
+        child: const MyApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChooseCompanionScreen), findsOneWidget);
+    expect(find.byType(HomeScreen), findsNothing);
   });
 
   testWidgets('profile navigation exposes and reaches all four tabs', (
@@ -349,7 +381,110 @@ void main() {
     expect(notifier.state, isNull);
   });
 
-  testWidgets('onboarding saves a child and replaces setup with home', (
+  testWidgets('profile setup default UI renders with first step active', (
+    WidgetTester tester,
+  ) async {
+    await _pumpProfileSetup(
+      tester,
+      notifier: _OnboardingProfileNotifier(
+        savedChild: _child(name: 'A', age: 2),
+      ),
+    );
+
+    expect(find.text('Add child Profile'), findsOneWidget);
+    expect(find.text('We use this to personalise experience'), findsOneWidget);
+    expect(find.text('Child’s name'), findsOneWidget);
+    expect(find.text('Enter here'), findsOneWidget);
+    expect(find.text('Child’s gender'), findsOneWidget);
+    expect(find.text('How old are they?'), findsOneWidget);
+    expect(find.text('Preferred story language'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget);
+    expect(find.text('Skip for now'), findsOneWidget);
+    expect(find.byKey(const ValueKey('onboardingStep1Active')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('onboardingStep2Inactive')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('onboardingStep3Inactive')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('entering child name changes the field state', (
+    WidgetTester tester,
+  ) async {
+    await _pumpProfileSetup(
+      tester,
+      notifier: _OnboardingProfileNotifier(
+        savedChild: _child(name: 'A', age: 2),
+      ),
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('childNameField')),
+      'Svayudh',
+    );
+    await tester.pump();
+
+    expect(find.text('Svayudh'), findsOneWidget);
+    expect(find.byKey(const ValueKey('activeSurfacetrue')), findsOneWidget);
+  });
+
+  testWidgets('profile setup selections update selected state', (
+    WidgetTester tester,
+  ) async {
+    await _pumpProfileSetup(
+      tester,
+      notifier: _OnboardingProfileNotifier(
+        savedChild: _child(name: 'A', age: 2),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('choiceboyUnselected')));
+    await tester.pump();
+    await tester.tap(find.text('3'));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('choiceen-INUnselected')),
+    );
+    await tester.tap(find.byKey(const ValueKey('choiceen-INUnselected')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('choiceboySelected')), findsOneWidget);
+    expect(find.byKey(const ValueKey('ageChip3Selected')), findsOneWidget);
+    expect(find.byKey(const ValueKey('choiceen-INSelected')), findsOneWidget);
+  });
+
+  testWidgets('profile setup skip pops the route', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(
+            () => _OnboardingProfileNotifier(
+              savedChild: _child(name: 'A', age: 2),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const _ProfileSetupLauncher(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open setup'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Skip for now'));
+    await tester.tap(find.text('Skip for now'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProfileSetupScreen), findsNothing);
+    expect(find.text('Open setup'), findsOneWidget);
+  });
+
+  testWidgets('onboarding saves a child and opens companion selection', (
     WidgetTester tester,
   ) async {
     final notifier = _OnboardingProfileNotifier(
@@ -358,14 +493,79 @@ void main() {
 
     await _pumpProfileSetup(tester, notifier: notifier);
     await tester.enterText(find.byType(TextFormField), 'Typed Aarav');
-    await tester.ensureVisible(find.text('Add Child'));
-    await tester.tap(find.text('Add Child'));
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
     expect(notifier.addChildCalls, 1);
     expect(find.byType(ProfileSetupScreen), findsNothing);
+    expect(find.byType(ChooseCompanionScreen), findsOneWidget);
+    expect(find.text('Pick Your Story\nCompanion'), findsOneWidget);
+  });
+
+  testWidgets('companion skip after onboarding opens home', (
+    WidgetTester tester,
+  ) async {
+    final notifier = _OnboardingProfileNotifier(
+      savedChild: _child(name: 'Saved Aarav', age: 4),
+    );
+
+    await _pumpProfileSetup(tester, notifier: notifier);
+    await tester.enterText(find.byType(TextFormField), 'Typed Aarav');
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Skip for now'));
+    await tester.tap(find.text('Skip for now'));
+    await tester.pumpAndSettle();
+
+    expect(notifier.addChildCalls, 1);
+    expect(find.byType(ChooseCompanionScreen), findsNothing);
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.textContaining('Saved Aarav'), findsWidgets);
+  });
+
+  testWidgets('companion confirm after onboarding opens home', (
+    WidgetTester tester,
+  ) async {
+    final notifier = _OnboardingProfileNotifier(
+      savedChild: _child(name: 'Saved Aarav', age: 4),
+    );
+
+    await _pumpProfileSetup(
+      tester,
+      notifier: notifier,
+      companions: const [_testCompanion],
+    );
+    await tester.enterText(find.byType(TextFormField), 'Typed Aarav');
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChooseCompanionScreen), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Select Companion'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select Companion'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ConfirmCompanionScreen), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Confirm & Start'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm & Start'));
+    await tester.pumpAndSettle();
+
+    expect(notifier.addChildCalls, 1);
+    expect(find.byType(ChooseCompanionScreen), findsNothing);
+    expect(find.byType(ConfirmCompanionScreen), findsNothing);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.textContaining('Saved Aarav'), findsWidgets);
+    expect(notifier.updatedCompanionId, _testCompanion.id);
+    expect(
+      notifier.state.valueOrNull?.selectedChild?.companionId,
+      _testCompanion.id,
+    );
   });
 
   testWidgets('failed child creation stays on profile setup', (
@@ -377,8 +577,8 @@ void main() {
 
     await _pumpProfileSetup(tester, notifier: notifier);
     await tester.enterText(find.byType(TextFormField), 'Aarav');
-    await tester.ensureVisible(find.text('Add Child'));
-    await tester.tap(find.text('Add Child'));
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
     expect(notifier.addChildCalls, 1);
@@ -410,8 +610,8 @@ void main() {
     await tester.tap(find.text('Open setup'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), 'Meera');
-    await tester.ensureVisible(find.text('Add Child'));
-    await tester.tap(find.text('Add Child'));
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ProfileSetupScreen), findsNothing);
@@ -422,6 +622,14 @@ void main() {
 const _testAssets = {
   'profile_setup_bg': 'https://example.com/profile_setup_bg.webp',
 };
+
+const _testCompanion = CompanionModel(
+  id: 'companion-one',
+  displayName: 'Baby Krishna',
+  shortDescription: 'A gentle guide for storytime.',
+  longDescription: 'A gentle guide for storytime.',
+  imageUrl: 'https://example.com/companion.webp',
+);
 
 const _storyOne = StoryModel(
   id: 'story-one',
@@ -465,13 +673,14 @@ final _testUpdatedAt = DateTime.utc(2026, 6, 17);
 Future<void> _pumpProfileSetup(
   WidgetTester tester, {
   required _OnboardingProfileNotifier notifier,
+  List<CompanionModel> companions = const [],
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         profileNotifierProvider.overrideWith(() => notifier),
         appAssetsProvider.overrideWithValue(_testAssets),
-        companionsProvider.overrideWith((ref) async => const []),
+        companionsProvider.overrideWith((ref) async => companions),
         storytimeContentProvider.overrideWith(
           (ref) async => StorytimeContent.empty(),
         ),
@@ -530,6 +739,7 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
   final ChildProfileModel? savedChild;
   final Object? error;
   int addChildCalls = 0;
+  String? updatedCompanionId;
 
   @override
   Future<ChildProfilesState> build() async => const ChildProfilesState();
@@ -564,6 +774,24 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
       ChildProfilesState(children: [child], selectedChildId: child.id),
     );
     return child;
+  }
+
+  @override
+  Future<ChildProfileModel> updateSelectedChildCompanion(
+    String companionId,
+  ) async {
+    updatedCompanionId = companionId;
+    final current = state.valueOrNull ?? const ChildProfilesState();
+    final child = current.selectedChild;
+    if (child == null) {
+      throw StateError('No child profile selected');
+    }
+
+    final updated = child.copyWith(companionId: companionId);
+    state = AsyncData(
+      current.copyWith(children: [updated], selectedChildId: updated.id),
+    );
+    return updated;
   }
 }
 

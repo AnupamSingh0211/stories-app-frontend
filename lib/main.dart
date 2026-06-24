@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/supabase_config.dart';
 import 'core/theme.dart';
 import 'features/auth/auth_provider.dart';
+import 'features/auth/choose_companion_screen.dart';
+import 'features/auth/companion_flow.dart';
 import 'features/auth/profile_notifier.dart';
 import 'features/auth/profile_setup_screen.dart';
 import 'features/auth/welcome_screen.dart';
@@ -77,12 +79,39 @@ class AppSessionGate extends ConsumerWidget {
           error: (error, stackTrace) => _StartupErrorScreen(
             onRetry: () => ref.invalidate(profileNotifierProvider),
           ),
-          data: (state) => state.children.isEmpty
-              ? const ProfileSetupScreen()
-              : HomeScreen(
-                  childName: state.selectedChild?.childName,
-                  childAge: state.selectedChild?.age,
-                ),
+          data: (state) {
+            if (state.children.isEmpty) {
+              return const ProfileSetupScreen();
+            }
+
+            final selectedChild = state.selectedChild;
+            if (ref.watch(companionSelectionPendingProvider)) {
+              return ChooseCompanionScreen(
+                onComplete: (context) {
+                  ProviderScope.containerOf(
+                        context,
+                        listen: false,
+                      ).read(companionSelectionPendingProvider.notifier).state =
+                      false;
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => HomeScreen(
+                        childName: selectedChild?.childName,
+                        childAge: selectedChild?.age,
+                      ),
+                    ),
+                    (route) => false,
+                  );
+                },
+              );
+            }
+
+            return HomeScreen(
+              childName: selectedChild?.childName,
+              childAge: selectedChild?.age,
+            );
+          },
         );
       },
     );

@@ -32,6 +32,12 @@ abstract class ProfileDataSource {
   Future<List<Map<String, dynamic>>> fetchChildProfiles(String parentId);
 
   Future<Map<String, dynamic>> insertChildProfile(Map<String, dynamic> profile);
+
+  Future<Map<String, dynamic>> updateChildProfile(
+    String childId,
+    String parentId,
+    Map<String, dynamic> profile,
+  );
 }
 
 class SupabaseProfileDataSource extends ProfileDataSource {
@@ -67,6 +73,21 @@ class SupabaseProfileDataSource extends ProfileDataSource {
     return SupabaseClientProvider.client
         .from('child_profiles')
         .insert(profile)
+        .select()
+        .single();
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateChildProfile(
+    String childId,
+    String parentId,
+    Map<String, dynamic> profile,
+  ) {
+    return SupabaseClientProvider.client
+        .from('child_profiles')
+        .update(profile)
+        .eq('id', childId)
+        .eq('parent_id', parentId)
         .select()
         .single();
   }
@@ -110,6 +131,30 @@ class ChildProfileModel {
   final String? avatarUrl;
   final String locale;
   final DateTime createdAt;
+
+  ChildProfileModel copyWith({
+    String? id,
+    String? parentId,
+    String? childName,
+    int? age,
+    String? gender,
+    String? companionId,
+    String? avatarUrl,
+    String? locale,
+    DateTime? createdAt,
+  }) {
+    return ChildProfileModel(
+      id: id ?? this.id,
+      parentId: parentId ?? this.parentId,
+      childName: childName ?? this.childName,
+      age: age ?? this.age,
+      gender: gender ?? this.gender,
+      companionId: companionId ?? this.companionId,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      locale: locale ?? this.locale,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 class ProfileRepository {
@@ -143,6 +188,19 @@ class ProfileRepository {
       'companion_id': companionId,
       'avatar_url': avatarUrl,
       'locale': normalizeProfileLocale(locale),
+    });
+
+    return ChildProfileModel.fromMap(row);
+  }
+
+  Future<ChildProfileModel> updateChildCompanion({
+    required ChildProfileModel child,
+    required String companionId,
+  }) async {
+    final parentId = await _requireUserId();
+
+    final row = await _dataSource.updateChildProfile(child.id, parentId, {
+      'companion_id': companionId,
     });
 
     return ChildProfileModel.fromMap(row);
