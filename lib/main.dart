@@ -40,14 +40,8 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(authSessionProvider);
-    final sessionKey = session.when(
-      loading: () => 'loading',
-      error: (error, stackTrace) => 'error',
-      data: (identity) => identity?.userId ?? 'signed-out',
-    );
 
     return MaterialApp(
-      key: ValueKey(sessionKey),
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _AppScrollBehavior(),
       theme: AppTheme.lightTheme,
@@ -93,16 +87,7 @@ class AppSessionGate extends ConsumerWidget {
                         listen: false,
                       ).read(companionSelectionPendingProvider.notifier).state =
                       false;
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => HomeScreen(
-                        childName: selectedChild?.childName,
-                        childAge: selectedChild?.age,
-                      ),
-                    ),
-                    (route) => false,
-                  );
+                  Navigator.of(context).popUntil((route) => route.isFirst);
                 },
               );
             }

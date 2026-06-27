@@ -10,7 +10,6 @@ import '../auth/assets_provider.dart';
 import '../auth/companions_provider.dart';
 import '../auth/companion_notifier.dart';
 import '../auth/profile_notifier.dart';
-import '../library/library_screen.dart';
 import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/continue_listening_provider.dart';
@@ -115,16 +114,11 @@ class HomeScreen extends ConsumerWidget {
                 onItemSelected: (index) {
                   switch (index) {
                     case 1:
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) => const StorytimeScreen(),
-                        ),
-                      );
                       break;
                     case 2:
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (context) => const LibraryScreen(),
+                          builder: (context) => const StorytimeScreen(),
                         ),
                       );
                       break;
@@ -303,7 +297,7 @@ class _HeroStoryCard extends StatelessWidget {
   final StoryModel? story;
   final String? backgroundImageUrl;
 
-  void _openStorytime(BuildContext context) {
+  void _openLibraryStories(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 420),
@@ -423,7 +417,7 @@ class _HeroStoryCard extends StatelessWidget {
                 final stackButtons = constraints.maxWidth < 304;
                 final storyButton = _HeroStoryButton.primary(
                   label: 'Story Time',
-                  onPressed: () => _openStorytime(context),
+                  onPressed: () => _openLibraryStories(context),
                   icon: const _HeroPlayIcon(),
                 );
                 final surpriseButton = _HeroStoryButton.secondary(
@@ -624,7 +618,7 @@ class _ContinueListeningCard extends ConsumerWidget {
 
   final StoryModel? story;
 
-  void _openStorytime(BuildContext context) {
+  void _openLibraryStories(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 420),
@@ -655,7 +649,7 @@ class _ContinueListeningCard extends ConsumerWidget {
 
   void _openStoryPlayer(BuildContext context, StoryModel? selectedStory) {
     if (selectedStory == null) {
-      _openStorytime(context);
+      _openLibraryStories(context);
       return;
     }
 
@@ -707,7 +701,7 @@ class _ContinueListeningCard extends ConsumerWidget {
           icon: Icons.headphones_rounded,
           title: 'Continue Listening',
           trailing: 'View all',
-          onTrailingTap: () => _openStorytime(context),
+          onTrailingTap: () => _openLibraryStories(context),
         ),
         const SizedBox(height: 16),
         GestureDetector(

@@ -9,7 +9,7 @@ import '../../auth/companion_notifier.dart';
 import '../../auth/companions_provider.dart';
 import '../../auth/profile_notifier.dart';
 import '../../home/home_screen.dart';
-import '../../library/library_screen.dart';
+import '../../library/library_sections_screen.dart';
 import '../../profile/profile_screen.dart';
 import '../models/story_model.dart';
 import '../providers/story_player_provider.dart';
@@ -19,6 +19,7 @@ import 'story_player_screen.dart';
 const _likeInactiveAsset = 'assets/icons/like_inactive.svg';
 const _likeActiveAsset = 'assets/icons/like_active.svg';
 const _searchAsset = 'assets/icons/search_rounded.svg';
+const _favoritesEmptyAsset = 'assets/icons/favorites_empty.svg';
 const _storyTextColor = Color(0xFF001033);
 const _horizontalPadding = 20.0;
 
@@ -45,6 +46,14 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _openFavorites() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const LibrarySectionsScreen(),
+      ),
+    );
   }
 
   @override
@@ -79,6 +88,7 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
                         onSearchTap: () {
                           setState(() => _showSearch = !_showSearch);
                         },
+                        onFavoritesTap: _openFavorites,
                       ),
                     ),
                     SliverToBoxAdapter(
@@ -124,6 +134,7 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
                         onSearchTap: () {
                           setState(() => _showSearch = !_showSearch);
                         },
+                        onFavoritesTap: _openFavorites,
                       ),
                     ),
                     const SliverToBoxAdapter(
@@ -144,7 +155,7 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
             right: 0,
             bottom: 0,
             child: _StoriesBottomNavigation(
-              selectedIndex: 1,
+              selectedIndex: 2,
               childName: childName,
               childAge: selectedChild?.age,
             ),
@@ -223,6 +234,7 @@ class _StoriesHomeContent extends StatelessWidget {
 class _StoriesHeader extends StatelessWidget {
   const _StoriesHeader({
     required this.childName,
+    required this.onFavoritesTap,
     required this.onProfileTap,
     required this.onSearchTap,
     required this.searchVisible,
@@ -231,6 +243,7 @@ class _StoriesHeader extends StatelessWidget {
 
   final String childName;
   final String? avatarUrl;
+  final VoidCallback onFavoritesTap;
   final VoidCallback onSearchTap;
   final VoidCallback onProfileTap;
   final bool searchVisible;
@@ -280,33 +293,64 @@ class _StoriesHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Semantics(
-            button: true,
+          _HeaderActionButton(
             label: searchVisible ? 'Hide search' : 'Search stories',
-            child: InkResponse(
-              onTap: onSearchTap,
-              radius: 28,
-              child: Container(
-                width: 48,
-                height: 48,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.blue25,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.gray300),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.surfaceBlack.withValues(alpha: 0.15),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: SvgPicture.asset(_searchAsset),
-              ),
+            onTap: onSearchTap,
+            child: SvgPicture.asset(_searchAsset, width: 24, height: 24),
+          ),
+          const SizedBox(width: 16),
+          _HeaderActionButton(
+            label: 'Open favorites',
+            onTap: onFavoritesTap,
+            child: SvgPicture.asset(
+              _favoritesEmptyAsset,
+              width: 21,
+              height: 18,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeaderActionButton extends StatelessWidget {
+  const _HeaderActionButton({
+    required this.label,
+    required this.onTap,
+    required this.child,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 28,
+        child: Container(
+          width: 48,
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.blue25,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.gray300),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.surfaceBlack.withValues(alpha: 0.15),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: child,
+        ),
       ),
     );
   }
@@ -893,7 +937,7 @@ class _StoryGridScreen extends ConsumerWidget {
             right: 0,
             bottom: 0,
             child: _StoriesBottomNavigation(
-              selectedIndex: 1,
+              selectedIndex: 2,
               childName: selectedChild?.childName,
               childAge: selectedChild?.age,
             ),
@@ -972,12 +1016,7 @@ class _StoriesBottomNavigation extends StatelessWidget {
               (route) => false,
             );
             break;
-          case 2:
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute<void>(
-                builder: (context) => const LibraryScreen(),
-              ),
-            );
+          case 1:
             break;
           case 3:
             Navigator.of(context).pushReplacement(

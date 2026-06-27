@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'auth_provider.dart';
@@ -45,12 +46,20 @@ class ProfileNotifier extends _$ProfileNotifier {
 
   @override
   Future<ChildProfilesState> build() async {
-    final session = ref.watch(activeSessionProvider);
-    if (session == null) {
+    final userId = ref.watch(
+      activeSessionProvider.select((session) => session?.userId),
+    );
+    if (userId == null) {
+      if (kDebugMode) {
+        debugPrint('ProfileNotifier: no authenticated session');
+      }
       return const ChildProfilesState();
     }
 
-    final children = await _repository.fetchChildProfiles(session.userId);
+    if (kDebugMode) {
+      debugPrint('ProfileNotifier: loading profiles for $userId');
+    }
+    final children = await _repository.fetchChildProfiles(userId);
     return ChildProfilesState(
       children: children,
       selectedChildId: children.firstOrNull?.id,
@@ -69,8 +78,6 @@ class ProfileNotifier extends _$ProfileNotifier {
       throw const ChildProfileLimitException();
     }
 
-    state = const AsyncLoading();
-
     final result = await AsyncValue.guard(
       () => _repository.createChildProfile(
         name: name,
@@ -87,6 +94,9 @@ class ProfileNotifier extends _$ProfileNotifier {
     }
 
     final child = result.requireValue;
+    if (kDebugMode) {
+      debugPrint('ProfileNotifier: profile ${child.id} added to state');
+    }
     state = AsyncData(
       ChildProfilesState(
         children: [

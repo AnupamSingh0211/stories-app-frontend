@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dharma_app/features/auth/assets_provider.dart';
+import 'package:dharma_app/features/auth/auth_provider.dart';
+import 'package:dharma_app/features/auth/profile_notifier.dart';
 import 'package:dharma_app/features/auth/profile_setup_screen.dart';
 import 'package:dharma_app/features/auth/welcome_screen.dart';
+import 'package:dharma_app/main.dart';
 import 'package:dharma_app/shared/theme/app_theme.dart';
 
 void main() {
@@ -155,9 +160,14 @@ void main() {
     expect(find.byType(ProfileSetupScreen), findsNothing);
   });
 
-  testWidgets('mock OTP submit pushes profile setup only once', (tester) async {
+  testWidgets('mock OTP submit authenticates only once', (tester) async {
     final observer = _CountingNavigatorObserver();
-    await _pumpWelcomeScreen(tester, observer: observer);
+    final authService = _FakeAuthService();
+    await _pumpWelcomeScreen(
+      tester,
+      observer: observer,
+      authService: authService,
+    );
     observer.pushCount = 0;
 
     await tester.enterText(
@@ -180,7 +190,100 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(observer.pushCount, 1);
+    expect(authService.ensureSessionCalls, 1);
+    expect(observer.pushCount, 0);
+    expect(find.byType(WelcomeScreen), findsOneWidget);
+  });
+
+  testWidgets(
+    'authenticated OTP completion lets AppSessionGate show profile setup',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final authEvents = StreamController<AppSessionIdentity?>();
+      addTearDown(authEvents.close);
+      final authService = _FakeAuthService(
+        onEnsureSession: () {
+          authEvents.add(
+            const AppSessionIdentity(userId: 'anonymous-1', isAnonymous: true),
+          );
+        },
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appAssetsProvider.overrideWithValue(_testAssets),
+            appAuthServiceProvider.overrideWithValue(authService),
+            authSessionProvider.overrideWith((ref) async* {
+              yield null;
+              yield* authEvents.stream;
+            }),
+            profileNotifierProvider.overrideWith(_EmptyProfileNotifier.new),
+          ],
+          child: const MyApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('mobile-number-field')),
+        '1234567890',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('mobile-continue-button')));
+      await tester.pumpAndSettle();
+
+      for (final digit in ['9', '8', '7', '6', '5', '4']) {
+        await tester.tap(find.text(digit));
+        await tester.pump();
+      }
+
+      await tester.tap(find.byKey(const Key('otp-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(authService.ensureSessionCalls, 1);
+      expect(find.byType(ProfileSetupScreen), findsOneWidget);
+      expect(find.byType(WelcomeScreen), findsNothing);
+    },
+  );
+
+  testWidgets('auth identity updates do not reset the active profile form', (
+    tester,
+  ) async {
+    final authEvents = StreamController<AppSessionIdentity?>();
+    addTearDown(authEvents.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appAssetsProvider.overrideWithValue(_testAssets),
+          authSessionProvider.overrideWith((ref) async* {
+            yield const AppSessionIdentity(
+              userId: 'anonymous-1',
+              isAnonymous: true,
+            );
+            yield* authEvents.stream;
+          }),
+          profileNotifierProvider.overrideWith(_EmptyProfileNotifier.new),
+        ],
+        child: const MyApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final nameField = find.byType(TextFormField);
+    await tester.enterText(nameField, 'Aarav');
+    await tester.pump();
+
+    authEvents.add(
+      const AppSessionIdentity(userId: 'anonymous-1', isAnonymous: true),
+    );
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextFormField>(nameField);
+    expect(field.controller?.text, 'Aarav');
     expect(find.byType(ProfileSetupScreen), findsOneWidget);
   });
 
@@ -263,6 +366,7 @@ const _testAssets = {
 Future<void> _pumpWelcomeScreen(
   WidgetTester tester, {
   NavigatorObserver? observer,
+  AppAuthService? authService,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -271,7 +375,12 @@ Future<void> _pumpWelcomeScreen(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [appAssetsProvider.overrideWithValue(_testAssets)],
+      overrides: [
+        appAssetsProvider.overrideWithValue(_testAssets),
+        appAuthServiceProvider.overrideWithValue(
+          authService ?? _FakeAuthService(),
+        ),
+      ],
       child: MaterialApp(
         themeMode: ThemeMode.dark,
         darkTheme: AppTheme.darkTheme,
@@ -281,6 +390,28 @@ Future<void> _pumpWelcomeScreen(
     ),
   );
   await tester.pump();
+}
+
+class _FakeAuthService implements AppAuthService {
+  _FakeAuthService({this.onEnsureSession});
+
+  final VoidCallback? onEnsureSession;
+  int ensureSessionCalls = 0;
+
+  @override
+  AppSessionIdentity? get currentIdentity => null;
+
+  @override
+  Future<AppSessionIdentity> ensureAnonymousSession() async {
+    ensureSessionCalls++;
+    onEnsureSession?.call();
+    return const AppSessionIdentity(userId: 'anonymous-1', isAnonymous: true);
+  }
+}
+
+class _EmptyProfileNotifier extends ProfileNotifier {
+  @override
+  Future<ChildProfilesState> build() async => const ChildProfilesState();
 }
 
 class _CountingNavigatorObserver extends NavigatorObserver {

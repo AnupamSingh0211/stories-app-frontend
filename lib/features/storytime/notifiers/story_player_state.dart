@@ -7,6 +7,8 @@ class StoryPlayerState {
     this.isPlaying = false,
     this.isFavorite = false,
     this.playbackSpeed = 1,
+    this.audioPosition = Duration.zero,
+    this.audioDuration = Duration.zero,
     this.isLoading = false,
     this.isComplete = false,
     this.errorMessage,
@@ -21,6 +23,8 @@ class StoryPlayerState {
   final bool isPlaying;
   final bool isFavorite;
   final double playbackSpeed;
+  final Duration audioPosition;
+  final Duration audioDuration;
   final bool isLoading;
   final bool isComplete;
   final String? errorMessage;
@@ -53,6 +57,8 @@ class StoryPlayerState {
     bool? isPlaying,
     bool? isFavorite,
     double? playbackSpeed,
+    Duration? audioPosition,
+    Duration? audioDuration,
     bool? isLoading,
     bool? isComplete,
     String? errorMessage,
@@ -64,6 +70,8 @@ class StoryPlayerState {
       isPlaying: isPlaying ?? this.isPlaying,
       isFavorite: isFavorite ?? this.isFavorite,
       playbackSpeed: playbackSpeed ?? this.playbackSpeed,
+      audioPosition: audioPosition ?? this.audioPosition,
+      audioDuration: audioDuration ?? this.audioDuration,
       isLoading: isLoading ?? this.isLoading,
       isComplete: isComplete ?? this.isComplete,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,

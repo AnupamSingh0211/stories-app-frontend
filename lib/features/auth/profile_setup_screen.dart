@@ -1,14 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'assets_provider.dart';
-import 'choose_companion_screen.dart';
 import 'companion_flow.dart';
 import 'companion_notifier.dart';
 import 'onboarding_progress_header.dart';
 import 'profile_notifier.dart';
 import 'profile_repository.dart';
-import '../home/home_screen.dart';
 
 const _ageOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const _genderOptions = [
@@ -53,6 +51,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   String? _selectedGender;
   String? _selectedLocale;
   bool _isSubmitting = false;
+  bool _submissionLocked = false;
 
   @override
   void initState() {
@@ -79,10 +78,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (_isSubmitting || !_formKey.currentState!.validate()) {
+    if (_submissionLocked ||
+        _isSubmitting ||
+        !_formKey.currentState!.validate()) {
       return;
     }
 
+    _submissionLocked = true;
     setState(() => _isSubmitting = true);
     if (!widget.popOnSave) {
       ref.read(companionSelectionPendingProvider.notifier).state = true;
@@ -99,55 +101,26 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             locale: _selectedLocale ?? defaultProfileLocale,
           );
 
-      if (!mounted) return;
-
-      final profileState = ref.read(profileNotifierProvider);
-      if (profileState.hasError) {
-        throw profileState.error!;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Child profile added')));
-
       if (widget.popOnSave) {
+        if (!mounted) return;
         Navigator.pop(context, child);
         return;
       }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChooseCompanionScreen(
-            onComplete: (context) {
-              ProviderScope.containerOf(
-                context,
-                listen: false,
-              ).read(companionSelectionPendingProvider.notifier).state = false;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => HomeScreen(
-                    childName: child.childName,
-                    childAge: child.age,
-                  ),
-                ),
-                (route) => false,
-              );
-            },
-          ),
-        ),
-      );
     } catch (error) {
+      _submissionLocked = false;
       if (!mounted) return;
 
       if (!widget.popOnSave) {
         ref.read(companionSelectionPendingProvider.notifier).state = false;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not save profile: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not save profile. Please check your connection and try again.',
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
