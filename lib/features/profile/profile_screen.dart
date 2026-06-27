@@ -14,7 +14,6 @@ import '../auth/profile_notifier.dart';
 import '../auth/profile_repository.dart';
 import '../auth/profile_setup_screen.dart';
 import '../home/home_screen.dart';
-import '../library/library_screen.dart';
 import '../storytime/screens/storytime_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -53,7 +52,6 @@ class ProfileScreen extends ConsumerWidget {
                 _openHome(context, profile);
                 break;
               case 1:
-                _openStories(context);
                 break;
               case 2:
                 _openLibrary(context);
@@ -285,15 +283,9 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _openStories(BuildContext context) {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (context) => const StorytimeScreen()),
-    );
-  }
-
   void _openLibrary(BuildContext context) {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (context) => const LibraryScreen()),
+      MaterialPageRoute<void>(builder: (context) => const StorytimeScreen()),
     );
   }
 }

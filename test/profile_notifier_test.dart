@@ -157,7 +157,6 @@ void main() {
           companionId: null,
         );
 
-        expect(dataSource.anonymousSignInCalls, 0);
         expect(dataSource.insertedProfile?['parent_id'], 'user-1');
         expect(dataSource.insertedProfile?['locale'], defaultProfileLocale);
         expect(child.parentId, 'user-1');
@@ -212,40 +211,22 @@ void main() {
       expect(dataSource.fetchedParentId, 'user-2');
     });
 
-    test('signs in anonymously before creating a guest child', () async {
-      final dataSource = _FakeProfileDataSource(anonymousUserId: 'anonymous-1');
-      final repository = ProfileRepository(dataSource: dataSource);
-
-      final child = await repository.createChildProfile(
-        name: 'Meera',
-        gender: 'girl',
-        age: 3,
-        companionId: 'krishna',
-      );
-
-      expect(dataSource.anonymousSignInCalls, 1);
-      expect(dataSource.insertedProfile?['parent_id'], 'anonymous-1');
-      expect(child.parentId, 'anonymous-1');
-    });
-
-    test('does not insert when anonymous sign-in fails', () async {
-      final dataSource = _FakeProfileDataSource(
-        signInError: Exception('Anonymous sign-ins are disabled'),
-      );
+    test('requires authentication before creating a child', () async {
+      final dataSource = _FakeProfileDataSource();
       final repository = ProfileRepository(dataSource: dataSource);
 
       await expectLater(
         repository.createChildProfile(
-          name: 'Kabir',
-          gender: 'boy',
-          age: 4,
-          companionId: null,
+          name: 'Meera',
+          gender: 'girl',
+          age: 3,
+          companionId: 'krishna',
         ),
         throwsA(
           isA<StateError>().having(
             (error) => error.message,
             'message',
-            contains('Could not start a guest session'),
+            contains('authenticated session is required'),
           ),
         ),
       );
@@ -371,17 +352,10 @@ class _FakeProfileRepository extends ProfileRepository {
 }
 
 class _FakeProfileDataSource extends ProfileDataSource {
-  _FakeProfileDataSource({
-    this.currentUserId,
-    this.anonymousUserId,
-    this.signInError,
-  });
+  _FakeProfileDataSource({this.currentUserId});
 
   @override
   String? currentUserId;
-  final String? anonymousUserId;
-  final Object? signInError;
-  int anonymousSignInCalls = 0;
   Map<String, dynamic>? insertedProfile;
   Map<String, dynamic>? updatedProfile;
   String? fetchedParentId;
@@ -420,15 +394,5 @@ class _FakeProfileDataSource extends ProfileDataSource {
       ...profile,
       'created_at': '2026-06-09T00:00:00Z',
     };
-  }
-
-  @override
-  Future<String?> signInAnonymously() async {
-    anonymousSignInCalls++;
-    if (signInError case final error?) {
-      throw error;
-    }
-    currentUserId = anonymousUserId;
-    return anonymousUserId;
   }
 }

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/theme/app_typography.dart';
 import 'assets_provider.dart';
-import 'profile_setup_screen.dart';
+import 'auth_provider.dart';
 
 enum _WelcomeAuthStep { mobileNumber, otp }
 
@@ -23,6 +23,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   final _otpFocusNode = FocusNode();
 
   bool _isNavigating = false;
+  bool _hasAuthenticated = false;
   bool _hasAttemptedValidation = false;
   bool _isMobileNumberFocused = false;
   bool _isOtpFocused = false;
@@ -89,22 +90,6 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
   bool get _isOtpComplete => _otpValue.length == 6;
 
-  Future<void> _openProfileSetup() async {
-    if (_isNavigating) {
-      return;
-    }
-
-    _isNavigating = true;
-    try {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
-      );
-    } finally {
-      _isNavigating = false;
-    }
-  }
-
   Future<void> _continueWithMobileNumber() async {
     if (_isNavigating || _authStep != _WelcomeAuthStep.mobileNumber) {
       return;
@@ -130,12 +115,29 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 
   Future<void> _submitOtpMock() async {
-    if (_isNavigating || !_isOtpComplete) {
+    if (_isNavigating || _hasAuthenticated || !_isOtpComplete) {
       return;
     }
 
-    // TODO: Replace this placeholder with real OTP verification.
-    await _openProfileSetup();
+    setState(() => _isNavigating = true);
+    try {
+      // TODO: Replace anonymous authentication with real OTP verification.
+      // AppSessionGate owns the transition to profile setup after auth changes.
+      await ref.read(appAuthServiceProvider).ensureAnonymousSession();
+      _hasAuthenticated = true;
+    } catch (_) {
+      _hasAuthenticated = false;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not start your session. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isNavigating = false);
+      }
+    }
   }
 
   void _appendKeyboardValue(String value) {
@@ -368,7 +370,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           child: _FigmaPrimaryButton(
                             key: const Key('otp-submit-button'),
                             label: 'Submit',
-                            onTap: _isOtpComplete && !_isNavigating
+                            onTap:
+                                _isOtpComplete &&
+                                    !_isNavigating &&
+                                    !_hasAuthenticated
                                 ? _submitOtpMock
                                 : null,
                           ),

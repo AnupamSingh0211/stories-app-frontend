@@ -15,7 +15,7 @@ import 'package:dharma_app/features/auth/profile_repository.dart';
 import 'package:dharma_app/features/auth/profile_setup_screen.dart';
 import 'package:dharma_app/features/auth/welcome_screen.dart';
 import 'package:dharma_app/features/home/home_screen.dart';
-import 'package:dharma_app/features/library/library_screen.dart';
+import 'package:dharma_app/features/library/library_sections_screen.dart';
 import 'package:dharma_app/features/profile/profile_screen.dart';
 import 'package:dharma_app/features/storytime/models/story_model.dart';
 import 'package:dharma_app/features/storytime/providers/continue_listening_provider.dart';
@@ -175,16 +175,10 @@ void main() {
     expect(find.text('Library'), findsOneWidget);
     expect(find.text('Profile'), findsNWidgets(2));
 
-    await tester.tap(find.text('Stories'));
-    await tester.pumpAndSettle();
-    expect(find.text('Dreamy Tales'), findsOneWidget);
-
     await tester.tap(find.text('Library'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Replay the stories your child loves most.'),
-      findsOneWidget,
-    );
+    expect(find.byType(StorytimeScreen), findsOneWidget);
+    expect(find.text('Dreamy Tales'), findsOneWidget);
 
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
@@ -248,7 +242,7 @@ void main() {
     expect(find.text('Aarav'), findsWidgets);
   });
 
-  testWidgets('profile favourites opens the library page', (
+  testWidgets('stories header favorites icon opens library sections', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -256,6 +250,37 @@ void main() {
         overrides: [
           profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
           companionsProvider.overrideWith((ref) async => const []),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const StorytimeScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Open favorites'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LibrarySectionsScreen), findsOneWidget);
+    expect(find.text('No Favorites Yet'), findsOneWidget);
+  });
+
+  testWidgets('profile favourites opens the library stories page', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          companionsProvider.overrideWith((ref) async => const []),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
           savedLibraryProvider.overrideWith(
             (ref) => _TestSavedLibraryNotifier(),
           ),
@@ -273,11 +298,8 @@ void main() {
     await tester.tap(find.text('Favourites'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(LibraryScreen), findsOneWidget);
-    expect(
-      find.text('Replay the stories your child loves most.'),
-      findsOneWidget,
-    );
+    expect(find.byType(StorytimeScreen), findsOneWidget);
+    expect(find.text('Dreamy Tales'), findsOneWidget);
   });
 
   testWidgets('home and stories stay stable on compact scaled Android layout', (
@@ -317,7 +339,7 @@ void main() {
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Stories'), findsOneWidget);
 
-    await tester.tap(find.text('Stories'));
+    await tester.tap(find.text('Library'));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
@@ -585,6 +607,27 @@ void main() {
     expect(find.byType(ProfileSetupScreen), findsOneWidget);
     expect(find.byType(HomeScreen), findsNothing);
     expect(find.textContaining('Could not save profile'), findsOneWidget);
+    final field = tester.widget<TextFormField>(find.byType(TextFormField));
+    expect(field.controller?.text, 'Aarav');
+  });
+
+  testWidgets('repeated Continue taps create only one child', (
+    WidgetTester tester,
+  ) async {
+    final notifier = _OnboardingProfileNotifier(
+      savedChild: _child(name: 'Saved Aarav', age: 4),
+    );
+
+    await _pumpProfileSetup(tester, notifier: notifier);
+    await tester.enterText(find.byType(TextFormField), 'Typed Aarav');
+    await tester.ensureVisible(find.text('Continue'));
+
+    await tester.tap(find.text('Continue'));
+    await tester.tap(find.text('Continue'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(notifier.addChildCalls, 1);
+    expect(find.byType(ChooseCompanionScreen), findsOneWidget);
   });
 
   testWidgets('popOnSave returns the created child', (
@@ -688,11 +731,42 @@ Future<void> _pumpProfileSetup(
       child: MaterialApp(
         themeMode: ThemeMode.dark,
         darkTheme: AppTheme.darkTheme,
-        home: const ProfileSetupScreen(),
+        home: const _TestOnboardingGate(),
       ),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _TestOnboardingGate extends ConsumerWidget {
+  const _TestOnboardingGate();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profiles = ref.watch(profileNotifierProvider);
+    return profiles.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, stackTrace) => const ProfileSetupScreen(),
+      data: (state) {
+        if (state.children.isEmpty) {
+          return const ProfileSetupScreen();
+        }
+        if (ref.watch(companionSelectionPendingProvider)) {
+          return ChooseCompanionScreen(
+            onComplete: (context) {
+              ref.read(companionSelectionPendingProvider.notifier).state =
+                  false;
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+          );
+        }
+
+        final child = state.selectedChild;
+        return HomeScreen(childName: child?.childName, childAge: child?.age);
+      },
+    );
+  }
 }
 
 ChildProfileModel _child({required String name, required int age}) {

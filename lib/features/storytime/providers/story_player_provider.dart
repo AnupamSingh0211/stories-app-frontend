@@ -20,10 +20,14 @@ final storyPlayerProvider = StateNotifierProvider.autoDispose
       final initialPageIndex = continueEntry?.story.id == storyId
           ? continueEntry!.currentPageIndex
           : 0;
+      final initialAudioPosition = continueEntry?.story.id == storyId
+          ? continueEntry!.audioPosition
+          : Duration.zero;
       final notifier = StoryPlayerNotifier(
         ref.watch(storyRepositoryProvider),
         storyId: storyId,
         initialPageIndex: initialPageIndex,
+        initialAudioPosition: initialAudioPosition,
       );
       notifier.loadStory();
       return notifier;

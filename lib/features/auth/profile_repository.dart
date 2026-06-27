@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../core/supabase_client.dart';
 
 const defaultProfileLocale = 'en-IN';
@@ -27,8 +29,6 @@ abstract class ProfileDataSource {
 
   String? get currentUserId;
 
-  Future<String?> signInAnonymously();
-
   Future<List<Map<String, dynamic>>> fetchChildProfiles(String parentId);
 
   Future<Map<String, dynamic>> insertChildProfile(Map<String, dynamic> profile);
@@ -46,14 +46,6 @@ class SupabaseProfileDataSource extends ProfileDataSource {
   @override
   String? get currentUserId =>
       SupabaseClientProvider.client.auth.currentUser?.id;
-
-  @override
-  Future<String?> signInAnonymously() async {
-    final response = await SupabaseClientProvider.client.auth
-        .signInAnonymously();
-    return response.user?.id ??
-        SupabaseClientProvider.client.auth.currentUser?.id;
-  }
 
   @override
   Future<List<Map<String, dynamic>>> fetchChildProfiles(String parentId) async {
@@ -178,8 +170,13 @@ class ProfileRepository {
     String locale = defaultProfileLocale,
     String? avatarUrl,
   }) async {
-    final parentId = await _requireUserId();
+    final parentId = _requireUserId();
 
+    if (kDebugMode) {
+      debugPrint(
+        'ProfileRepository: inserting child profile for user $parentId',
+      );
+    }
     final row = await _dataSource.insertChildProfile({
       'parent_id': parentId,
       'child_name': name,
@@ -190,14 +187,18 @@ class ProfileRepository {
       'locale': normalizeProfileLocale(locale),
     });
 
-    return ChildProfileModel.fromMap(row);
+    final child = ChildProfileModel.fromMap(row);
+    if (kDebugMode) {
+      debugPrint('ProfileRepository: inserted child profile ${child.id}');
+    }
+    return child;
   }
 
   Future<ChildProfileModel> updateChildCompanion({
     required ChildProfileModel child,
     required String companionId,
   }) async {
-    final parentId = await _requireUserId();
+    final parentId = _requireUserId();
 
     final row = await _dataSource.updateChildProfile(child.id, parentId, {
       'companion_id': companionId,
@@ -206,24 +207,14 @@ class ProfileRepository {
     return ChildProfileModel.fromMap(row);
   }
 
-  Future<String> _requireUserId() async {
+  String _requireUserId() {
     final currentUserId = _dataSource.currentUserId;
     if (currentUserId != null && currentUserId.isNotEmpty) {
       return currentUserId;
     }
 
-    try {
-      final anonymousUserId = await _dataSource.signInAnonymously();
-      if (anonymousUserId != null && anonymousUserId.isNotEmpty) {
-        return anonymousUserId;
-      }
-    } catch (error) {
-      throw StateError('Could not start a guest session: $error');
-    }
-
     throw StateError(
-      'Could not start a guest session. '
-      'Confirm anonymous sign-ins are enabled in Supabase.',
+      'An authenticated session is required before creating a child profile.',
     );
   }
 }

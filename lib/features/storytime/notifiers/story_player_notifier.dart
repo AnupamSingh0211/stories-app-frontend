@@ -12,8 +12,10 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     this._repository, {
     required String storyId,
     int initialPageIndex = 0,
+    Duration initialAudioPosition = Duration.zero,
   }) : _storyId = storyId,
        _initialPageIndex = initialPageIndex,
+       _initialAudioPosition = initialAudioPosition,
        super(StoryPlayerState.initial()) {
     _playerStateSubscription = _audioPlayer.playerStateStream.listen(
       _handlePlayerState,
@@ -21,13 +23,18 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
         _setError('Audio playback failed. Please try again.');
       },
     );
+    _positionSubscription = _audioPlayer.positionStream.listen(_handlePosition);
+    _durationSubscription = _audioPlayer.durationStream.listen(_handleDuration);
   }
 
   final StoryRepository _repository;
   final String _storyId;
   final int _initialPageIndex;
+  final Duration _initialAudioPosition;
   final AudioPlayer _audioPlayer = AudioPlayer();
   StreamSubscription<PlayerState>? _playerStateSubscription;
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration?>? _durationSubscription;
   bool _disposed = false;
   bool _isPreparingPageAudio = false;
   int _audioLoadGeneration = 0;
@@ -59,14 +66,21 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
         pages: pages,
         currentPageIndex: initialPageIndex,
         playbackSpeed: 1,
-        isLoading: false,
+        isLoading: true,
         isComplete: false,
         clearError: true,
       );
 
       await _audioPlayer.setSpeed(state.playbackSpeed);
       unawaited(_loadFavorite());
-      await _loadPageAudio(initialPageIndex);
+      await _loadPageAudio(
+        initialPageIndex,
+        autoPlay: false,
+        initialPosition: _initialAudioPosition,
+      );
+      if (!_disposed) {
+        state = state.copyWith(isLoading: false);
+      }
     } catch (error) {
       _setError(_friendlyError(error));
     }
@@ -117,6 +131,30 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     await _seekToPage(state.currentPageIndex - 1);
   }
 
+  Future<void> activatePage(
+    int storyPageIndex, {
+    required bool autoPlay,
+  }) async {
+    if (storyPageIndex < 0 || storyPageIndex >= state.pages.length) {
+      return;
+    }
+
+    if (storyPageIndex == state.currentPageIndex && !_isPreparingPageAudio) {
+      if (autoPlay && !state.isPlaying) {
+        await play();
+      } else if (!autoPlay && state.isPlaying) {
+        await pause();
+      }
+      return;
+    }
+
+    if (storyPageIndex == state.currentPageIndex && _isPreparingPageAudio) {
+      return;
+    }
+
+    await _loadPageAudio(storyPageIndex, autoPlay: autoPlay);
+  }
+
   Future<void> toggleFavorite() async {
     final wasFavorite = state.isFavorite;
     state = state.copyWith(isFavorite: !wasFavorite, clearError: true);
@@ -150,10 +188,46 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     }
   }
 
+  Future<void> seekBy(Duration offset) async {
+    final duration = state.audioDuration;
+    final rawTarget = state.audioPosition + offset;
+    final maxPosition = duration > Duration.zero ? duration : rawTarget;
+    final target = rawTarget < Duration.zero
+        ? Duration.zero
+        : rawTarget > maxPosition
+        ? maxPosition
+        : rawTarget;
+
+    try {
+      await _audioPlayer.seek(target);
+      state = state.copyWith(audioPosition: target);
+    } catch (error) {
+      _setError('The story could not seek to that position.');
+    }
+  }
+
+  Future<void> seekTo(Duration position) async {
+    final duration = state.audioDuration;
+    final target = duration > Duration.zero && position > duration
+        ? duration
+        : position < Duration.zero
+        ? Duration.zero
+        : position;
+
+    try {
+      await _audioPlayer.seek(target);
+      state = state.copyWith(audioPosition: target);
+    } catch (error) {
+      _setError('The story could not seek to that position.');
+    }
+  }
+
   Future<void> disposePlayer() async {
     _disposed = true;
     _audioLoadGeneration++;
     await _playerStateSubscription?.cancel();
+    await _positionSubscription?.cancel();
+    await _durationSubscription?.cancel();
     await _audioPlayer.dispose();
   }
 
@@ -169,7 +243,11 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     await session.setActive(true);
   }
 
-  Future<void> _loadPageAudio(int pageIndex, {bool autoPlay = true}) async {
+  Future<void> _loadPageAudio(
+    int pageIndex, {
+    bool autoPlay = true,
+    Duration initialPosition = Duration.zero,
+  }) async {
     if (state.pages.isEmpty) {
       _setError('This story does not have any pages yet.');
       return;
@@ -189,6 +267,8 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     _isPreparingPageAudio = true;
     state = state.copyWith(
       currentPageIndex: pageIndex,
+      audioPosition: Duration.zero,
+      audioDuration: Duration.zero,
       isPlaying: false,
       isComplete: false,
       clearError: true,
@@ -204,6 +284,14 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
       }
 
       await _audioPlayer.setSpeed(state.playbackSpeed);
+      if (initialPosition > Duration.zero) {
+        final duration = _audioPlayer.duration;
+        final safePosition = duration == null || initialPosition < duration
+            ? initialPosition
+            : Duration.zero;
+        await _audioPlayer.seek(safePosition);
+        state = state.copyWith(audioPosition: safePosition);
+      }
 
       if (autoPlay) {
         _startPlayback();
@@ -239,6 +327,20 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     if (playerState.processingState == ProcessingState.ready) {
       state = state.copyWith(isPlaying: playerState.playing);
     }
+  }
+
+  void _handlePosition(Duration position) {
+    if (_disposed || position == state.audioPosition) {
+      return;
+    }
+    state = state.copyWith(audioPosition: position);
+  }
+
+  void _handleDuration(Duration? duration) {
+    if (_disposed) {
+      return;
+    }
+    state = state.copyWith(audioDuration: duration ?? Duration.zero);
   }
 
   Future<void> _seekToPage(int index) async {
