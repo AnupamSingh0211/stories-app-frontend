@@ -80,6 +80,8 @@ flutter:
     - assets/icons/notifications/
     - assets/icons/player/
     - assets/icons/switch/
+    - assets/icons/membership/
+    - assets/images/membership/
 
   # To add assets to your application, add an assets section, like this:
   #assets:

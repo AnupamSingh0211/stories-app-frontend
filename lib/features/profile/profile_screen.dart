@@ -14,6 +14,7 @@ import '../auth/profile_notifier.dart';
 import '../auth/profile_repository.dart';
 import '../auth/profile_setup_screen.dart';
 import '../home/home_screen.dart';
+import '../membership/membership_screen.dart';
 import '../storytime/screens/storytime_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -107,10 +108,15 @@ class ProfileScreen extends ConsumerWidget {
                         _ProfileSection(
                           title: 'APP SETTINGS',
                           children: [
-                            const _ProfileMenuRow(
+                            _ProfileMenuRow(
                               iconAsset: 'assets/icons/actions/star_badge.svg',
                               title: 'Subscription',
-                              subtitle: 'Click to manage  your subscription',
+                              subtitle: 'Click to manage your subscription',
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const MembershipScreen(),
+                                ),
+                              ),
                             ),
                             const _ProfileMenuRow(
                               iconAsset: 'assets/icons/actions/globe.svg',
