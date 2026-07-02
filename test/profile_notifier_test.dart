@@ -24,7 +24,7 @@ void main() {
       'Meera',
     ]);
     expect(initial.selectedChild?.childName, 'Aarav');
-    expect(repository.fetchedParentId, 'parent-1');
+    expect(repository.fetchCalls, 1);
 
     container
         .read(profileNotifierProvider.notifier)
@@ -57,7 +57,7 @@ void main() {
 
     expect(state.children, isEmpty);
     expect(state.selectedChild, isNull);
-    expect(repository.fetchedParentId, isNull);
+    expect(repository.fetchCalls, 0);
   });
 
   for (final initialCount in [0, 1]) {
@@ -145,9 +145,9 @@ void main() {
 
   group('ProfileRepository authentication', () {
     test(
-      'uses the existing authenticated user when creating a child',
+      'creates a child profile without sending parent_id or user_id',
       () async {
-        final dataSource = _FakeProfileDataSource(currentUserId: 'user-1');
+        final dataSource = _FakeProfileDataSource();
         final repository = ProfileRepository(dataSource: dataSource);
 
         final child = await repository.createChildProfile(
@@ -157,30 +157,35 @@ void main() {
           companionId: null,
         );
 
-        expect(dataSource.insertedProfile?['parent_id'], 'user-1');
-        expect(dataSource.insertedProfile?['locale'], defaultProfileLocale);
+        expect(dataSource.insertedProfile?['child_name'], 'Aarav');
+        expect(dataSource.insertedProfile?.containsKey('parent_id'), isFalse);
+        expect(dataSource.insertedProfile?.containsKey('user_id'), isFalse);
+        expect(dataSource.insertedProfile?.containsKey('locale'), isFalse);
         expect(child.parentId, 'user-1');
+        expect(child.locale, defaultProfileLocale);
       },
     );
 
-    test('stores the supplied locale when creating a child', () async {
-      final dataSource = _FakeProfileDataSource(currentUserId: 'user-1');
-      final repository = ProfileRepository(dataSource: dataSource);
+    test(
+      'preserves the supplied locale in the returned child when backend omits it',
+      () async {
+        final dataSource = _FakeProfileDataSource();
+        final repository = ProfileRepository(dataSource: dataSource);
 
-      final child = await repository.createChildProfile(
-        name: 'Aarav',
-        gender: 'boy',
-        age: 2,
-        companionId: null,
-        locale: 'hi-IN',
-      );
+        final child = await repository.createChildProfile(
+          name: 'Aarav',
+          gender: 'boy',
+          age: 2,
+          companionId: null,
+          locale: 'hi-IN',
+        );
 
-      expect(dataSource.insertedProfile?['locale'], 'hi-IN');
-      expect(child.locale, 'hi-IN');
-    });
+        expect(child.locale, 'hi-IN');
+      },
+    );
 
-    test('updates child companion by parent and child id', () async {
-      final dataSource = _FakeProfileDataSource(currentUserId: 'user-1');
+    test('updates child companion by child id only', () async {
+      final dataSource = _FakeProfileDataSource();
       final repository = ProfileRepository(dataSource: dataSource);
       final child = ChildProfileModel(
         id: 'child-1',
@@ -197,47 +202,23 @@ void main() {
       );
 
       expect(dataSource.updatedChildId, 'child-1');
-      expect(dataSource.updatedParentId, 'user-1');
       expect(dataSource.updatedProfile?['companion_id'], 'krishna');
       expect(updated.companionId, 'krishna');
     });
 
-    test('fetches children only for the supplied parent identifier', () async {
-      final dataSource = _FakeProfileDataSource(currentUserId: 'user-1');
-      final repository = ProfileRepository(dataSource: dataSource);
-
-      await repository.fetchChildProfiles('user-2');
-
-      expect(dataSource.fetchedParentId, 'user-2');
-    });
-
-    test('requires authentication before creating a child', () async {
+    test('fetches children from the authenticated backend route', () async {
       final dataSource = _FakeProfileDataSource();
       final repository = ProfileRepository(dataSource: dataSource);
 
-      await expectLater(
-        repository.createChildProfile(
-          name: 'Meera',
-          gender: 'girl',
-          age: 3,
-          companionId: 'krishna',
-        ),
-        throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            contains('authenticated session is required'),
-          ),
-        ),
-      );
+      await repository.fetchChildProfiles();
 
-      expect(dataSource.insertedProfile, isNull);
+      expect(dataSource.fetchCalls, 1);
     });
 
     test('falls back to en-IN for missing or unsupported row locale', () {
       final missing = ChildProfileModel.fromMap({
         'id': 'child-1',
-        'parent_id': 'parent-1',
+        'user_id': 'parent-1',
         'child_name': 'Aarav',
         'age': 2,
         'gender': 'boy',
@@ -289,18 +270,19 @@ class _FakeProfileRepository extends ProfileRepository {
           gender: 'girl',
           createdAt: DateTime.utc(2026, 6, 8),
         ),
-      ].take(childCount).toList();
+      ].take(childCount).toList(),
+      super(dataSource: _FakeProfileDataSource());
 
   final List<ChildProfileModel> children;
   final Object? createError;
-  String? fetchedParentId;
   String? updatedChildId;
   String? updatedCompanionId;
   int createCalls = 0;
+  int fetchCalls = 0;
 
   @override
-  Future<List<ChildProfileModel>> fetchChildProfiles(String parentId) async {
-    fetchedParentId = parentId;
+  Future<List<ChildProfileModel>> fetchChildProfiles() async {
+    fetchCalls++;
     return List.unmodifiable(children);
   }
 
@@ -352,19 +334,17 @@ class _FakeProfileRepository extends ProfileRepository {
 }
 
 class _FakeProfileDataSource extends ProfileDataSource {
-  _FakeProfileDataSource({this.currentUserId});
-
   @override
   String? currentUserId;
+
   Map<String, dynamic>? insertedProfile;
   Map<String, dynamic>? updatedProfile;
-  String? fetchedParentId;
   String? updatedChildId;
-  String? updatedParentId;
+  int fetchCalls = 0;
 
   @override
-  Future<List<Map<String, dynamic>>> fetchChildProfiles(String parentId) async {
-    fetchedParentId = parentId;
+  Future<List<Map<String, dynamic>>> fetchChildProfiles() async {
+    fetchCalls++;
     return const [];
   }
 
@@ -373,21 +353,24 @@ class _FakeProfileDataSource extends ProfileDataSource {
     Map<String, dynamic> profile,
   ) async {
     insertedProfile = profile;
-    return {'id': 'child-1', ...profile, 'created_at': '2026-06-09T00:00:00Z'};
+    return {
+      'id': 'child-1',
+      'user_id': 'user-1',
+      ...profile,
+      'created_at': '2026-06-09T00:00:00Z',
+    };
   }
 
   @override
   Future<Map<String, dynamic>> updateChildProfile(
     String childId,
-    String parentId,
     Map<String, dynamic> profile,
   ) async {
     updatedChildId = childId;
-    updatedParentId = parentId;
     updatedProfile = profile;
     return {
       'id': childId,
-      'parent_id': parentId,
+      'user_id': 'user-1',
       'child_name': 'Aarav',
       'age': 2,
       'gender': 'boy',

@@ -122,8 +122,11 @@ void main() {
     expect(field.controller!.text, '1234567890');
   });
 
-  testWidgets('exactly 10 digits opens the mock OTP step', (tester) async {
-    await _pumpWelcomeScreen(tester);
+  testWidgets('exactly 10 digits requests OTP using E.164 and opens OTP step', (
+    tester,
+  ) async {
+    final authService = _FakeAuthService();
+    await _pumpWelcomeScreen(tester, authService: authService);
 
     await tester.enterText(
       find.byKey(const Key('mobile-number-field')),
@@ -137,6 +140,7 @@ void main() {
     expect(find.text('We have sent to'), findsOneWidget);
     expect(find.text('1234567890'), findsOneWidget);
     expect(find.byType(ProfileSetupScreen), findsNothing);
+    expect(authService.requestedPhones, ['+911234567890']);
 
     final title = tester.widget<Text>(find.text('Enter your OTP'));
     expect(title.maxLines, 1);
@@ -160,7 +164,7 @@ void main() {
     expect(find.byType(ProfileSetupScreen), findsNothing);
   });
 
-  testWidgets('mock OTP submit authenticates only once', (tester) async {
+  testWidgets('OTP submit verifies only once', (tester) async {
     final observer = _CountingNavigatorObserver();
     final authService = _FakeAuthService();
     await _pumpWelcomeScreen(
@@ -190,7 +194,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(authService.ensureSessionCalls, 1);
+    expect(authService.verifyOtpCalls, 1);
+    expect(authService.verifiedPhone, '+911234567890');
+    expect(authService.verifiedOtp, '987654');
     expect(observer.pushCount, 0);
     expect(find.byType(WelcomeScreen), findsOneWidget);
   });
@@ -205,9 +211,12 @@ void main() {
       final authEvents = StreamController<AppSessionIdentity?>();
       addTearDown(authEvents.close);
       final authService = _FakeAuthService(
-        onEnsureSession: () {
+        onVerifyOtp: () {
           authEvents.add(
-            const AppSessionIdentity(userId: 'anonymous-1', isAnonymous: true),
+            const AppSessionIdentity(
+              userId: 'phone-user-1',
+              isAnonymous: false,
+            ),
           );
         },
       );
@@ -243,7 +252,7 @@ void main() {
       await tester.tap(find.byKey(const Key('otp-submit-button')));
       await tester.pumpAndSettle();
 
-      expect(authService.ensureSessionCalls, 1);
+      expect(authService.verifyOtpCalls, 1);
       expect(find.byType(ProfileSetupScreen), findsOneWidget);
       expect(find.byType(WelcomeScreen), findsNothing);
     },
@@ -261,8 +270,8 @@ void main() {
           appAssetsProvider.overrideWithValue(_testAssets),
           authSessionProvider.overrideWith((ref) async* {
             yield const AppSessionIdentity(
-              userId: 'anonymous-1',
-              isAnonymous: true,
+              userId: 'phone-user-1',
+              isAnonymous: false,
             );
             yield* authEvents.stream;
           }),
@@ -278,7 +287,7 @@ void main() {
     await tester.pump();
 
     authEvents.add(
-      const AppSessionIdentity(userId: 'anonymous-1', isAnonymous: true),
+      const AppSessionIdentity(userId: 'phone-user-1', isAnonymous: false),
     );
     await tester.pumpAndSettle();
 
@@ -353,6 +362,148 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1'), findsOneWidget);
   });
+
+  testWidgets('OTP request failure stays on phone step and shows an error', (
+    tester,
+  ) async {
+    final authService = _FakeAuthService(requestError: Exception('offline'));
+    await _pumpWelcomeScreen(tester, authService: authService);
+
+    await tester.enterText(
+      find.byKey(const Key('mobile-number-field')),
+      '9876543210',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('mobile-continue-button')));
+    await tester.pumpAndSettle();
+
+    expect(authService.requestedPhones, ['+919876543210']);
+    expect(find.text('Enter your OTP'), findsNothing);
+    expect(find.text('Could not send OTP. Please try again.'), findsOneWidget);
+  });
+
+  testWidgets('pending OTP request blocks duplicate submission', (
+    tester,
+  ) async {
+    final requestCompleter = Completer<void>();
+    final authService = _FakeAuthService(requestCompleter: requestCompleter);
+    await _pumpWelcomeScreen(tester, authService: authService);
+
+    await tester.enterText(
+      find.byKey(const Key('mobile-number-field')),
+      '9876543210',
+    );
+    await tester.pump();
+    final sendButton = find.byKey(const Key('mobile-continue-button'));
+    await tester.tap(sendButton);
+    await tester.tap(sendButton, warnIfMissed: false);
+    await tester.pump();
+
+    expect(authService.requestedPhones, ['+919876543210']);
+    expect(find.text('Sending...'), findsOneWidget);
+
+    requestCompleter.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Enter your OTP'), findsOneWidget);
+  });
+
+  testWidgets('incomplete OTP is not submitted', (tester) async {
+    final authService = _FakeAuthService();
+    await _pumpWelcomeScreen(tester, authService: authService);
+    await _openOtpStep(tester);
+
+    for (final digit in ['1', '2', '3', '4', '5']) {
+      await tester.tap(find.text(digit));
+    }
+    await tester.tap(find.byIcon(Icons.keyboard_tab));
+    await tester.pump();
+
+    expect(authService.verifyOtpCalls, 0);
+    expect(find.text('Please enter the complete 6-digit OTP.'), findsOneWidget);
+  });
+
+  testWidgets('OTP verification failure keeps OTP step and shows an error', (
+    tester,
+  ) async {
+    final authService = _FakeAuthService(verifyError: Exception('bad otp'));
+    await _pumpWelcomeScreen(tester, authService: authService);
+    await _openOtpStep(tester);
+    await _enterOtp(tester, '123456');
+
+    await tester.tap(find.byKey(const Key('otp-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(authService.verifyOtpCalls, 1);
+    expect(find.text('Enter your OTP'), findsOneWidget);
+    expect(
+      find.text('Invalid or expired OTP. Please try again.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('pending OTP verification blocks duplicate submission', (
+    tester,
+  ) async {
+    final verifyCompleter = Completer<AppSessionIdentity>();
+    final authService = _FakeAuthService(verifyCompleter: verifyCompleter);
+    await _pumpWelcomeScreen(tester, authService: authService);
+    await _openOtpStep(tester);
+    await _enterOtp(tester, '123456');
+
+    final submitButton = find.byKey(const Key('otp-submit-button'));
+    await tester.tap(submitButton);
+    await tester.tap(submitButton, warnIfMissed: false);
+    await tester.pump();
+
+    expect(authService.verifyOtpCalls, 1);
+    expect(find.text('Verifying...'), findsOneWidget);
+
+    verifyCompleter.complete(
+      const AppSessionIdentity(userId: 'phone-user-1', isAnonymous: false),
+    );
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'resend remains disabled for 60 seconds then requests a new OTP',
+    (tester) async {
+      final authService = _FakeAuthService();
+      await _pumpWelcomeScreen(tester, authService: authService);
+      await _openOtpStep(tester);
+
+      expect(find.text('Resend OTP in 60s'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const Key('otp-resend-button')),
+        warnIfMissed: false,
+      );
+      expect(authService.requestedPhones, hasLength(1));
+
+      await tester.pump(const Duration(seconds: 60));
+      expect(find.text('Resend OTP'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('otp-resend-button')));
+      await tester.pump();
+      expect(authService.requestedPhones, hasLength(2));
+      expect(authService.requestedPhones.last, '+911234567890');
+    },
+  );
+}
+
+Future<void> _openOtpStep(WidgetTester tester) async {
+  await tester.enterText(
+    find.byKey(const Key('mobile-number-field')),
+    '1234567890',
+  );
+  await tester.pump();
+  await tester.tap(find.byKey(const Key('mobile-continue-button')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _enterOtp(WidgetTester tester, String otp) async {
+  for (final digit in otp.split('')) {
+    await tester.tap(find.text(digit));
+    await tester.pump();
+  }
 }
 
 const _testAssets = {
@@ -393,19 +544,60 @@ Future<void> _pumpWelcomeScreen(
 }
 
 class _FakeAuthService implements AppAuthService {
-  _FakeAuthService({this.onEnsureSession});
+  _FakeAuthService({
+    this.onVerifyOtp,
+    this.requestError,
+    this.verifyError,
+    this.requestCompleter,
+    this.verifyCompleter,
+  });
 
-  final VoidCallback? onEnsureSession;
-  int ensureSessionCalls = 0;
+  final VoidCallback? onVerifyOtp;
+  final Object? requestError;
+  final Object? verifyError;
+  final Completer<void>? requestCompleter;
+  final Completer<AppSessionIdentity>? verifyCompleter;
+  final List<String> requestedPhones = [];
+  int verifyOtpCalls = 0;
+  int signOutCalls = 0;
+  String? verifiedPhone;
+  String? verifiedOtp;
 
   @override
   AppSessionIdentity? get currentIdentity => null;
 
   @override
-  Future<AppSessionIdentity> ensureAnonymousSession() async {
-    ensureSessionCalls++;
-    onEnsureSession?.call();
-    return const AppSessionIdentity(userId: 'anonymous-1', isAnonymous: true);
+  Future<void> requestOtp(String phoneNumber) async {
+    requestedPhones.add(phoneNumber);
+    if (requestCompleter != null) {
+      await requestCompleter!.future;
+    }
+    if (requestError != null) {
+      throw requestError!;
+    }
+  }
+
+  @override
+  Future<AppSessionIdentity> verifyOtp({
+    required String phoneNumber,
+    required String otp,
+  }) async {
+    verifyOtpCalls++;
+    verifiedPhone = phoneNumber;
+    verifiedOtp = otp;
+    if (verifyCompleter != null) {
+      return verifyCompleter!.future;
+    }
+    if (verifyError != null) {
+      throw verifyError!;
+    }
+    onVerifyOtp?.call();
+    return const AppSessionIdentity(userId: 'phone-user-1', isAnonymous: false);
+  }
+
+  @override
+  Future<void> signOut() async {
+    signOutCalls++;
   }
 }
 

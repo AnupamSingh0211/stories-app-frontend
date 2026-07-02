@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/theme/app_typography.dart';
 import 'assets_provider.dart';
 import 'auth_provider.dart';
+import 'indian_phone_number.dart';
 
 enum _WelcomeAuthStep { mobileNumber, otp }
 
@@ -22,18 +25,24 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   final _mobileNumberFocusNode = FocusNode();
   final _otpFocusNode = FocusNode();
 
-  bool _isNavigating = false;
+  bool _isRequestingOtp = false;
+  bool _isVerifyingOtp = false;
   bool _hasAuthenticated = false;
   bool _hasAttemptedValidation = false;
+  bool _hasAttemptedOtpValidation = false;
   bool _isMobileNumberFocused = false;
   bool _isOtpFocused = false;
   bool _isKeyboardDismissed = false;
   _WelcomeAuthStep _authStep = _WelcomeAuthStep.mobileNumber;
   String _otpValue = '';
   String _sentMobileNumber = '';
+  String _sentE164MobileNumber = '';
+  Timer? _resendTimer;
+  int _resendSecondsRemaining = 0;
 
   static const _transitionDuration = Duration(milliseconds: 280);
   static const _transitionCurve = Curves.easeOutCubic;
+  static const _resendCooldown = Duration(seconds: 60);
 
   @override
   void initState() {
@@ -49,6 +58,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     _otpFocusNode.dispose();
     _mobileNumberFocusNode.dispose();
     _mobileNumberController.dispose();
+    _resendTimer?.cancel();
     super.dispose();
   }
 
@@ -78,20 +88,22 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     });
   }
 
-  bool get _isMobileNumberValid => _mobileNumberController.text.length == 10;
+  bool get _isMobileNumberValid =>
+      IndianPhoneNumber.isValidLocal(_mobileNumberController.text);
 
   bool get _shouldShowMobileNumberError {
     final mobileNumber = _mobileNumberController.text;
     if (mobileNumber.isEmpty) {
       return _hasAttemptedValidation;
     }
-    return mobileNumber.length != 10;
+    return !IndianPhoneNumber.isValidLocal(mobileNumber);
   }
 
   bool get _isOtpComplete => _otpValue.length == 6;
+  bool get _isBusy => _isRequestingOtp || _isVerifyingOtp;
 
   Future<void> _continueWithMobileNumber() async {
-    if (_isNavigating || _authStep != _WelcomeAuthStep.mobileNumber) {
+    if (_isBusy || _authStep != _WelcomeAuthStep.mobileNumber) {
       return;
     }
 
@@ -100,44 +112,131 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       return;
     }
 
-    await _sendOtpMock();
+    final localNumber = _mobileNumberController.text.trim();
+    await _requestOtp(
+      localNumber: localNumber,
+      e164Number: IndianPhoneNumber.toE164(localNumber),
+      moveToOtpStep: true,
+    );
   }
 
-  Future<void> _sendOtpMock() async {
-    // TODO: Replace this placeholder with real OTP generation and delivery.
-    setState(() {
-      _sentMobileNumber = _mobileNumberController.text;
-      _otpValue = '';
-      _authStep = _WelcomeAuthStep.otp;
-    });
-    _mobileNumberFocusNode.unfocus();
-    _otpFocusNode.requestFocus();
-  }
-
-  Future<void> _submitOtpMock() async {
-    if (_isNavigating || _hasAuthenticated || !_isOtpComplete) {
+  Future<void> _requestOtp({
+    required String localNumber,
+    required String e164Number,
+    required bool moveToOtpStep,
+  }) async {
+    if (_isRequestingOtp || _isVerifyingOtp) {
       return;
     }
 
-    setState(() => _isNavigating = true);
+    _clearMessage();
+    setState(() => _isRequestingOtp = true);
     try {
-      // TODO: Replace anonymous authentication with real OTP verification.
+      await ref.read(appAuthServiceProvider).requestOtp(e164Number);
+      if (!mounted) return;
+
+      setState(() {
+        _sentMobileNumber = localNumber;
+        _sentE164MobileNumber = e164Number;
+        _otpValue = '';
+        _hasAttemptedOtpValidation = false;
+        if (moveToOtpStep) {
+          _authStep = _WelcomeAuthStep.otp;
+        }
+      });
+      _startResendCooldown();
+      _mobileNumberFocusNode.unfocus();
+      _otpFocusNode.requestFocus();
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage('Could not send OTP. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _isRequestingOtp = false);
+      }
+    }
+  }
+
+  Future<void> _submitOtp() async {
+    if (_isBusy || _hasAuthenticated) {
+      return;
+    }
+
+    if (!_isOtpComplete) {
+      setState(() => _hasAttemptedOtpValidation = true);
+      _showMessage('Please enter the complete 6-digit OTP.');
+      return;
+    }
+
+    _clearMessage();
+    setState(() {
+      _hasAttemptedOtpValidation = true;
+      _isVerifyingOtp = true;
+    });
+    try {
       // AppSessionGate owns the transition to profile setup after auth changes.
-      await ref.read(appAuthServiceProvider).ensureAnonymousSession();
+      final identity = await ref
+          .read(appAuthServiceProvider)
+          .verifyOtp(phoneNumber: _sentE164MobileNumber, otp: _otpValue);
+      if (identity.isAnonymous) {
+        throw StateError('Phone OTP returned an anonymous identity.');
+      }
       _hasAuthenticated = true;
     } catch (_) {
       _hasAuthenticated = false;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not start your session. Please try again.'),
-        ),
-      );
+      _showMessage('Invalid or expired OTP. Please try again.');
     } finally {
       if (mounted) {
-        setState(() => _isNavigating = false);
+        setState(() => _isVerifyingOtp = false);
       }
     }
+  }
+
+  Future<void> _resendOtp() async {
+    if (_authStep != _WelcomeAuthStep.otp ||
+        _resendSecondsRemaining > 0 ||
+        _isBusy ||
+        _sentE164MobileNumber.isEmpty) {
+      return;
+    }
+
+    await _requestOtp(
+      localNumber: _sentMobileNumber,
+      e164Number: _sentE164MobileNumber,
+      moveToOtpStep: false,
+    );
+  }
+
+  void _startResendCooldown() {
+    _resendTimer?.cancel();
+    setState(() => _resendSecondsRemaining = _resendCooldown.inSeconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      if (_resendSecondsRemaining <= 1) {
+        timer.cancel();
+        setState(() => _resendSecondsRemaining = 0);
+        return;
+      }
+
+      setState(() => _resendSecondsRemaining--);
+    });
+  }
+
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _clearMessage() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
   }
 
   void _appendKeyboardValue(String value) {
@@ -165,7 +264,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
     setState(() {
       _otpValue = '$_otpValue$value';
+      _hasAttemptedOtpValidation = false;
     });
+    _clearMessage();
   }
 
   void _deleteKeyboardValue() {
@@ -193,7 +294,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
     setState(() {
       _otpValue = _otpValue.substring(0, _otpValue.length - 1);
+      _hasAttemptedOtpValidation = false;
     });
+    _clearMessage();
   }
 
   void _hideKeyboardView() {
@@ -234,16 +337,22 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     setState(() {
       _authStep = _WelcomeAuthStep.mobileNumber;
       _otpValue = '';
+      _sentMobileNumber = '';
+      _sentE164MobileNumber = '';
       _hasAttemptedValidation = false;
+      _hasAttemptedOtpValidation = false;
       _isKeyboardDismissed = false;
+      _resendSecondsRemaining = 0;
     });
+    _resendTimer?.cancel();
+    _clearMessage();
     _otpFocusNode.unfocus();
     _mobileNumberFocusNode.requestFocus();
   }
 
   Future<void> _handleKeyboardDone() async {
     if (_authStep == _WelcomeAuthStep.otp) {
-      await _submitOtpMock();
+      await _submitOtp();
     } else {
       await _continueWithMobileNumber();
     }
@@ -351,7 +460,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                             focusNode: _otpFocusNode,
                             child: Semantics(
                               textField: true,
-                              label: 'OTP',
+                              label:
+                                  _hasAttemptedOtpValidation && !_isOtpComplete
+                                  ? 'OTP, incomplete'
+                                  : 'OTP',
                               value: _otpValue,
                               onTap: _showOtpKeyboard,
                               child: _OtpCodeBoxes(value: _otpValue),
@@ -369,12 +481,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           label: 'Submit',
                           child: _FigmaPrimaryButton(
                             key: const Key('otp-submit-button'),
-                            label: 'Submit',
+                            label: _isVerifyingOtp ? 'Verifying...' : 'Submit',
                             onTap:
-                                _isOtpComplete &&
-                                    !_isNavigating &&
-                                    !_hasAuthenticated
-                                ? _submitOtpMock
+                                _isOtpComplete && !_isBusy && !_hasAuthenticated
+                                ? _submitOtp
                                 : null,
                           ),
                         ),
@@ -384,7 +494,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                         curve: _transitionCurve,
                         top: otpContentTop + 239,
                         width: isKeyboardView ? 350 : 343,
-                        child: const _ResendOtpButton(),
+                        child: _ResendOtpButton(
+                          secondsRemaining: _resendSecondsRemaining,
+                          isLoading: _isRequestingOtp,
+                          onPressed: _resendSecondsRemaining == 0 && !_isBusy
+                              ? _resendOtp
+                              : null,
+                        ),
                       ),
                     ] else if (isKeyboardView) ...[
                       AnimatedPositioned(
@@ -400,7 +516,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           validator: _validateMobileNumber,
                           showError: _shouldShowMobileNumberError,
                           isValid: _isMobileNumberValid,
-                          isNavigating: _isNavigating,
+                          isNavigating: _isBusy,
                           onSendOtp: _continueWithMobileNumber,
                           onFieldTap: () {
                             if (_isKeyboardDismissed) {
@@ -444,8 +560,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           label: 'Send Otp',
                           child: _FigmaPrimaryButton(
                             key: const Key('mobile-continue-button'),
-                            label: isKeyboardView ? 'Send OTP' : 'Send Otp',
-                            onTap: _isMobileNumberValid && !_isNavigating
+                            label: _isRequestingOtp
+                                ? 'Sending...'
+                                : isKeyboardView
+                                ? 'Send OTP'
+                                : 'Send Otp',
+                            onTap: _isMobileNumberValid && !_isBusy
                                 ? _continueWithMobileNumber
                                 : null,
                           ),
@@ -700,7 +820,7 @@ class _MobileKeyboardContent extends StatelessWidget {
               label: 'Send Otp',
               child: _FigmaPrimaryButton(
                 key: const Key('mobile-continue-button'),
-                label: 'Send OTP',
+                label: isNavigating ? 'Sending...' : 'Send OTP',
                 onTap: isValid && !isNavigating ? onSendOtp : null,
               ),
             ),
@@ -1062,19 +1182,47 @@ class _FigmaPrimaryButton extends StatelessWidget {
 }
 
 class _ResendOtpButton extends StatelessWidget {
-  const _ResendOtpButton();
+  const _ResendOtpButton({
+    required this.secondsRemaining,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final int secondsRemaining;
+  final bool isLoading;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Resend OTP',
-        style: TextStyle(
-          fontFamily: AppTypography.fontFamily,
-          fontSize: 16,
-          height: 24 / 16,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF667085),
+    final label = isLoading
+        ? 'Sending...'
+        : secondsRemaining > 0
+        ? 'Resend OTP in ${secondsRemaining}s'
+        : 'Resend OTP';
+
+    return Center(
+      child: Semantics(
+        button: true,
+        enabled: onPressed != null,
+        child: InkWell(
+          key: const Key('otp-resend-button'),
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppTypography.fontFamily,
+                fontSize: 16,
+                height: 24 / 16,
+                fontWeight: FontWeight.w700,
+                color: onPressed == null
+                    ? const Color(0xFF98A2B3)
+                    : const Color(0xFF667085),
+              ),
+            ),
+          ),
         ),
       ),
     );

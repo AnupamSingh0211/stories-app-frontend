@@ -1,13 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../core/backend_api_client.dart';
 import 'auth_provider.dart';
 import 'profile_repository.dart';
 
 part 'profile_notifier.g.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
-  return const ProfileRepository();
+  return ProfileRepository(
+    dataSource: BackendProfileDataSource(
+      apiClient: ref.watch(backendApiClientProvider),
+    ),
+  );
 });
 
 class ChildProfilesState {
@@ -57,9 +62,9 @@ class ProfileNotifier extends _$ProfileNotifier {
     }
 
     if (kDebugMode) {
-      debugPrint('ProfileNotifier: loading profiles for $userId');
+      debugPrint('ProfileNotifier: loading profiles for authenticated user');
     }
-    final children = await _repository.fetchChildProfiles(userId);
+    final children = await _repository.fetchChildProfiles();
     return ChildProfilesState(
       children: children,
       selectedChildId: children.firstOrNull?.id,
@@ -154,7 +159,7 @@ class ProfileNotifier extends _$ProfileNotifier {
 
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final children = await _repository.fetchChildProfiles(session.userId);
+      final children = await _repository.fetchChildProfiles();
       final selectionExists = children.any((child) => child.id == selectedId);
       return ChildProfilesState(
         children: children,

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -24,7 +23,14 @@ class AppSessionIdentity {
 abstract interface class AppAuthService {
   AppSessionIdentity? get currentIdentity;
 
-  Future<AppSessionIdentity> ensureAnonymousSession();
+  Future<void> requestOtp(String phoneNumber);
+
+  Future<AppSessionIdentity> verifyOtp({
+    required String phoneNumber,
+    required String otp,
+  });
+
+  Future<void> signOut();
 }
 
 class SupabaseAppAuthService implements AppAuthService {
@@ -36,28 +42,42 @@ class SupabaseAppAuthService implements AppAuthService {
   AppSessionIdentity? get currentIdentity => _identityFor(_auth.currentSession);
 
   @override
-  Future<AppSessionIdentity> ensureAnonymousSession() async {
-    final existing = currentIdentity;
-    if (existing != null) {
-      return existing;
+  Future<void> requestOtp(String phoneNumber) async {
+    if (_auth.currentUser?.isAnonymous ?? false) {
+      await _auth.signOut();
     }
 
-    if (kDebugMode) {
-      debugPrint('AppAuthService: starting anonymous authentication');
-    }
-    final response = await _auth.signInAnonymously();
-    final user = response.user ?? _auth.currentUser;
-    if (user == null) {
+    await _auth.signInWithOtp(phone: phoneNumber);
+  }
+
+  @override
+  Future<AppSessionIdentity> verifyOtp({
+    required String phoneNumber,
+    required String otp,
+  }) async {
+    final response = await _auth.verifyOTP(
+      type: OtpType.sms,
+      phone: phoneNumber,
+      token: otp,
+    );
+    final identity = _identityFor(response.session);
+    if (identity == null) {
       throw const AuthException(
-        'Anonymous authentication did not return a user.',
+        'OTP verification did not return an authenticated session.',
       );
     }
 
-    if (kDebugMode) {
-      debugPrint('AppAuthService: authenticated user ${user.id}');
+    if (identity.isAnonymous) {
+      throw const AuthException(
+        'OTP verification returned an anonymous session.',
+      );
     }
-    return AppSessionIdentity(userId: user.id, isAnonymous: user.isAnonymous);
+
+    return identity;
   }
+
+  @override
+  Future<void> signOut() => _auth.signOut();
 }
 
 final appAuthServiceProvider = Provider<AppAuthService>(
@@ -80,9 +100,9 @@ Stream<AppSessionIdentity?> authSession(AuthSessionRef ref) async* {
 
 AppSessionIdentity? _identityFor(Session? session) {
   final user = session?.user;
-  if (user == null) {
+  if (user == null || user.isAnonymous) {
     return null;
   }
 
-  return AppSessionIdentity(userId: user.id, isAnonymous: user.isAnonymous);
+  return AppSessionIdentity(userId: user.id, isAnonymous: false);
 }
