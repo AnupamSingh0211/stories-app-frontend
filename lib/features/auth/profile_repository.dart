@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../core/supabase_client.dart';
+import '../../core/backend_api_client.dart';
 
 const defaultProfileLocale = 'en-IN';
 const supportedProfileLocales = ['en-IN', 'hi-IN'];
@@ -29,59 +29,51 @@ abstract class ProfileDataSource {
 
   String? get currentUserId;
 
-  Future<List<Map<String, dynamic>>> fetchChildProfiles(String parentId);
+  Future<List<Map<String, dynamic>>> fetchChildProfiles();
 
   Future<Map<String, dynamic>> insertChildProfile(Map<String, dynamic> profile);
 
   Future<Map<String, dynamic>> updateChildProfile(
     String childId,
-    String parentId,
     Map<String, dynamic> profile,
   );
 }
 
-class SupabaseProfileDataSource extends ProfileDataSource {
-  const SupabaseProfileDataSource();
+class BackendProfileDataSource extends ProfileDataSource {
+  const BackendProfileDataSource({required BackendApiClient apiClient})
+    : _apiClient = apiClient;
+
+  final BackendApiClient _apiClient;
 
   @override
-  String? get currentUserId =>
-      SupabaseClientProvider.client.auth.currentUser?.id;
+  String? get currentUserId => null;
 
   @override
-  Future<List<Map<String, dynamic>>> fetchChildProfiles(String parentId) async {
-    final rows = await SupabaseClientProvider.client
-        .from('child_profiles')
-        .select()
-        .eq('parent_id', parentId)
-        .order('created_at', ascending: false);
-
-    return rows;
+  Future<List<Map<String, dynamic>>> fetchChildProfiles() {
+    return _apiClient.getList('/api/v1/profiles', authenticated: true);
   }
 
   @override
   Future<Map<String, dynamic>> insertChildProfile(
     Map<String, dynamic> profile,
   ) {
-    return SupabaseClientProvider.client
-        .from('child_profiles')
-        .insert(profile)
-        .select()
-        .single();
+    return _apiClient.postObject(
+      '/api/v1/profiles',
+      authenticated: true,
+      body: profile,
+    );
   }
 
   @override
   Future<Map<String, dynamic>> updateChildProfile(
     String childId,
-    String parentId,
     Map<String, dynamic> profile,
   ) {
-    return SupabaseClientProvider.client
-        .from('child_profiles')
-        .update(profile)
-        .eq('id', childId)
-        .eq('parent_id', parentId)
-        .select()
-        .single();
+    return _apiClient.patchObject(
+      '/api/v1/profiles/$childId',
+      authenticated: true,
+      body: profile,
+    );
   }
 }
 
@@ -99,9 +91,10 @@ class ChildProfileModel {
   });
 
   factory ChildProfileModel.fromMap(Map<String, dynamic> row) {
+    final ownerId = row['user_id']?.toString() ?? row['parent_id']?.toString();
     return ChildProfileModel(
       id: row['id'].toString(),
-      parentId: row['parent_id'].toString(),
+      parentId: ownerId ?? '',
       childName: row['child_name'] as String? ?? '',
       age: row['age'] as int? ?? 2,
       gender: row['gender'] as String? ?? 'boy',
@@ -150,14 +143,13 @@ class ChildProfileModel {
 }
 
 class ProfileRepository {
-  const ProfileRepository({
-    ProfileDataSource dataSource = const SupabaseProfileDataSource(),
-  }) : _dataSource = dataSource;
+  ProfileRepository({required ProfileDataSource dataSource})
+    : _dataSource = dataSource;
 
   final ProfileDataSource _dataSource;
 
-  Future<List<ChildProfileModel>> fetchChildProfiles(String parentId) async {
-    final rows = await _dataSource.fetchChildProfiles(parentId);
+  Future<List<ChildProfileModel>> fetchChildProfiles() async {
+    final rows = await _dataSource.fetchChildProfiles();
 
     return rows.map(ChildProfileModel.fromMap).toList(growable: false);
   }
@@ -170,24 +162,20 @@ class ProfileRepository {
     String locale = defaultProfileLocale,
     String? avatarUrl,
   }) async {
-    final parentId = _requireUserId();
-
     if (kDebugMode) {
-      debugPrint(
-        'ProfileRepository: inserting child profile for user $parentId',
-      );
+      debugPrint('ProfileRepository: creating child profile via backend');
     }
     final row = await _dataSource.insertChildProfile({
-      'parent_id': parentId,
       'child_name': name,
       'gender': gender,
       'age': age,
       'companion_id': companionId,
       'avatar_url': avatarUrl,
-      'locale': normalizeProfileLocale(locale),
     });
 
-    final child = ChildProfileModel.fromMap(row);
+    final child = ChildProfileModel.fromMap(row).copyWith(
+      locale: normalizeProfileLocale(row['locale'] as String? ?? locale),
+    );
     if (kDebugMode) {
       debugPrint('ProfileRepository: inserted child profile ${child.id}');
     }
@@ -198,24 +186,11 @@ class ProfileRepository {
     required ChildProfileModel child,
     required String companionId,
   }) async {
-    final parentId = _requireUserId();
-
-    final row = await _dataSource.updateChildProfile(child.id, parentId, {
+    final row = await _dataSource.updateChildProfile(child.id, {
       'companion_id': companionId,
     });
 
     return ChildProfileModel.fromMap(row);
-  }
-
-  String _requireUserId() {
-    final currentUserId = _dataSource.currentUserId;
-    if (currentUserId != null && currentUserId.isNotEmpty) {
-      return currentUserId;
-    }
-
-    throw StateError(
-      'An authenticated session is required before creating a child profile.',
-    );
   }
 }
 
