@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:page_flip/page_flip.dart';
 
 import '../../../shared/theme/app_border_radius.dart';
 import '../../../shared/theme/app_colors.dart';
@@ -28,6 +29,11 @@ import '../widgets/story_image_view.dart';
 import '../widgets/story_player_content.dart';
 import 'storytime_screen.dart';
 
+const bool _storyPageFlipEnabled = bool.fromEnvironment(
+  'STORY_PAGE_FLIP_ENABLED',
+  defaultValue: true,
+);
+
 class StoryPlayerScreen extends ConsumerStatefulWidget {
   const StoryPlayerScreen({
     this.storyId = StoryRepository.morningWhispersStoryId,
@@ -49,6 +55,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
   static const _feedViewportFraction = 663 / 704;
 
   final AudioPlayer _backgroundMusicPlayer = AudioPlayer();
+  final GlobalKey<_StoryPageFlipViewState> _pageFlipViewKey = GlobalKey();
   late final PageController _feedController;
   bool _hasShownSavePrompt = false;
   bool _hasLoadedBackgroundMusic = false;
@@ -86,6 +93,14 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.hidden) {
       _saveSessionProgress();
+    } else if (state == AppLifecycleState.resumed && _storyPageFlipEnabled) {
+      final currentPageIndex = ref
+          .read(storyPlayerProvider(widget.storyId))
+          .currentPageIndex;
+      unawaited(
+        _pageFlipViewKey.currentState?.synchronizeTo(currentPageIndex) ??
+            Future<void>.value(),
+      );
     }
   }
 
@@ -158,7 +173,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       previous,
       next,
     ) {
-      if (_feedIndex == 0 || _isSynchronizingFeed) {
+      if (_storyPageFlipEnabled || _feedIndex == 0 || _isSynchronizingFeed) {
         return;
       }
       unawaited(_animateFeedTo(next + 1, activateAudio: false));
@@ -190,6 +205,42 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final gap = constraints.maxHeight * (20 / 704);
+                if (_storyPageFlipEnabled) {
+                  return PageView.builder(
+                    key: const ValueKey('story-vertical-feed'),
+                    controller: _feedController,
+                    scrollDirection: Axis.vertical,
+                    padEnds: false,
+                    pageSnapping: true,
+                    physics: _feedIndex == 0
+                        ? const NeverScrollableScrollPhysics()
+                        : const PageScrollPhysics(
+                            parent: ClampingScrollPhysics(),
+                          ),
+                    itemCount: playerState.pages.isEmpty ? 1 : 2,
+                    onPageChanged: _onFeedPageChanged,
+                    itemBuilder: (context, feedIndex) {
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: gap),
+                        child: feedIndex == 0
+                            ? _StoryDetailPreface(
+                                key: const ValueKey('story-detail-preface'),
+                                story: widget.story,
+                                fallbackTitle: widget.title,
+                                onStart: _startStory,
+                              )
+                            : _StoryPageFlipView(
+                                key: _pageFlipViewKey,
+                                storyId: widget.storyId,
+                                storyTitle: widget.story?.title ?? widget.title,
+                                pages: playerState.pages,
+                                currentPageIndex: playerState.currentPageIndex,
+                                onPageFlipped: _activateFlippedPage,
+                              ),
+                      );
+                    },
+                  );
+                }
                 return PageView.builder(
                   key: const ValueKey('story-vertical-feed'),
                   controller: _feedController,
@@ -252,7 +303,10 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       return;
     }
     _pendingStoryStart = false;
-    await _animateFeedTo(state.currentPageIndex + 1, activateAudio: true);
+    await _animateFeedTo(
+      _storyPageFlipEnabled ? 1 : state.currentPageIndex + 1,
+      activateAudio: true,
+    );
   }
 
   Future<void> _onFeedPageChanged(int feedIndex) async {
@@ -267,7 +321,28 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       await notifier.pause();
       return;
     }
-    await notifier.activatePage(feedIndex - 1, autoPlay: true);
+    await notifier.activatePage(
+      _storyPageFlipEnabled
+          ? ref.read(storyPlayerProvider(widget.storyId)).currentPageIndex
+          : feedIndex - 1,
+      autoPlay: true,
+    );
+  }
+
+  Future<void> _activateFlippedPage(int storyPageIndex) async {
+    if (!mounted) {
+      return;
+    }
+    final provider = storyPlayerProvider(widget.storyId);
+    final state = ref.read(provider);
+    if (storyPageIndex < 0 ||
+        storyPageIndex >= state.pageCount ||
+        storyPageIndex == state.currentPageIndex) {
+      return;
+    }
+    await ref
+        .read(provider.notifier)
+        .activatePage(storyPageIndex, autoPlay: true);
   }
 
   Future<void> _animateFeedTo(
@@ -278,7 +353,10 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       return;
     }
     final pageCount = ref.read(storyPlayerProvider(widget.storyId)).pageCount;
-    final safeTarget = targetFeedIndex.clamp(0, pageCount).toInt();
+    final maxFeedIndex = _storyPageFlipEnabled
+        ? (pageCount > 0 ? 1 : 0)
+        : pageCount;
+    final safeTarget = targetFeedIndex.clamp(0, maxFeedIndex).toInt();
     final current = _feedController.page?.round() ?? _feedIndex;
 
     _isSynchronizingFeed = true;
@@ -298,9 +376,12 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
     }
 
     if (activateAudio && safeTarget > 0 && mounted) {
+      final storyPageIndex = _storyPageFlipEnabled
+          ? ref.read(storyPlayerProvider(widget.storyId)).currentPageIndex
+          : safeTarget - 1;
       await ref
           .read(storyPlayerProvider(widget.storyId).notifier)
-          .activatePage(safeTarget - 1, autoPlay: true);
+          .activatePage(storyPageIndex, autoPlay: true);
     }
   }
 
@@ -784,6 +865,187 @@ class _PromptGlow extends StatelessWidget {
       child: SizedBox(width: size, height: size),
     );
   }
+}
+
+class _StoryPageFlipView extends StatefulWidget {
+  const _StoryPageFlipView({
+    required this.storyId,
+    required this.storyTitle,
+    required this.pages,
+    required this.currentPageIndex,
+    required this.onPageFlipped,
+    super.key,
+  });
+
+  final String storyId;
+  final String storyTitle;
+  final List<StoryPage> pages;
+  final int currentPageIndex;
+  final ValueChanged<int> onPageFlipped;
+
+  @override
+  State<_StoryPageFlipView> createState() => _StoryPageFlipViewState();
+}
+
+class _StoryPageFlipViewState extends State<_StoryPageFlipView> {
+  GlobalKey<PageFlipWidgetState> _flipKey = GlobalKey<PageFlipWidgetState>();
+  int? _pendingPageIndex;
+  bool _isSynchronizing = false;
+  int _pageSetGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleLivePageRestore();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StoryPageFlipView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameStoryPages(oldWidget.pages, widget.pages)) {
+      _pageSetGeneration++;
+      _pendingPageIndex = null;
+      _isSynchronizing = false;
+      _flipKey = GlobalKey<PageFlipWidgetState>();
+      _scheduleLivePageRestore();
+      return;
+    }
+
+    if (oldWidget.currentPageIndex != widget.currentPageIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(synchronizeTo(widget.currentPageIndex));
+        }
+      });
+    }
+  }
+
+  void _scheduleLivePageRestore() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _restoreLivePageAfterJump();
+      }
+    });
+  }
+
+  void _restoreLivePageAfterJump() {
+    // page_flip 0.2.5+1 leaves its exported notifier on the active index
+    // after initialIndex/goToPage, which keeps a bitmap snapshot mounted and
+    // prevents controls in the page from receiving input.
+    currentPage.value = -1;
+  }
+
+  Future<void> synchronizeTo(int pageIndex) async {
+    if (!mounted || widget.pages.isEmpty) {
+      return;
+    }
+
+    _pendingPageIndex = pageIndex.clamp(0, widget.pages.length - 1).toInt();
+    if (_isSynchronizing) {
+      return;
+    }
+
+    final generation = _pageSetGeneration;
+    _isSynchronizing = true;
+    try {
+      while (mounted &&
+          generation == _pageSetGeneration &&
+          _pendingPageIndex != null) {
+        final target = _pendingPageIndex!;
+        _pendingPageIndex = null;
+        final flipState = _flipKey.currentState;
+        if (flipState == null) {
+          return;
+        }
+
+        final current = flipState.pageNumber;
+        if (target == current) {
+          continue;
+        }
+
+        if (target == current + 1) {
+          await flipState.nextPage();
+        } else if (target == current - 1) {
+          await flipState.previousPage();
+        } else {
+          await flipState.goToPage(target);
+          _restoreLivePageAfterJump();
+        }
+      }
+    } finally {
+      if (generation == _pageSetGeneration) {
+        _isSynchronizing = false;
+      }
+    }
+  }
+
+  void _handlePageFlipped(int pageIndex) {
+    if (_isSynchronizing ||
+        pageIndex < 0 ||
+        pageIndex >= widget.pages.length ||
+        pageIndex == widget.currentPageIndex) {
+      return;
+    }
+    widget.onPageFlipped(pageIndex);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.pages.isEmpty) {
+      return const ColoredBox(
+        key: ValueKey('story-page-flip-empty'),
+        color: AppColors.blue25,
+      );
+    }
+
+    final initialPageIndex = widget.currentPageIndex
+        .clamp(0, widget.pages.length - 1)
+        .toInt();
+
+    return ColoredBox(
+      key: const ValueKey('story-page-flip'),
+      color: AppColors.blue25,
+      child: PageFlipWidget(
+        key: _flipKey,
+        duration: const Duration(milliseconds: 520),
+        cutoffForward: 0.8,
+        cutoffPrevious: 0.1,
+        backgroundColor: AppColors.blue25,
+        initialIndex: initialPageIndex,
+        onPageFlipped: _handlePageFlipped,
+        children: List<Widget>.generate(
+          widget.pages.length,
+          (index) => StoryPlayerContent(
+            key: ValueKey('story-page-$index'),
+            storyId: widget.storyId,
+            storyTitle: widget.storyTitle,
+            page: widget.pages[index],
+          ),
+          growable: false,
+        ),
+      ),
+    );
+  }
+}
+
+bool _sameStoryPages(List<StoryPage> left, List<StoryPage> right) {
+  if (identical(left, right)) {
+    return true;
+  }
+  if (left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index++) {
+    final leftPage = left[index];
+    final rightPage = right[index];
+    if (leftPage.pageNumber != rightPage.pageNumber ||
+        leftPage.imageUrl != rightPage.imageUrl ||
+        leftPage.audioUrl != rightPage.audioUrl ||
+        leftPage.text != rightPage.text) {
+      return false;
+    }
+  }
+  return true;
 }
 
 class _StoryFeedHeader extends StatelessWidget {

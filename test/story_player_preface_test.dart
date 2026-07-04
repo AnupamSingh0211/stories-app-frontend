@@ -113,7 +113,7 @@ void main() {
     expect(find.text('Play Now'), findsOneWidget);
   });
 
-  testWidgets('story pages move vertically forward and backward', (
+  testWidgets('story pages flip horizontally forward and backward', (
     tester,
   ) async {
     await pumpStory(tester);
@@ -121,18 +121,20 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.drag(
-      find.byKey(const ValueKey('story-vertical-feed')),
-      const Offset(0, -520),
+      find.byKey(const ValueKey('story-page-flip')),
+      const Offset(-260, 0),
     );
     await tester.pumpAndSettle();
     expect(notifier.activations.last, 1);
+    expect(find.text('Page two'), findsOneWidget);
 
     await tester.drag(
-      find.byKey(const ValueKey('story-vertical-feed')),
-      const Offset(0, 520),
+      find.byKey(const ValueKey('story-page-flip')),
+      const Offset(260, 0),
     );
     await tester.pumpAndSettle();
     expect(notifier.activations.last, 0);
+    expect(find.text('Page one'), findsOneWidget);
   });
 
   testWidgets(
@@ -147,12 +149,12 @@ void main() {
       await tester.tap(find.text('Play Now'));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('story-page-1')), findsOneWidget);
+      expect(find.text('Page two'), findsOneWidget);
       expect(notifier.activations, [1]);
     },
   );
 
-  testWidgets('audio-driven page changes synchronize the vertical feed', (
+  testWidgets('audio-driven page changes synchronize the page flip once', (
     tester,
   ) async {
     await pumpStory(tester);
@@ -162,8 +164,157 @@ void main() {
     notifier.simulateAudioAdvance(1);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('story-page-1')), findsOneWidget);
+    expect(find.text('Page two'), findsOneWidget);
     expect(notifier.activations, [0]);
+  });
+
+  testWidgets('restored page keeps playback controls interactive', (
+    tester,
+  ) async {
+    notifier = _TestStoryPlayerNotifier(initialPageIndex: 1);
+    await pumpStory(tester);
+    await tester.tap(find.text('Play Now'));
+    await tester.pumpAndSettle();
+
+    expect(notifier.state.isPlaying, isTrue);
+    await tester.tap(find.bySemanticsLabel('Pause story'));
+    await tester.pump();
+
+    expect(notifier.state.isPlaying, isFalse);
+  });
+
+  testWidgets('rapid audio changes settle on the authoritative page', (
+    tester,
+  ) async {
+    notifier = _TestStoryPlayerNotifier(
+      pages: const [
+        StoryPage(
+          pageNumber: 1,
+          imageUrl: '',
+          audioUrl: 'page-1.mp3',
+          text: 'Page one',
+        ),
+        StoryPage(
+          pageNumber: 2,
+          imageUrl: '',
+          audioUrl: 'page-2.mp3',
+          text: 'Page two',
+        ),
+        StoryPage(
+          pageNumber: 3,
+          imageUrl: '',
+          audioUrl: 'page-3.mp3',
+          text: 'Page three',
+        ),
+      ],
+    );
+    await pumpStory(tester);
+    await tester.tap(find.text('Play Now'));
+    await tester.pumpAndSettle();
+
+    notifier.simulateAudioAdvance(1);
+    await tester.pump(const Duration(milliseconds: 50));
+    notifier.simulateAudioAdvance(2);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Page three'), findsOneWidget);
+    expect(notifier.activations, [0]);
+  });
+
+  testWidgets('changed story data rebuilds the package page set', (
+    tester,
+  ) async {
+    await pumpStory(tester);
+    await tester.tap(find.text('Play Now'));
+    await tester.pumpAndSettle();
+
+    notifier.replacePages(const [
+      StoryPage(
+        pageNumber: 1,
+        imageUrl: '',
+        audioUrl: 'updated-page-1.mp3',
+        text: 'Updated page one',
+      ),
+      StoryPage(
+        pageNumber: 2,
+        imageUrl: '',
+        audioUrl: 'updated-page-2.mp3',
+        text: 'Updated page two',
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Updated page one'), findsOneWidget);
+    expect(find.text('Page one'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty story remains on the preface without errors', (
+    tester,
+  ) async {
+    notifier = _TestStoryPlayerNotifier(pages: const []);
+    await pumpStory(tester);
+
+    await tester.tap(find.text('Play Now'));
+    await tester.pump();
+
+    expect(find.text('Play Now'), findsOneWidget);
+    expect(find.byKey(const ValueKey('story-page-flip')), findsNothing);
+    expect(notifier.activations, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('single-page story cannot flip beyond its bounds', (
+    tester,
+  ) async {
+    notifier = _TestStoryPlayerNotifier(
+      pages: const [
+        StoryPage(
+          pageNumber: 1,
+          imageUrl: '',
+          audioUrl: 'page-1.mp3',
+          text: 'Only page',
+        ),
+      ],
+    );
+    await pumpStory(tester);
+    await tester.tap(find.text('Play Now'));
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const ValueKey('story-page-flip')),
+      const Offset(-260, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Only page'), findsOneWidget);
+    expect(notifier.activations, [0]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('final-page completion preserves the existing save prompt', (
+    tester,
+  ) async {
+    notifier = _TestStoryPlayerNotifier(
+      pages: const [
+        StoryPage(
+          pageNumber: 1,
+          imageUrl: '',
+          audioUrl: 'page-1.mp3',
+          text: 'Only page',
+        ),
+      ],
+    );
+    await pumpStory(tester);
+    await tester.tap(find.text('Play Now'));
+    await tester.pumpAndSettle();
+
+    notifier.simulateCompletion();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Story finished'), findsOneWidget);
+    expect(find.text('Keep this bedtime tale?'), findsOneWidget);
+    expect(find.text('Only page'), findsOneWidget);
   });
 
   testWidgets('vertical feed does not overflow on a compact Android viewport', (
@@ -181,24 +332,28 @@ void main() {
 }
 
 class _TestStoryPlayerNotifier extends StoryPlayerNotifier {
-  _TestStoryPlayerNotifier({int initialPageIndex = 0})
-    : super(const StoryRepository(), storyId: 'test-story') {
+  _TestStoryPlayerNotifier({
+    int initialPageIndex = 0,
+    List<StoryPage> pages = const [
+      StoryPage(
+        pageNumber: 1,
+        imageUrl: '',
+        audioUrl: 'page-1.mp3',
+        text: 'Page one',
+      ),
+      StoryPage(
+        pageNumber: 2,
+        imageUrl: '',
+        audioUrl: 'page-2.mp3',
+        text: 'Page two',
+      ),
+    ],
+  }) : super(const StoryRepository(), storyId: 'test-story') {
     state = StoryPlayerState(
-      pages: const [
-        StoryPage(
-          pageNumber: 1,
-          imageUrl: '',
-          audioUrl: 'page-1.mp3',
-          text: 'Page one',
-        ),
-        StoryPage(
-          pageNumber: 2,
-          imageUrl: '',
-          audioUrl: 'page-2.mp3',
-          text: 'Page two',
-        ),
-      ],
-      currentPageIndex: initialPageIndex,
+      pages: pages,
+      currentPageIndex: pages.isEmpty
+          ? 0
+          : initialPageIndex.clamp(0, pages.length - 1),
       audioDuration: const Duration(minutes: 1),
     );
   }
@@ -224,5 +379,18 @@ class _TestStoryPlayerNotifier extends StoryPlayerNotifier {
 
   void simulateAudioAdvance(int storyPageIndex) {
     state = state.copyWith(currentPageIndex: storyPageIndex, isPlaying: true);
+  }
+
+  void replacePages(List<StoryPage> pages) {
+    state = state.copyWith(
+      pages: pages,
+      currentPageIndex: pages.isEmpty
+          ? 0
+          : state.currentPageIndex.clamp(0, pages.length - 1),
+    );
+  }
+
+  void simulateCompletion() {
+    state = state.copyWith(isPlaying: false, isComplete: true);
   }
 }
