@@ -4,6 +4,8 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../../core/performance/story_performance_metrics.dart';
+import '../audio/story_audio_preloader.dart';
 import '../repositories/story_repository.dart';
 import 'story_player_state.dart';
 
@@ -13,9 +15,11 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     required String storyId,
     int initialPageIndex = 0,
     Duration initialAudioPosition = Duration.zero,
+    StoryAudioPreloader? audioPreloader,
   }) : _storyId = storyId,
        _initialPageIndex = initialPageIndex,
        _initialAudioPosition = initialAudioPosition,
+       _audioPreloader = audioPreloader ?? JustAudioStoryAudioPreloader(),
        super(StoryPlayerState.initial()) {
     _playerStateSubscription = _audioPlayer.playerStateStream.listen(
       _handlePlayerState,
@@ -25,23 +29,34 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     );
     _positionSubscription = _audioPlayer.positionStream.listen(_handlePosition);
     _durationSubscription = _audioPlayer.durationStream.listen(_handleDuration);
+    _currentIndexSubscription = _audioPlayer.currentIndexStream.listen(
+      _handleCurrentIndex,
+    );
   }
 
   final StoryRepository _repository;
   final String _storyId;
   final int _initialPageIndex;
   final Duration _initialAudioPosition;
+  final StoryAudioPreloader _audioPreloader;
   final AudioPlayer _audioPlayer = AudioPlayer();
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration?>? _durationSubscription;
+  StreamSubscription<int?>? _currentIndexSubscription;
   bool _disposed = false;
   bool _isPreparingPageAudio = false;
+  bool _isPlaylistReady = false;
+  Future<void>? _playlistLoadFuture;
+  Stopwatch? _audioStartStopwatch;
   int _audioLoadGeneration = 0;
 
   static const List<double> allowedSpeeds = [1, 1.25, 1.5, 1.75, 2];
 
   Future<void> loadStory() async {
+    final metrics = StoryPerformanceMetrics.instance;
+    final loadStopwatch = Stopwatch()..start();
+    metrics.beginStorySession(_storyId);
     state = state.copyWith(
       isLoading: true,
       isPlaying: false,
@@ -80,8 +95,23 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
       );
       if (!_disposed) {
         state = state.copyWith(isLoading: false);
+        metrics.recordDuration(
+          metric: 'story_load',
+          duration: loadStopwatch.elapsed,
+          attributes: {
+            'story_id': _storyId,
+            'page_count': state.pageCount,
+            'supabase_requests': metrics.supabaseRequestCount,
+          },
+        );
+        metrics.recordImageCacheSnapshot(reason: 'story_loaded');
       }
     } catch (error) {
+      metrics.recordDuration(
+        metric: 'story_load_failed',
+        duration: loadStopwatch.elapsed,
+        attributes: {'story_id': _storyId},
+      );
       _setError(_friendlyError(error));
     }
   }
@@ -107,6 +137,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
   Future<void> pause() async {
     try {
+      _audioStartStopwatch = null;
       await _audioPlayer.pause();
       state = state.copyWith(isPlaying: false);
     } catch (error) {
@@ -228,7 +259,8 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     await _playerStateSubscription?.cancel();
     await _positionSubscription?.cancel();
     await _durationSubscription?.cancel();
-    await _audioPlayer.dispose();
+    await _currentIndexSubscription?.cancel();
+    await Future.wait([_audioPlayer.dispose(), _audioPreloader.dispose()]);
   }
 
   @override
@@ -248,6 +280,8 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     bool autoPlay = true,
     Duration initialPosition = Duration.zero,
   }) async {
+    final transitionStopwatch = Stopwatch()..start();
+    final previousPageIndex = state.currentPageIndex;
     if (state.pages.isEmpty) {
       _setError('This story does not have any pages yet.');
       return;
@@ -275,14 +309,14 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     );
 
     try {
-      await _audioPlayer.setAudioSource(
-        AudioSource.uri(Uri.parse(page.audioUrl)),
-      );
+      await _audioPlayer.pause();
+      await _ensureStoryPlaylist(pageIndex);
 
       if (_disposed || loadGeneration != _audioLoadGeneration) {
         return;
       }
 
+      await _audioPlayer.seek(Duration.zero, index: pageIndex);
       await _audioPlayer.setSpeed(state.playbackSpeed);
       if (initialPosition > Duration.zero) {
         final duration = _audioPlayer.duration;
@@ -297,6 +331,17 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
         _startPlayback();
       }
       state = state.copyWith(isPlaying: autoPlay, clearError: true);
+      StoryPerformanceMetrics.instance.recordDuration(
+        metric: 'page_transition',
+        duration: transitionStopwatch.elapsed,
+        attributes: {
+          'story_id': _storyId,
+          'from_page': previousPageIndex,
+          'to_page': pageIndex,
+          'auto_play': autoPlay,
+        },
+      );
+      unawaited(preloadNextPageAudio());
     } catch (error) {
       if (_disposed || loadGeneration != _audioLoadGeneration) {
         return;
@@ -316,15 +361,23 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
     if (playerState.processingState == ProcessingState.completed &&
         !_isPreparingPageAudio) {
-      if (state.hasNextPage) {
-        await _loadPageAudio(state.currentPageIndex + 1);
-      } else {
-        await _finishStory();
-      }
+      _synchronizeCurrentIndex(_audioPlayer.currentIndex);
+      await _finishStory();
       return;
     }
 
     if (playerState.processingState == ProcessingState.ready) {
+      if (playerState.playing && _audioStartStopwatch != null) {
+        StoryPerformanceMetrics.instance.recordDuration(
+          metric: 'audio_start_latency',
+          duration: _audioStartStopwatch!.elapsed,
+          attributes: {
+            'story_id': _storyId,
+            'page_index': state.currentPageIndex,
+          },
+        );
+        _audioStartStopwatch = null;
+      }
       state = state.copyWith(isPlaying: playerState.playing);
     }
   }
@@ -343,13 +396,80 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     state = state.copyWith(audioDuration: duration ?? Duration.zero);
   }
 
+  void _handleCurrentIndex(int? pageIndex) {
+    if (_disposed || _isPreparingPageAudio) {
+      return;
+    }
+
+    _synchronizeCurrentIndex(pageIndex);
+  }
+
+  void _synchronizeCurrentIndex(int? pageIndex) {
+    if (pageIndex == null ||
+        pageIndex < 0 ||
+        pageIndex >= state.pages.length ||
+        pageIndex == state.currentPageIndex) {
+      return;
+    }
+
+    state = state.copyWith(
+      currentPageIndex: pageIndex,
+      audioPosition: Duration.zero,
+      audioDuration: Duration.zero,
+      isPlaying: _audioPlayer.playing,
+      isComplete: false,
+      clearError: true,
+    );
+    unawaited(preloadNextPageAudio());
+  }
+
+  Future<void> _ensureStoryPlaylist(int initialPageIndex) {
+    if (_isPlaylistReady) {
+      return Future<void>.value();
+    }
+
+    return _playlistLoadFuture ??= _loadStoryPlaylist(initialPageIndex);
+  }
+
+  Future<void> _loadStoryPlaylist(int initialPageIndex) async {
+    try {
+      final playlist = ConcatenatingAudioSource(
+        useLazyPreparation: true,
+        children: state.pages
+            .map((page) => AudioSource.uri(Uri.parse(page.audioUrl)))
+            .toList(growable: false),
+      );
+      await _audioPlayer.setAudioSource(
+        playlist,
+        initialIndex: initialPageIndex,
+        initialPosition: Duration.zero,
+      );
+      _isPlaylistReady = true;
+    } catch (_) {
+      _playlistLoadFuture = null;
+      rethrow;
+    }
+  }
+
   Future<void> _seekToPage(int index) async {
     await _loadPageAudio(index);
   }
 
+  Future<void> preloadNextPageAudio() async {
+    final nextAudioUrl = state.nextAudioUrl;
+    if (nextAudioUrl.isEmpty) {
+      await _audioPreloader.clear();
+      return;
+    }
+
+    await _audioPreloader.preload(nextAudioUrl);
+  }
+
   void _startPlayback() {
+    _audioStartStopwatch = Stopwatch()..start();
     unawaited(
       _audioPlayer.play().catchError((Object error) {
+        _audioStartStopwatch = null;
         _setError('Audio could not start. Please try again.');
       }),
     );

@@ -1,10 +1,17 @@
-# dharma_app
+# Dharma Stories
 
-A new Flutter project.
+## Story player preview
+
+Run the real story player in Chrome without unfinished authentication:
+
+```powershell
+flutter run -d chrome -t lib/main_story_preview.dart
+```
+
+For realistic performance checks, use the
+[story player performance runbook](docs/story_player_performance.md).
 
 ## Getting Started
-
-This project is a starting point for a Flutter application.
 
 A few resources to get you started if this is your first Flutter project:
 

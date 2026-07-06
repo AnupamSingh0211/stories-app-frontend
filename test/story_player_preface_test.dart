@@ -1,10 +1,13 @@
 import 'package:dharma_app/features/storytime/models/story_model.dart';
 import 'package:dharma_app/features/storytime/models/story_page.dart';
+import 'package:dharma_app/features/storytime/audio/story_audio_preloader.dart';
 import 'package:dharma_app/features/storytime/notifiers/story_player_notifier.dart';
 import 'package:dharma_app/features/storytime/notifiers/story_player_state.dart';
 import 'package:dharma_app/features/storytime/providers/story_player_provider.dart';
 import 'package:dharma_app/features/storytime/repositories/story_repository.dart';
 import 'package:dharma_app/features/storytime/screens/story_player_screen.dart';
+import 'package:dharma_app/features/storytime/widgets/story_image_view.dart';
+import 'package:dharma_app/features/storytime/widgets/story_player_content.dart';
 import 'package:dharma_app/shared/widgets/app_bottom_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -168,6 +171,28 @@ void main() {
     expect(notifier.activations, [0]);
   });
 
+  testWidgets('audio position only rebuilds the active timeline', (
+    tester,
+  ) async {
+    await pumpStory(tester);
+    await tester.tap(find.text('Play Now'));
+    await tester.pumpAndSettle();
+
+    final firstPage = find.byKey(const ValueKey('story-page-0'));
+    final imageFinder = find.descendant(
+      of: firstPage,
+      matching: find.byType(StoryImageView),
+    );
+    final imageBefore = tester.widget<StoryImageView>(imageFinder.first);
+
+    notifier.simulateAudioPosition(const Duration(seconds: 5));
+    await tester.pump();
+
+    final imageAfter = tester.widget<StoryImageView>(imageFinder.first);
+    expect(imageAfter, same(imageBefore));
+    expect(find.text('0:05 / 1:00'), findsOneWidget);
+  });
+
   testWidgets('restored page keeps playback controls interactive', (
     tester,
   ) async {
@@ -219,6 +244,32 @@ void main() {
 
     expect(find.text('Page three'), findsOneWidget);
     expect(notifier.activations, [0]);
+  });
+
+  testWidgets('page flip mounts only the current and adjacent heavy pages', (
+    tester,
+  ) async {
+    notifier = _TestStoryPlayerNotifier(
+      pages: List<StoryPage>.generate(
+        8,
+        (index) => StoryPage(
+          pageNumber: index + 1,
+          imageUrl: '',
+          audioUrl: 'page-${index + 1}.mp3',
+          text: 'Page ${index + 1}',
+        ),
+      ),
+    );
+    await pumpStory(tester);
+    await tester.tap(find.text('Play Now'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StoryPlayerContent), findsNWidgets(2));
+
+    notifier.simulateAudioAdvance(7);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StoryPlayerContent), findsOneWidget);
   });
 
   testWidgets('changed story data rebuilds the package page set', (
@@ -329,11 +380,27 @@ void main() {
     expect(find.byKey(const ValueKey('story-page-0')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  test('preloads only the audio belonging to the next story page', () async {
+    final preloader = _TestStoryAudioPreloader();
+    final testNotifier = _TestStoryPlayerNotifier(audioPreloader: preloader);
+    addTearDown(testNotifier.dispose);
+
+    await testNotifier.preloadNextPageAudio();
+
+    expect(preloader.preloadedUrls, ['page-2.mp3']);
+
+    testNotifier.simulateAudioAdvance(1);
+    await testNotifier.preloadNextPageAudio();
+
+    expect(preloader.clearCount, 1);
+  });
 }
 
 class _TestStoryPlayerNotifier extends StoryPlayerNotifier {
   _TestStoryPlayerNotifier({
     int initialPageIndex = 0,
+    StoryAudioPreloader? audioPreloader,
     List<StoryPage> pages = const [
       StoryPage(
         pageNumber: 1,
@@ -348,7 +415,11 @@ class _TestStoryPlayerNotifier extends StoryPlayerNotifier {
         text: 'Page two',
       ),
     ],
-  }) : super(const StoryRepository(), storyId: 'test-story') {
+  }) : super(
+         const StoryRepository(),
+         storyId: 'test-story',
+         audioPreloader: audioPreloader,
+       ) {
     state = StoryPlayerState(
       pages: pages,
       currentPageIndex: pages.isEmpty
@@ -381,6 +452,10 @@ class _TestStoryPlayerNotifier extends StoryPlayerNotifier {
     state = state.copyWith(currentPageIndex: storyPageIndex, isPlaying: true);
   }
 
+  void simulateAudioPosition(Duration position) {
+    state = state.copyWith(audioPosition: position);
+  }
+
   void replacePages(List<StoryPage> pages) {
     state = state.copyWith(
       pages: pages,
@@ -393,4 +468,22 @@ class _TestStoryPlayerNotifier extends StoryPlayerNotifier {
   void simulateCompletion() {
     state = state.copyWith(isPlaying: false, isComplete: true);
   }
+}
+
+class _TestStoryAudioPreloader implements StoryAudioPreloader {
+  final List<String> preloadedUrls = [];
+  int clearCount = 0;
+
+  @override
+  Future<void> preload(String audioUrl) async {
+    preloadedUrls.add(audioUrl);
+  }
+
+  @override
+  Future<void> clear() async {
+    clearCount++;
+  }
+
+  @override
+  Future<void> dispose() async {}
 }
