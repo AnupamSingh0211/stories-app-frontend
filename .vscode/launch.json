@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Story Preview - Chrome Debug",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_story_preview.dart",
+      "deviceId": "chrome",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "Story Preview - Chrome Profile",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_story_preview.dart",
+      "deviceId": "chrome",
+      "flutterMode": "profile",
+      "toolArgs": ["--dart-define=STORY_PERFORMANCE_METRICS=true"]
+    },
+    {
+      "name": "Story Preview - Chrome Release",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_story_preview.dart",
+      "deviceId": "chrome",
+      "flutterMode": "release",
+      "toolArgs": ["--dart-define=STORY_PERFORMANCE_METRICS=true"]
+    }
+  ]
+}

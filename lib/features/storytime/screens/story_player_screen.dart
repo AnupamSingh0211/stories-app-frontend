@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -25,6 +24,7 @@ import '../providers/saved_library_provider.dart';
 import '../providers/story_player_provider.dart';
 import '../repositories/story_repository.dart';
 import '../widgets/story_controls.dart';
+import '../widgets/story_image_cache_policy.dart';
 import '../widgets/story_image_view.dart';
 import '../widgets/story_player_content.dart';
 import 'storytime_screen.dart';
@@ -39,12 +39,14 @@ class StoryPlayerScreen extends ConsumerStatefulWidget {
     this.storyId = StoryRepository.morningWhispersStoryId,
     this.title = 'Kanha Ki Sunheri Subah',
     this.story,
+    this.initialPages = const [],
     super.key,
   });
 
   final String storyId;
   final String title;
   final StoryModel? story;
+  final List<StoryPage> initialPages;
 
   @override
   ConsumerState<StoryPlayerScreen> createState() => _StoryPlayerScreenState();
@@ -68,6 +70,11 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
     super.initState();
     _feedController = PageController(viewportFraction: _feedViewportFraction);
     WidgetsBinding.instance.addObserver(this);
+    if (widget.initialPages.isNotEmpty) {
+      ref
+          .read(storyRepositoryProvider)
+          .cacheStoryPages(widget.storyId, widget.initialPages);
+    }
     final story = widget.story;
     if (story != null) {
       Future.microtask(() {
@@ -107,7 +114,15 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
   @override
   Widget build(BuildContext context) {
     final provider = storyPlayerProvider(widget.storyId);
-    final playerState = ref.watch(provider);
+    final playerState = ref.watch(
+      provider.select(
+        (state) => (
+          isFavorite: state.isFavorite,
+          pages: state.pages,
+          currentPageIndex: state.currentPageIndex,
+        ),
+      ),
+    );
 
     ref.listen<bool>(provider.select((state) => state.isComplete), (
       previous,
@@ -125,24 +140,35 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       }
     });
 
-    ref.listen<StoryPlayerState>(provider, (previous, next) {
-      if (next.pageCount == 0) {
-        return;
-      }
+    ref.listen(
+      provider.select(
+        (state) => (
+          pageCount: state.pageCount,
+          currentPageIndex: state.currentPageIndex,
+          isComplete: state.isComplete,
+          positionBucket: state.audioPosition.inSeconds ~/ 5,
+        ),
+      ),
+      (previous, next) {
+        final currentState = ref.read(provider);
+        if (currentState.pageCount == 0) {
+          return;
+        }
 
-      final historyNotifier = ref.read(sessionStoryHistoryProvider.notifier);
-      if (next.isComplete) {
-        historyNotifier.completeStory(widget.storyId);
-        return;
-      }
+        final historyNotifier = ref.read(sessionStoryHistoryProvider.notifier);
+        if (currentState.isComplete) {
+          historyNotifier.completeStory(widget.storyId);
+          return;
+        }
 
-      historyNotifier.saveProgress(
-        story: widget.story ?? _fallbackStory(next),
-        currentPageIndex: next.currentPageIndex,
-        pageCount: next.pageCount,
-        audioPosition: next.audioPosition,
-      );
-    });
+        historyNotifier.saveProgress(
+          story: widget.story ?? _fallbackStory(currentState),
+          currentPageIndex: currentState.currentPageIndex,
+          pageCount: currentState.pageCount,
+          audioPosition: currentState.audioPosition,
+        );
+      },
+    );
 
     ref.listen<bool>(provider.select((state) => state.isPlaying), (
       previous,
@@ -160,9 +186,16 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       next,
     ) {
       if (next.isNotEmpty) {
+        final cacheWidth = StoryImageCachePolicy.widthFor(
+          logicalWidth: MediaQuery.sizeOf(context).width,
+          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        );
         unawaited(
           precacheImage(
-            CachedNetworkImageProvider(next),
+            StoryImageCachePolicy.provider(
+              imageUrl: next,
+              cacheWidth: cacheWidth,
+            ),
             context,
           ).catchError((Object _) {}),
         );
@@ -1005,23 +1038,27 @@ class _StoryPageFlipViewState extends State<_StoryPageFlipView> {
     return ColoredBox(
       key: const ValueKey('story-page-flip'),
       color: AppColors.blue25,
-      child: PageFlipWidget(
-        key: _flipKey,
-        duration: const Duration(milliseconds: 520),
-        cutoffForward: 0.8,
-        cutoffPrevious: 0.1,
-        backgroundColor: AppColors.blue25,
-        initialIndex: initialPageIndex,
-        onPageFlipped: _handlePageFlipped,
-        children: List<Widget>.generate(
-          widget.pages.length,
-          (index) => StoryPlayerContent(
-            key: ValueKey('story-page-$index'),
-            storyId: widget.storyId,
-            storyTitle: widget.storyTitle,
-            page: widget.pages[index],
+      child: RepaintBoundary(
+        child: ClipRect(
+          child: PageFlipWidget(
+            key: _flipKey,
+            duration: const Duration(milliseconds: 420),
+            cutoffForward: 0.8,
+            cutoffPrevious: 0.1,
+            backgroundColor: AppColors.blue25,
+            initialIndex: initialPageIndex,
+            onPageFlipped: _handlePageFlipped,
+            children: List<Widget>.generate(
+              widget.pages.length,
+              (index) => StoryPlayerContent(
+                key: ValueKey('story-page-$index'),
+                storyId: widget.storyId,
+                storyTitle: widget.storyTitle,
+                page: widget.pages[index],
+              ),
+              growable: false,
+            ),
           ),
-          growable: false,
         ),
       ),
     );

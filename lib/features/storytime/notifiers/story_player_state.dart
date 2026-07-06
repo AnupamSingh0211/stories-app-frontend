@@ -44,6 +44,8 @@ class StoryPlayerState {
   String get currentStoryText => currentPage?.text ?? '';
   String get nextImageUrl =>
       hasNextPage ? pages[currentPageIndex + 1].imageUrl : '';
+  String get nextAudioUrl =>
+      hasNextPage ? pages[currentPageIndex + 1].audioUrl : '';
   bool get hasPreviousPage => currentPageIndex > 0;
   bool get hasNextPage => currentPageIndex < pages.length - 1;
   double get progress =>

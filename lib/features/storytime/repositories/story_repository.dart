@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/performance/story_performance_metrics.dart';
 import '../../../core/supabase_client.dart';
 import '../models/story_model.dart';
 import '../models/story_page.dart';
+import 'story_page_memory_cache.dart';
+import 'storytime_content_memory_cache.dart';
 
 class StoryRepository {
   const StoryRepository();
@@ -12,32 +15,70 @@ class StoryRepository {
   static const morningWhispersStoryId = '11111111-1111-4111-8111-111111111111';
   static const arrivalNewsStoryId = '22222222-2222-4222-8222-222222222222';
   static const _storyAssetsBucket = 'story-assets';
-  static const _storyPageCacheDuration = Duration(minutes: 5);
   static const _storyColumns =
       'id, title, category_id, thumbnail_url, duration_seconds, is_featured';
-  static final Map<String, _CachedStoryPages> _storyPageCache = {};
+  static final StoryPageMemoryCache _storyPageCache = StoryPageMemoryCache();
+  static final StorytimeContentMemoryCache _storytimeContentCache =
+      StorytimeContentMemoryCache();
+  static Future<StorytimeContent>? _storytimeContentRequest;
 
   Future<StorytimeContent> fetchStorytimeContent() async {
+    final cached = _storytimeContentCache.get();
+    if (cached != null) {
+      return cached;
+    }
+
+    final pendingRequest = _storytimeContentRequest;
+    if (pendingRequest != null) {
+      return pendingRequest;
+    }
+
+    final request = _loadStorytimeContent();
+    _storytimeContentRequest = request;
+    try {
+      final content = await request;
+      _storytimeContentCache.put(content);
+      return content;
+    } finally {
+      if (identical(_storytimeContentRequest, request)) {
+        _storytimeContentRequest = null;
+      }
+    }
+  }
+
+  void invalidateStorytimeContentCache() {
+    _storytimeContentCache.clear();
+  }
+
+  Future<StorytimeContent> _loadStorytimeContent() async {
     final client = SupabaseClientProvider.client;
     final storage = client.storage.from('app-assets');
 
     final List<dynamic> results;
     try {
       results = await Future.wait([
-        _featuredBannersFromStorage(storage),
-        client
-            .from('story_categories')
-            .select('id, title, display_order')
-            .order('display_order'),
-        client
-            .from('story_sections')
-            .select(
-              'id, title, display_order, '
-              'section_stories(section_id, story_id, sort_order, '
-              'stories($_storyColumns))',
-            )
-            .order('display_order'),
-        client.from('stories').select(_storyColumns),
+        _trackedSupabaseRequest(
+          'storage.featured_banners',
+          () => _featuredBannersFromStorage(storage),
+        ),
+        _trackedSupabaseRequest(
+          'story_categories.select',
+          () async => client
+              .from('story_categories')
+              .select('id, title, display_order')
+              .order('display_order'),
+        ),
+        _trackedSupabaseRequest(
+          'story_sections.select',
+          () async => client
+              .from('story_sections')
+              .select(
+                'id, title, display_order, '
+                'section_stories(section_id, story_id, sort_order, '
+                'stories($_storyColumns))',
+              )
+              .order('display_order'),
+        ),
       ]);
     } catch (error) {
       debugPrint('StoryRepository: Supabase story query failed. $error');
@@ -49,25 +90,25 @@ class StoryRepository {
     final featuredBanners = results[0] as List<FeaturedBannerModel>;
     final categories = _mapRows(results[1]);
     final sectionRows = _mapRows(results[2]);
-    final storyRows = _mapRows(results[3]);
     final categoryNames = _categoryNamesById(categories);
-
-    final stories = storyRows
-        .map((row) => _storyFromMap(row, categoryNames, storage))
-        .toList(growable: false);
 
     final sections = sectionRows
         .map((row) => _sectionFromMap(row, categoryNames, storage))
         .toList(growable: false);
 
-    if (sections.isEmpty && stories.isEmpty) {
+    if (sections.isEmpty) {
       throw const StoryRepositoryException(
         'No stories are configured in the database.',
       );
     }
 
+    final storyCount = sections
+        .expand((section) => section.stories)
+        .map((story) => story.id)
+        .toSet()
+        .length;
     debugPrint(
-      'StoryRepository: loaded ${stories.length} stories, ${sections.length} sections, ${categories.length} categories from Supabase tables.',
+      'StoryRepository: loaded $storyCount stories, ${sections.length} sections, ${categories.length} categories from Supabase tables.',
     );
 
     final mappedCategories = categories
@@ -86,23 +127,50 @@ class StoryRepository {
     );
   }
 
-  Future<FullStoryModel> fetchStoryWithPages(String storyId) async {
+  Future<FullStoryModel> fetchStoryWithPages(
+    String storyId, {
+    StoryModel? knownStory,
+    List<StoryPage> knownPages = const [],
+  }) async {
+    if (knownStory != null && knownStory.id != storyId) {
+      throw const StoryRepositoryException(
+        'The supplied story metadata does not match the requested story.',
+      );
+    }
+
+    if (knownPages.isNotEmpty) {
+      cacheStoryPages(storyId, knownPages);
+    }
+
+    final pagesFuture = fetchStoryPages(storyId);
+    if (knownStory != null) {
+      return FullStoryModel(story: knownStory, pages: await pagesFuture);
+    }
+
     final client = SupabaseClientProvider.client;
     final storage = client.storage.from('app-assets');
-    final storyAssets = client.storage.from(_storyAssetsBucket);
 
-    final storyRow = await client
-        .from('stories')
-        .select(_storyColumns)
-        .eq('id', storyId)
-        .single();
-
-    final categoryRows = await client
-        .from('story_categories')
-        .select('id, title, display_order')
-        .order('display_order');
-
-    final pageRows = await _fetchDatabaseStoryPages(client, storyId);
+    final results = await Future.wait<dynamic>([
+      _trackedSupabaseRequest(
+        'stories.select_one',
+        () async => client
+            .from('stories')
+            .select(_storyColumns)
+            .eq('id', storyId)
+            .single(),
+      ),
+      _trackedSupabaseRequest(
+        'story_categories.select',
+        () async => client
+            .from('story_categories')
+            .select('id, title, display_order')
+            .order('display_order'),
+      ),
+      pagesFuture,
+    ]);
+    final storyRow = results[0] as Map<String, dynamic>;
+    final categoryRows = results[1];
+    final pages = results[2] as List<StoryPage>;
 
     return FullStoryModel(
       story: _storyFromMap(
@@ -110,14 +178,27 @@ class StoryRepository {
         _categoryNamesById(_mapRows(categoryRows)),
         storage,
       ),
-      pages: _storyPagesFromRows(pageRows, storyAssets),
+      pages: pages,
     );
   }
 
+  void cacheStoryPages(String storyId, List<StoryPage> pages) {
+    if (pages.isEmpty) {
+      return;
+    }
+    if (pages.any((page) => page.imageUrl.isEmpty || page.audioUrl.isEmpty)) {
+      throw const StoryRepositoryException(
+        'A supplied story page is missing its image or audio URL.',
+      );
+    }
+
+    _storyPageCache.put(storyId, pages);
+  }
+
   Future<List<StoryPage>> fetchStoryPages(String storyId) async {
-    final cached = _storyPageCache[storyId];
-    if (cached != null && !cached.isExpired) {
-      return cached.pages;
+    final cached = _storyPageCache.get(storyId);
+    if (cached != null) {
+      return cached;
     }
 
     try {
@@ -138,7 +219,7 @@ class StoryRepository {
         );
       }
 
-      _storyPageCache[storyId] = _CachedStoryPages(pages);
+      _storyPageCache.put(storyId, pages);
       return pages;
     } catch (error) {
       if (error is StoryRepositoryException) {
@@ -157,11 +238,14 @@ class StoryRepository {
     SupabaseClient client,
     String storyId,
   ) {
-    return client
-        .from('story_pages')
-        .select('id, story_id, page_number, hindi_text, image_url, audio_url')
-        .eq('story_id', storyId)
-        .order('page_number', ascending: true);
+    return _trackedSupabaseRequest(
+      'story_pages.select',
+      () async => client
+          .from('story_pages')
+          .select('id, story_id, page_number, hindi_text, image_url, audio_url')
+          .eq('story_id', storyId)
+          .order('page_number', ascending: true),
+    );
   }
 
   Future<bool> isFavoriteStory(String storyId) async {
@@ -172,6 +256,9 @@ class StoryRepository {
     }
 
     try {
+      StoryPerformanceMetrics.instance.recordSupabaseRequest(
+        'favorite_stories.select',
+      );
       final rows = await client
           .from('favorite_stories')
           .select('id')
@@ -590,6 +677,14 @@ class StoryRepository {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
+  Future<T> _trackedSupabaseRequest<T>(
+    String operation,
+    Future<T> Function() request,
+  ) {
+    StoryPerformanceMetrics.instance.recordSupabaseRequest(operation);
+    return request();
+  }
+
   // Legacy text is retained only as source material; playback never reads it.
   // ignore: unused_element
   String _storyTextForPage(int pageNumber) {
@@ -644,15 +739,4 @@ class StoryLibraryFullException extends StoryRepositoryException {
     : super(
         'Your library is full! Delete an older story to make room, or upgrade to Premium for unlimited saves.',
       );
-}
-
-class _CachedStoryPages {
-  _CachedStoryPages(this.pages) : cachedAt = DateTime.now();
-
-  final List<StoryPage> pages;
-  final DateTime cachedAt;
-
-  bool get isExpired =>
-      DateTime.now().difference(cachedAt) >
-      StoryRepository._storyPageCacheDuration;
 }

@@ -1,9 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/performance/story_performance_metrics.dart';
 import '../../../shared/theme/app_gradients.dart';
+import 'story_image_cache_policy.dart';
 
-class StoryImageView extends StatelessWidget {
+class StoryImageView extends StatefulWidget {
   const StoryImageView({
     required this.imageUrl,
     this.fit = BoxFit.cover,
@@ -16,8 +18,38 @@ class StoryImageView extends StatelessWidget {
   final Alignment alignment;
 
   @override
+  State<StoryImageView> createState() => _StoryImageViewState();
+}
+
+class _StoryImageViewState extends State<StoryImageView> {
+  Stopwatch _renderStopwatch = Stopwatch();
+  bool _hasRecordedRender = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _restartRenderTimer();
+  }
+
+  @override
+  void didUpdateWidget(StoryImageView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _restartRenderTimer();
+    }
+  }
+
+  void _restartRenderTimer() {
+    _hasRecordedRender = false;
+    _renderStopwatch = Stopwatch();
+    if (widget.imageUrl.isNotEmpty) {
+      _renderStopwatch.start();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (imageUrl.isEmpty) {
+    if (widget.imageUrl.isEmpty) {
       return const _StoryImagePlaceholder(
         icon: Icons.image_not_supported_rounded,
       );
@@ -29,13 +61,18 @@ class StoryImageView extends StatelessWidget {
         final logicalWidth = constraints.hasBoundedWidth
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
-        final cacheWidth = (logicalWidth * devicePixelRatio).round();
-        final alternateImageUrl = _alternateImageUrl(imageUrl);
+        final cacheWidth = StoryImageCachePolicy.widthFor(
+          logicalWidth: logicalWidth,
+          devicePixelRatio: devicePixelRatio,
+        );
+        final alternateImageUrl = _alternateImageUrl(widget.imageUrl);
 
         return CachedNetworkImage(
-          imageUrl: imageUrl,
-          fit: fit,
-          alignment: alignment,
+          imageUrl: widget.imageUrl,
+          imageBuilder: (context, imageProvider) =>
+              _renderedImage(imageProvider, cacheWidth),
+          fit: widget.fit,
+          alignment: widget.alignment,
           width: double.infinity,
           height: double.infinity,
           memCacheWidth: cacheWidth,
@@ -55,8 +92,10 @@ class StoryImageView extends StatelessWidget {
 
             return CachedNetworkImage(
               imageUrl: alternateImageUrl,
-              fit: fit,
-              alignment: alignment,
+              imageBuilder: (context, imageProvider) =>
+                  _renderedImage(imageProvider, cacheWidth),
+              fit: widget.fit,
+              alignment: widget.alignment,
               width: double.infinity,
               height: double.infinity,
               memCacheWidth: cacheWidth,
@@ -72,6 +111,42 @@ class StoryImageView extends StatelessWidget {
         );
       },
     );
+  }
+
+  Widget _renderedImage(ImageProvider<Object> provider, int cacheWidth) {
+    if (!_hasRecordedRender) {
+      _hasRecordedRender = true;
+      _renderStopwatch.stop();
+      final metrics = StoryPerformanceMetrics.instance;
+      metrics.recordDuration(
+        metric: 'image_render',
+        duration: _renderStopwatch.elapsed,
+        attributes: {
+          'cache_width': cacheWidth,
+          'source_format': _imageExtension(widget.imageUrl),
+        },
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        metrics.recordImageCacheSnapshot(reason: 'image_rendered');
+      });
+    }
+
+    return Image(
+      image: provider,
+      fit: widget.fit,
+      alignment: widget.alignment,
+      width: double.infinity,
+      height: double.infinity,
+      filterQuality: FilterQuality.medium,
+    );
+  }
+
+  String _imageExtension(String value) {
+    final path = Uri.tryParse(value)?.path ?? value;
+    final extensionIndex = path.lastIndexOf('.');
+    return extensionIndex == -1
+        ? 'unknown'
+        : path.substring(extensionIndex + 1).toLowerCase();
   }
 
   String? _alternateImageUrl(String value) {

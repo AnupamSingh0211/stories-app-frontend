@@ -22,11 +22,12 @@ class StoryPlayerContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = storyPlayerProvider(storyId);
-    final state = ref.watch(provider);
-    final notifier = ref.read(provider.notifier);
+    final errorMessage = ref.watch(
+      provider.select((state) => state.errorMessage),
+    );
 
-    if (state.errorMessage != null) {
-      return _PlayerErrorPanel(message: state.errorMessage!);
+    if (errorMessage != null) {
+      return _PlayerErrorPanel(message: errorMessage);
     }
 
     return LayoutBuilder(
@@ -93,14 +94,9 @@ class StoryPlayerContent extends ConsumerWidget {
                 right: 18 * scaleX,
                 top: 688 * scaleY,
                 height: 22 * scaleY,
-                child: _TimelineRow(
-                  position: state.currentPageIndex == page.pageNumber - 1
-                      ? state.audioPosition
-                      : Duration.zero,
-                  duration: state.currentPageIndex == page.pageNumber - 1
-                      ? state.audioDuration
-                      : Duration.zero,
-                  onSeek: notifier.seekTo,
+                child: _StoryTimelineConsumer(
+                  storyId: storyId,
+                  storyPageIndex: page.pageNumber - 1,
                 ),
               ),
               Positioned(
@@ -108,25 +104,83 @@ class StoryPlayerContent extends ConsumerWidget {
                 right: 18 * scaleX,
                 top: 723 * scaleY,
                 height: 36 * scaleY,
-                child: _PlaybackControls(
-                  isPlaying:
-                      state.currentPageIndex == page.pageNumber - 1 &&
-                      state.isPlaying,
-                  isFavorite: state.isFavorite,
-                  playbackSpeed: state.playbackSpeed,
-                  onToggleFavorite: notifier.toggleFavorite,
-                  onRewind: () => notifier.seekBy(const Duration(seconds: -10)),
-                  onTogglePlayback: () {
-                    state.isPlaying ? notifier.pause() : notifier.play();
-                  },
-                  onForward: () => notifier.seekBy(const Duration(seconds: 10)),
-                  onChangeSpeed: notifier.changeSpeed,
+                child: _StoryPlaybackControlsConsumer(
+                  storyId: storyId,
+                  storyPageIndex: page.pageNumber - 1,
                 ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _StoryTimelineConsumer extends ConsumerWidget {
+  const _StoryTimelineConsumer({
+    required this.storyId,
+    required this.storyPageIndex,
+  });
+
+  final String storyId;
+  final int storyPageIndex;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = storyPlayerProvider(storyId);
+    final timeline = ref.watch(
+      provider.select((state) {
+        if (state.currentPageIndex != storyPageIndex) {
+          return (position: Duration.zero, duration: Duration.zero);
+        }
+        return (position: state.audioPosition, duration: state.audioDuration);
+      }),
+    );
+
+    return _TimelineRow(
+      position: timeline.position,
+      duration: timeline.duration,
+      onSeek: ref.read(provider.notifier).seekTo,
+    );
+  }
+}
+
+class _StoryPlaybackControlsConsumer extends ConsumerWidget {
+  const _StoryPlaybackControlsConsumer({
+    required this.storyId,
+    required this.storyPageIndex,
+  });
+
+  final String storyId;
+  final int storyPageIndex;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = storyPlayerProvider(storyId);
+    final controls = ref.watch(
+      provider.select(
+        (state) => (
+          isPlaying:
+              state.currentPageIndex == storyPageIndex && state.isPlaying,
+          isFavorite: state.isFavorite,
+          playbackSpeed: state.playbackSpeed,
+        ),
+      ),
+    );
+    final notifier = ref.read(provider.notifier);
+
+    return _PlaybackControls(
+      isPlaying: controls.isPlaying,
+      isFavorite: controls.isFavorite,
+      playbackSpeed: controls.playbackSpeed,
+      onToggleFavorite: notifier.toggleFavorite,
+      onRewind: () => notifier.seekBy(const Duration(seconds: -10)),
+      onTogglePlayback: () {
+        controls.isPlaying ? notifier.pause() : notifier.play();
+      },
+      onForward: () => notifier.seekBy(const Duration(seconds: 10)),
+      onChangeSpeed: notifier.changeSpeed,
     );
   }
 }
