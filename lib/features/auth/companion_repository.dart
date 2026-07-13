@@ -67,16 +67,52 @@ class CompanionRepository {
   Future<List<CompanionModel>> fetchCompanions() async {
     final client = SupabaseClientProvider.client;
     final storage = client.storage.from('app-assets');
-    final rows = await client
-        .from('companions')
-        .select(
-          'id, display_name, short_description, long_description, image_path',
-        )
-        .order('created_at');
 
-    if (rows.isEmpty) {
+    try {
+      final rows = await client
+          .from('companions')
+          .select(
+            'id, display_name, short_description, long_description, image_path',
+          )
+          .order('created_at');
+
+      if (rows.isEmpty) {
+        throw StateError('Empty companion list');
+      }
+
       debugPrint(
-        'CompanionRepository: Supabase returned 0 rows; using fallback storage companions.',
+        'CompanionRepository: loaded ${rows.length} companions from Supabase.',
+      );
+      return rows
+          .asMap()
+          .entries
+          .map((entry) {
+            final row = entry.value;
+            final fallback = _fallbackFor(row, entry.key);
+            final imagePath = _firstString(row, ['image_path']);
+
+            return CompanionModel(
+              id: _firstString(row, ['id']).ifEmpty(fallback.id),
+              displayName: _firstString(row, [
+                'display_name',
+                'name',
+                'title',
+              ]).ifEmpty(fallback.displayName),
+              shortDescription: _firstString(row, [
+                'short_description',
+                'description',
+              ]).ifEmpty(fallback.shortDescription),
+              longDescription: _firstString(row, [
+                'long_description',
+                'description',
+              ]).ifEmpty(fallback.longDescription),
+              imageUrl: _imageUrl(storage, imagePath.ifEmpty(fallback.imagePath)),
+            );
+          })
+          .toList(growable: false);
+    } catch (error) {
+      debugPrint(
+        'CompanionRepository: Supabase query failed; using fallback storage companions. Error: $error',
       );
       return _fallbackCompanions
           .map(
@@ -90,37 +126,6 @@ class CompanionRepository {
           )
           .toList(growable: false);
     }
-
-    debugPrint(
-      'CompanionRepository: loaded ${rows.length} companions from Supabase.',
-    );
-    return rows
-        .asMap()
-        .entries
-        .map((entry) {
-          final row = entry.value;
-          final fallback = _fallbackFor(row, entry.key);
-          final imagePath = _firstString(row, ['image_path']);
-
-          return CompanionModel(
-            id: _firstString(row, ['id']).ifEmpty(fallback.id),
-            displayName: _firstString(row, [
-              'display_name',
-              'name',
-              'title',
-            ]).ifEmpty(fallback.displayName),
-            shortDescription: _firstString(row, [
-              'short_description',
-              'description',
-            ]).ifEmpty(fallback.shortDescription),
-            longDescription: _firstString(row, [
-              'long_description',
-              'description',
-            ]).ifEmpty(fallback.longDescription),
-            imageUrl: _imageUrl(storage, imagePath.ifEmpty(fallback.imagePath)),
-          );
-        })
-        .toList(growable: false);
   }
 
   String _imageUrl(StorageFileApi storage, String value) {

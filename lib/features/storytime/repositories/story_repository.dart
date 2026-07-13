@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/performance/story_performance_metrics.dart';
 import '../../../core/supabase_client.dart';
+import '../../auth/auth_provider.dart';
 import '../models/story_model.dart';
 import '../models/story_page.dart';
 import 'story_page_memory_cache.dart';
@@ -10,6 +11,9 @@ import 'storytime_content_memory_cache.dart';
 
 class StoryRepository {
   const StoryRepository();
+
+  static final Set<String> _favoriteStoryIds = {};
+  static final Set<String> _savedStoryIds = {};
 
   static const savedStoryLimit = 10;
   static const morningWhispersStoryId = '11111111-1111-4111-8111-111111111111';
@@ -249,6 +253,9 @@ class StoryRepository {
   }
 
   Future<bool> isFavoriteStory(String storyId) async {
+    if (kUseAuthBypass) {
+      return _favoriteStoryIds.contains(storyId);
+    }
     final client = SupabaseClientProvider.client;
     final userId = client.auth.currentUser?.id;
     if (userId == null) {
@@ -276,6 +283,10 @@ class StoryRepository {
   }
 
   Future<void> addFavoriteStory(String storyId) async {
+    if (kUseAuthBypass) {
+      _favoriteStoryIds.add(storyId);
+      return;
+    }
     final client = SupabaseClientProvider.client;
     final userId = client.auth.currentUser?.id;
     if (userId == null) {
@@ -298,6 +309,10 @@ class StoryRepository {
   }
 
   Future<void> removeFavoriteStory(String storyId) async {
+    if (kUseAuthBypass) {
+      _favoriteStoryIds.remove(storyId);
+      return;
+    }
     final client = SupabaseClientProvider.client;
     final userId = client.auth.currentUser?.id;
     if (userId == null) {
@@ -321,6 +336,23 @@ class StoryRepository {
   }
 
   Future<List<StoryModel>> fetchSavedStories() async {
+    if (kUseAuthBypass) {
+      final client = SupabaseClientProvider.client;
+      final storyIds = _savedStoryIds.toList();
+      if (storyIds.isEmpty) {
+        return const [];
+      }
+      try {
+        final storyRows = await client
+            .from('stories')
+            .select(_storyColumns)
+            .inFilter('id', storyIds);
+        return await _storyModelsFromRows(client, _mapRows(storyRows));
+      } catch (e) {
+        debugPrint('StoryRepository: saved stories bypass lookup failed. $e');
+        return const [];
+      }
+    }
     final client = SupabaseClientProvider.client;
     final userId = client.auth.currentUser?.id;
     if (userId == null) {
@@ -380,6 +412,9 @@ class StoryRepository {
   }
 
   Future<int> fetchSavedStoryCount() async {
+    if (kUseAuthBypass) {
+      return _savedStoryIds.length;
+    }
     final client = SupabaseClientProvider.client;
     final userId = client.auth.currentUser?.id;
     if (userId == null) {
@@ -402,6 +437,9 @@ class StoryRepository {
   }
 
   Future<bool> isStorySaved(String storyId) async {
+    if (kUseAuthBypass) {
+      return _savedStoryIds.contains(storyId);
+    }
     final client = SupabaseClientProvider.client;
     final userId = client.auth.currentUser?.id;
     if (userId == null) {
@@ -426,6 +464,13 @@ class StoryRepository {
   }
 
   Future<void> saveStoryToLibrary(String storyId) async {
+    if (kUseAuthBypass) {
+      if (_savedStoryIds.length >= savedStoryLimit) {
+        throw const StoryLibraryFullException();
+      }
+      _savedStoryIds.add(storyId);
+      return;
+    }
     final client = SupabaseClientProvider.client;
     final userId = client.auth.currentUser?.id;
     if (userId == null) {
@@ -457,6 +502,10 @@ class StoryRepository {
   }
 
   Future<void> removeSavedStory(String storyId) async {
+    if (kUseAuthBypass) {
+      _savedStoryIds.remove(storyId);
+      return;
+    }
     final client = SupabaseClientProvider.client;
     final userId = client.auth.currentUser?.id;
     if (userId == null) {

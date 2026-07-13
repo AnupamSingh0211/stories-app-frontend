@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -33,16 +34,31 @@ abstract interface class AppAuthService {
   Future<void> signOut();
 }
 
+const bool kUseAuthBypass = true;
+
+final mockSessionStateProvider = StateProvider<AppSessionIdentity?>((ref) => null);
+
 class SupabaseAppAuthService implements AppAuthService {
-  const SupabaseAppAuthService();
+  const SupabaseAppAuthService(this.ref);
+
+  final Ref ref;
 
   GoTrueClient get _auth => Supabase.instance.client.auth;
 
   @override
-  AppSessionIdentity? get currentIdentity => _identityFor(_auth.currentSession);
+  AppSessionIdentity? get currentIdentity {
+    if (kUseAuthBypass) {
+      return ref.read(mockSessionStateProvider);
+    }
+    return _identityFor(_auth.currentSession);
+  }
 
   @override
   Future<void> requestOtp(String phoneNumber) async {
+    if (kUseAuthBypass) {
+      return;
+    }
+
     if (_auth.currentUser?.isAnonymous ?? false) {
       await _auth.signOut();
     }
@@ -55,6 +71,15 @@ class SupabaseAppAuthService implements AppAuthService {
     required String phoneNumber,
     required String otp,
   }) async {
+    if (kUseAuthBypass) {
+      const identity = AppSessionIdentity(
+        userId: '00000000-0000-0000-0000-000000000000',
+        isAnonymous: false,
+      );
+      ref.read(mockSessionStateProvider.notifier).state = identity;
+      return identity;
+    }
+
     final response = await _auth.verifyOTP(
       type: OtpType.sms,
       phone: phoneNumber,
@@ -77,11 +102,17 @@ class SupabaseAppAuthService implements AppAuthService {
   }
 
   @override
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    if (kUseAuthBypass) {
+      ref.read(mockSessionStateProvider.notifier).state = null;
+      return;
+    }
+    await _auth.signOut();
+  }
 }
 
 final appAuthServiceProvider = Provider<AppAuthService>(
-  (ref) => const SupabaseAppAuthService(),
+  (ref) => SupabaseAppAuthService(ref),
 );
 
 final activeSessionProvider = Provider<AppSessionIdentity?>((ref) {
@@ -90,6 +121,12 @@ final activeSessionProvider = Provider<AppSessionIdentity?>((ref) {
 
 @riverpod
 Stream<AppSessionIdentity?> authSession(AuthSessionRef ref) async* {
+  if (kUseAuthBypass) {
+    final mockSession = ref.watch(mockSessionStateProvider);
+    yield mockSession;
+    return;
+  }
+
   final auth = Supabase.instance.client.auth;
   yield _identityFor(auth.currentSession);
 
