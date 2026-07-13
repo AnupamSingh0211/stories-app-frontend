@@ -1,215 +1,279 @@
 import 'package:flutter/material.dart';
 
-/// Semantic color tokens for the Dharma bedtime story experience.
+/// Semantic color tokens sourced from the Figma Dev Mode palette.
 ///
-/// Screens should consume these tokens or [Theme.of] colors rather than
-/// defining raw color values locally.
+/// Legacy token names are kept where the app already consumes them, but their
+/// values are aliases to colors present in the linked Figma node.
 abstract final class AppColors {
-  // Figma primitive palette.
-  static const blue900 = Color(0xFF004660);
-  static const blue800 = Color(0xFF00688E);
-  static const blue700 = Color(0xFF0082B2);
-  static const blue600 = Color(0xFF009DD7);
-  static const blue500 = Color(0xFF00AEEF);
-  static const blue400 = Color(0xFF33C0F3);
-  static const blue300 = Color(0xFF66D2F7);
-  static const blue200 = Color(0xFF99E1FA);
-  static const blue100 = Color(0xFFC2EEFC);
-  static const blue50 = Color(0xFFE6F9FE);
-  static const blue25 = Color(0xFFF5FAFF);
+  // Figma primitive palette: Blue 50-950.
+  static const blue950 = Color(0xFF0A1F42);
+  static const blue900 = Color(0xFF102F63);
+  static const blue800 = Color(0xFF123F87);
+  static const blue700 = Color(0xFF1554B0);
+  static const blue600 = Color(0xFF1D6BD6);
+  static const blue500 = Color(0xFF2D86EA);
+  static const blue400 = Color(0xFF47A4F2);
+  static const blue300 = Color(0xFF74C0F8);
+  static const blue200 = Color(0xFFA8D8FB);
+  static const blue100 = Color(0xFFD2EAFD);
+  static const blue50 = Color(0xFFEAF5FE);
+  static const blue25 = surfacePrimary;
 
-  static const fuchsia900 = Color(0xFF851651);
-  static const fuchsia800 = Color(0xFF9E165F);
-  static const fuchsia700 = Color(0xFFC11574);
-  static const fuchsia600 = Color(0xFFDD2590);
-  static const fuchsia500 = Color(0xFFEE46BC);
-  static const fuchsia400 = Color(0xFFF670C7);
-  static const fuchsia300 = Color(0xFFFAA7E0);
-  static const fuchsia200 = Color(0xFFFCCEEE);
-  static const fuchsia100 = Color(0xFFFCE7F6);
-  static const fuchsia50 = Color(0xFFFDF2FA);
-  static const fuchsia25 = Color(0xFFFEF6FB);
+  // Figma primitive palette: Neutral 0-950.
+  static const neutral950 = Color(0xFF0B121A);
+  static const neutral900 = Color(0xFF16202C);
+  static const neutral800 = Color(0xFF232F3E);
+  static const neutral700 = Color(0xFF374559);
+  static const neutral600 = Color(0xFF4B5A6B);
+  static const neutral500 = Color(0xFF6B7C8F);
+  static const neutral400 = Color(0xFF9AAAB9);
+  static const neutral300 = Color(0xFFCBD5E1);
+  static const neutral200 = Color(0xFFE1E7EF);
+  static const neutral100 = Color(0xFFEEF2F7);
+  static const neutral50 = Color(0xFFF7F9FC);
+  static const neutral0 = Color(0xFFFFFFFF);
 
-  static const gray900 = Color(0xFF101828);
-  static const gray800 = Color(0xFF1D2939);
-  static const gray700 = Color(0xFF344054);
-  static const gray600 = Color(0xFF475467);
-  static const gray500 = Color(0xFF667085);
-  static const gray400 = Color(0xFF98A2B3);
-  static const gray300 = Color(0xFFD0D5DD);
-  static const gray200 = Color(0xFFE4E7EC);
-  static const gray100 = Color(0xFFF2F4F7);
-  static const gray50 = Color(0xFFF9FAFB);
-  static const gray25 = Color(0xFFFCFCFD);
+  static const gray900 = neutral900;
+  static const gray800 = neutral800;
+  static const gray700 = neutral700;
+  static const gray600 = neutral600;
+  static const gray500 = neutral500;
+  static const gray400 = neutral400;
+  static const gray300 = neutral300;
+  static const gray200 = neutral200;
+  static const gray100 = neutral100;
+  static const gray50 = neutral50;
+  static const gray25 = surfacePrimary;
 
-  static const error900 = Color(0xFF7A092B);
-  static const error800 = Color(0xFF930F2C);
-  static const error700 = Color(0xFFB7192E);
-  static const error600 = Color(0xFFDB242D);
-  static const error500 = Color(0xFFFF3932);
-  static const error400 = Color(0xFFFF7765);
-  static const error300 = Color(0xFFFF9D83);
-  static const error200 = Color(0xFFFFC4AD);
-  static const error100 = Color(0xFFFFE5D6);
-  static const error50 = Color(0xFFFFF4EF);
-  static const error25 = Color(0xFFFFFCEA);
+  // Figma semantic palette: Background.
+  static const backgroundPrimary = Color(0xFF2D86EA);
+  static const backgroundSecondary = Color(0xFF1D6BD6);
+  static const backgroundElevated = Color(0xFF47A4F2);
+  static const backgroundGlass = Color(0x2EFFFFFF);
+  static const backgroundOverlay = Color(0x8C061428);
+  static const backgroundHero = Color(0xFF3E8EF0);
 
-  static const warning900 = Color(0xFF7A2E0E);
-  static const warning800 = Color(0xFF93370D);
-  static const warning700 = Color(0xFFB54708);
-  static const warning600 = Color(0xFFDC6803);
-  static const warning500 = Color(0xFFF79009);
-  static const warning400 = Color(0xFFFDB022);
-  static const warning300 = Color(0xFFFEC84B);
-  static const warning200 = Color(0xFFFEDF89);
-  static const warning100 = Color(0xFFFEF0C7);
-  static const warning50 = Color(0xFFFFFAEB);
-  static const warning25 = Color(0xFFFFFCE5);
+  // Figma semantic palette: Text.
+  static const textPrimary = Color(0xFF16202C);
+  static const textSecondary = Color(0xFF3E4E60);
+  static const textTertiary = Color(0xFF64748A);
+  static const textPlaceholder = Color(0xFF8296AC);
+  static const textDisabled = Color(0xFFA9BED6);
+  static const textInverse = Color(0xFFFFFFFF);
+  static const textOnPrimary = Color(0xFFFFFFFF);
+  static const textOnGlass = Color(0xFF16202C);
+  static const textOnAccent = textOnPrimary;
+  static const textOnAccentSoft = textOnGlass;
 
-  static const success900 = Color(0xFF145607);
-  static const success800 = Color(0xFF21680C);
-  static const success700 = Color(0xFF338213);
-  static const success600 = Color(0xFF489B1C);
-  static const success500 = Color(0xFF60B527);
-  static const success400 = Color(0xFF8FD256);
-  static const success300 = Color(0xFFB4E87B);
-  static const success200 = Color(0xFFD6F7A9);
-  static const success100 = Color(0xFFE6FBC7);
-  static const success50 = Color(0xFFFFFAEB);
-  static const success25 = Color(0xFFF9FFEF);
+  // Figma semantic palette: Surface.
+  static const surfacePrimary = Color(0xFFF5FAFF);
+  static const surfaceSecondary = Color(0xFFE8F2FC);
+  static const surfaceElevated = Color(0xFFFBFEFF);
+  static const surfaceCardBackground = Color(0xA6FFFFFF);
+  static const surfaceSheetBackground = Color(0xD9FFFFFF);
+  static const surfaceModalBackground = Color(0xFFFFFFFF);
+  static const surfaceNavigationBackground = Color(0x8CFFFFFF);
 
-  static const orange900 = Color(0xFF7E2410);
-  static const orange800 = Color(0xFF9C2A10);
-  static const orange700 = Color(0xFFC4320A);
-  static const orange600 = Color(0xFFEC4A0A);
-  static const orange500 = Color(0xFFFB6514);
-  static const orange400 = Color(0xFFFD853A);
-  static const orange300 = Color(0xFFFEB273);
-  static const orange200 = Color(0xFFFDDCAB);
-  static const orange100 = Color(0xFFFFEAD5);
-  static const orange50 = Color(0xFFFFF6ED);
-  static const orange25 = Color(0xFFFFFAF5);
+  // Figma semantic palette: Glass.
+  static const glassBackground = Color(0x38FFFFFF);
+  static const glassSurface = Color(0x59FFFFFF);
+  static const glassBorder = Color(0x8CFFFFFF);
+  static const glassHighlight = Color(0xD9FFFFFF);
+  static const glassReflection = Color(0xF2FFFFFF);
+  static const glassShadow = Color(0x47081E3C);
 
-  static const purple900 = Color(0xFF3E1C96);
-  static const purple800 = Color(0xFF4A1FB8);
-  static const purple700 = Color(0xFF5925DC);
-  static const purple600 = Color(0xFF6938EF);
-  static const purple500 = Color(0xFF7A5AF8);
-  static const purple400 = Color(0xFF9B8AFB);
-  static const purple300 = Color(0xFFBDB4FE);
-  static const purple200 = Color(0xFFD9D6FE);
-  static const purple100 = Color(0xFFEBE9FE);
-  static const purple50 = Color(0xFFF4F3FF);
-  static const purple25 = Color(0xFFFAFAFF);
+  // Figma semantic palette: Border.
+  static const borderLight = Color(0x59FFFFFF);
+  static const borderDefault = Color(0xFFC7DEF5);
+  static const borderStrong = Color(0xFF8FB8E6);
+  static const borderGlass = Color(0x8CFFFFFF);
+  static const borderFocus = Color(0x8C123F87);
+  static const borderMedium = borderDefault;
+  static const borderDark = borderFocus;
 
-  static const seaGreen900 = Color(0xFF00525B);
-  static const seaGreen800 = Color(0xFF016D6E);
-  static const seaGreen700 = Color(0xFF02897D);
-  static const seaGreen600 = Color(0xFF02A486);
-  static const seaGreen500 = Color(0xFF04BF8A);
-  static const seaGreen400 = Color(0xFF39D89C);
-  static const seaGreen300 = Color(0xFF61EBA9);
-  static const seaGreen200 = Color(0xFF97F8C0);
-  static const seaGreen100 = Color(0xFFCAFEDA);
-  static const seaGreen50 = Color(0xFFDFFFE3);
-  static const seaGreen25 = Color(0xFFEAFEED);
+  // Figma semantic palette: Interactive.
+  static const interactivePrimary = Color(0xFF1D6BD6);
+  static const interactivePrimaryPressed = Color(0xFF123F87);
+  static const interactiveSecondary = Color(0x8CFFFFFF);
+  static const interactiveSecondaryPressed = Color(0xD9FFFFFF);
+  static const interactiveHighlight = Color(0xFF123F87);
+  static const interactiveFocusRing = Color(0x99FFFFFF);
+  static const interactiveSelection = Color(0x402D86EA);
 
-  // Night surfaces.
-  static const surfaceBase = Color(0xFF0F1425);
-  static const surfaceDark = Color(0xFF080D1D);
-  static const surfaceDeep = Color(0xFF070B19);
-  static const surfaceElevated = Color(0xFF1E2952);
-  static const surfaceCard = Color(0xFF16203C);
-  static const surfaceCardDeep = Color(0xFF10183D);
-  static const surfaceOverlay = Color(0xFF11184A);
-  static const surfaceNavigation = Color(0xFF111735);
-  static const surfaceImageFallback = Color(0xFF202A5F);
-  static const surfaceImageFallbackDark = Color(0xFF111832);
-  static const surfaceInk = Color(0xFF050914);
-  static const surfaceBlack = Color(0xFF000000);
-  static const surfaceWhite = Color(0xFFFFFFFF);
+  // Figma status palettes.
+  static const success900 = Color(0xFF0C3D2B);
+  static const success800 = Color(0xFF105038);
+  static const success700 = Color(0xFF146747);
+  static const success600 = Color(0xFF1A8259);
+  static const success500 = Color(0xFF22A06F);
+  static const success400 = Color(0xFF3FB88C);
+  static const success300 = Color(0xFF6ED2AC);
+  static const success200 = Color(0xFFA6E8CB);
+  static const success100 = Color(0xFFD2F5E5);
+  static const success50 = Color(0xFFEAFBF3);
+  static const success25 = success50;
+
+  static const warning900 = Color(0xFF5C330C);
+  static const warning800 = Color(0xFF79430F);
+  static const warning700 = Color(0xFF9C5713);
+  static const warning600 = Color(0xFFC36E17);
+  static const warning500 = Color(0xFFE58A1F);
+  static const warning400 = Color(0xFFF1A431);
+  static const warning300 = Color(0xFFF9BE52);
+  static const warning200 = Color(0xFFFCD988);
+  static const warning100 = Color(0xFFFEECC4);
+  static const warning50 = Color(0xFFFFF7E8);
+  static const warning25 = warning50;
+
+  static const error900 = Color(0xFF501A10);
+  static const error800 = Color(0xFF6B2114);
+  static const error700 = Color(0xFF8C2B19);
+  static const error600 = Color(0xFFB0361F);
+  static const error500 = Color(0xFFD14735);
+  static const error400 = Color(0xFFE06456);
+  static const error300 = Color(0xFFEC8B80);
+  static const error200 = Color(0xFFF5B7B0);
+  static const error100 = Color(0xFFFBDEDB);
+  static const error50 = Color(0xFFFDF0EF);
+  static const error25 = error50;
+
+  static const info900 = Color(0xFF0B384F);
+  static const info800 = Color(0xFF0E4A68);
+  static const info700 = Color(0xFF125F86);
+  static const info600 = Color(0xFF1678A8);
+  static const info500 = Color(0xFF1D96CE);
+  static const info400 = Color(0xFF38B2E4);
+  static const info300 = Color(0xFF67CBF0);
+  static const info200 = Color(0xFF9FE1F8);
+  static const info100 = Color(0xFFCFF1FC);
+  static const info50 = Color(0xFFEAF9FE);
+
+  // Legacy family aliases used by existing screens.
+  static const fuchsia900 = error900;
+  static const fuchsia800 = error800;
+  static const fuchsia700 = error700;
+  static const fuchsia600 = error600;
+  static const fuchsia500 = error500;
+  static const fuchsia400 = error400;
+  static const fuchsia300 = error300;
+  static const fuchsia200 = error200;
+  static const fuchsia100 = error100;
+  static const fuchsia50 = error50;
+  static const fuchsia25 = error25;
+
+  static const orange900 = warning900;
+  static const orange800 = warning800;
+  static const orange700 = warning700;
+  static const orange600 = warning600;
+  static const orange500 = warning500;
+  static const orange400 = warning400;
+  static const orange300 = warning300;
+  static const orange200 = warning200;
+  static const orange100 = warning100;
+  static const orange50 = warning50;
+  static const orange25 = warning25;
+
+  static const purple900 = blue900;
+  static const purple800 = blue800;
+  static const purple700 = blue700;
+  static const purple600 = blue600;
+  static const purple500 = blue500;
+  static const purple400 = blue400;
+  static const purple300 = blue300;
+  static const purple200 = blue200;
+  static const purple100 = blue100;
+  static const purple50 = blue50;
+  static const purple25 = blue25;
+
+  static const seaGreen900 = success900;
+  static const seaGreen800 = success800;
+  static const seaGreen700 = success700;
+  static const seaGreen600 = success600;
+  static const seaGreen500 = success500;
+  static const seaGreen400 = success400;
+  static const seaGreen300 = success300;
+  static const seaGreen200 = success200;
+  static const seaGreen100 = success100;
+  static const seaGreen50 = success50;
+  static const seaGreen25 = success25;
+
+  // Existing semantic aliases.
+  static const surfaceBase = surfacePrimary;
+  static const surfaceDark = backgroundSecondary;
+  static const surfaceDeep = blue950;
+  static const surfaceCard = surfaceCardBackground;
+  static const surfaceCardDeep = backgroundPrimary;
+  static const surfaceOverlay = backgroundOverlay;
+  static const surfaceNavigation = surfaceNavigationBackground;
+  static const surfaceImageFallback = backgroundHero;
+  static const surfaceImageFallbackDark = blue800;
+  static const surfaceInk = neutral950;
+  static const surfaceBlack = neutral950;
+  static const surfaceWhite = neutral0;
   static const transparent = Color(0x00000000);
 
-  // Primary interaction.
-  static const accentPrimary = Color(0xFF7A5CFF);
-  static const accentPrimaryLight = Color(0xFFA9A7FF);
-  static const accentPrimarySoft = Color(0xFFC8BBFF);
-  static const accentPrimaryDim = Color(0xFF6F5FE0);
-  static const accentSecondary = Color(0xFF6FA3FF);
-  static const accentSecondaryDeep = Color(0xFF283A8C);
-  static const accentLavender = Color(0xFF8192FF);
+  static const accentPrimary = interactivePrimary;
+  static const accentPrimaryLight = blue400;
+  static const accentPrimarySoft = blue100;
+  static const accentPrimaryDim = interactivePrimaryPressed;
+  static const accentSecondary = backgroundHero;
+  static const accentSecondaryDeep = blue800;
+  static const accentLavender = blue300;
 
-  // Emotional and status colors.
-  static const emotionalWarmth = Color(0xFFFFD96B);
-  static const emotionalWarmthBright = Color(0xFFFFE06B);
-  static const emotionalWarmthLight = Color(0xFFFFE6A4);
-  static const emotionalWarmthSoft = Color(0xFFFFECA1);
-  static const successGreen = Color(0xFF4ECB71);
-  static const warningOrange = Color(0xFFFF9500);
-  static const attentionRed = Color(0xFFFF6B6B);
+  static const emotionalWarmth = warning300;
+  static const emotionalWarmthBright = warning200;
+  static const emotionalWarmthLight = warning100;
+  static const emotionalWarmthSoft = warning50;
+  static const successGreen = success500;
+  static const warningOrange = warning500;
+  static const attentionRed = error500;
 
-  // Night-theme text and icon colors.
-  static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFFB8C3E0);
-  static const textTertiary = Color(0xFF8A99BB);
-  static const textOnAccent = Color(0xFF091026);
-  static const textOnAccentSoft = Color(0xFF18172E);
+  static const playerBackground = surfacePrimary;
+  static const playerSurface = surfaceModalBackground;
+  static const playerPrimary = error400;
+  static const playerWarmGold = warning300;
+  static const playerWarmGoldLight = warning200;
+  static const playerPurple = blue800;
+  static const playerPurpleMuted = blue600;
+  static const playerPurpleDeep = blue950;
+  static const playerText = textPrimary;
+  static const playerTextSecondary = textSecondary;
+  static const playerGreen = success500;
+  static const playerDisabled = textDisabled;
+  static const playerBorder = borderDefault;
+  static const playerShadow = glassShadow;
 
-  // Warm story-player palette.
-  static const playerBackground = Color(0xFFFFF8EE);
-  static const playerSurface = Color(0xFFFFFFFF);
-  static const playerPrimary = Color(0xFFFF6B5A);
-  static const playerWarmGold = Color(0xFFFFC95C);
-  static const playerWarmGoldLight = Color(0xFFFFD47A);
-  static const playerPurple = Color(0xFF4B3A73);
-  static const playerPurpleMuted = Color(0xFF6D5C9F);
-  static const playerPurpleDeep = Color(0xFF2D216F);
-  static const playerText = Color(0xFF3B3451);
-  static const playerTextSecondary = Color(0xFF746B84);
-  static const playerGreen = Color(0xFF5F8F68);
-  static const playerDisabled = Color(0xFF756A82);
-  static const playerBorder = Color(0xFFF1E7D8);
-  static const playerShadow = Color(0xFF5B4636);
+  static const authSurface = backgroundPrimary;
+  static const authSurfacePurple = backgroundSecondary;
+  static const authSurfaceDark = blue950;
+  static const companionBadgeSurface = backgroundOverlay;
+  static const companionGold = warning300;
+  static const companionGoldLight = warning100;
 
-  // Auth and companion accents.
-  static const authSurface = Color(0xFF15162F);
-  static const authSurfacePurple = Color(0xFF151333);
-  static const authSurfaceDark = Color(0xFF090E1A);
-  static const companionBadgeSurface = Color(0xFF332B2C);
-  static const companionGold = Color(0xFFFFD65B);
-  static const companionGoldLight = Color(0xFFFFEB80);
+  static const lightSurfaceBase = surfacePrimary;
+  static const lightSurfaceElevated = surfaceElevated;
+  static const lightSurfaceCard = surfaceSecondary;
+  static const lightTextPrimary = textPrimary;
+  static const lightTextSecondary = textSecondary;
+  static const lightTextTertiary = textTertiary;
 
-  // Light theme foundations.
-  static const lightSurfaceBase = Color(0xFFF8F7FC);
-  static const lightSurfaceElevated = Color(0xFFFFFFFF);
-  static const lightSurfaceCard = Color(0xFFF0F1FA);
-  static const lightTextPrimary = Color(0xFF171B2E);
-  static const lightTextSecondary = Color(0xFF4F5873);
-  static const lightTextTertiary = Color(0xFF727B95);
-
-  // Predefined opacity tokens.
-  static const textHighEmphasis = Color(0xC2FFFFFF);
-  static const textMediumEmphasis = Color(0xA3FFFFFF);
-  static const textLowEmphasis = Color(0x8AFFFFFF);
-  static const textDisabled = Color(0x61FFFFFF);
-  static const borderLight = Color(0x1CFFFFFF);
-  static const borderMedium = Color(0x24FFFFFF);
-  static const borderDark = Color(0x12FFFFFF);
-  static const borderStrong = Color(0x47FFFFFF);
-  static const surfaceWhite05 = Color(0x0DFFFFFF);
-  static const surfaceWhite08 = Color(0x14FFFFFF);
-  static const surfaceWhite12 = Color(0x1FFFFFFF);
-  static const surfaceWhite16 = Color(0x29FFFFFF);
-  static const surfaceWhite18 = Color(0x2EFFFFFF);
-  static const overlayBlack18 = Color(0x2E000000);
-  static const overlayBlack22 = Color(0x38000000);
-  static const overlayBlack24 = Color(0x3D000000);
-  static const overlayBlack28 = Color(0x47000000);
-  static const overlayBlack46 = Color(0x75000000);
-  static const overlayBlack62 = Color(0x9E000000);
-  static const featuredOverlaySoft = Color(0x2E050914);
-  static const featuredOverlayStrong = Color(0xD1050914);
-  static const playerShadowSoft = Color(0x245B4636);
+  static const textHighEmphasis = textInverse;
+  static const textMediumEmphasis = Color(0xA6FFFFFF);
+  static const textLowEmphasis = Color(0x8CFFFFFF);
+  static const surfaceWhite05 = backgroundGlass;
+  static const surfaceWhite08 = backgroundGlass;
+  static const surfaceWhite12 = backgroundGlass;
+  static const surfaceWhite16 = backgroundGlass;
+  static const surfaceWhite18 = backgroundGlass;
+  static const overlayBlack18 = glassShadow;
+  static const overlayBlack22 = glassShadow;
+  static const overlayBlack24 = glassShadow;
+  static const overlayBlack28 = glassShadow;
+  static const overlayBlack46 = backgroundOverlay;
+  static const overlayBlack62 = backgroundOverlay;
+  static const featuredOverlaySoft = Color(0x47081E3C);
+  static const featuredOverlayStrong = backgroundOverlay;
+  static const playerShadowSoft = glassShadow;
 
   static Color textPrimaryWith(double opacity) =>
       textPrimary.withValues(alpha: opacity);
