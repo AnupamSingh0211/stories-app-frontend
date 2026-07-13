@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../features/auth/auth_provider.dart';
 import 'backend_config.dart';
 
 class BackendTransportRequest {
@@ -66,8 +67,12 @@ class SupabaseBackendSessionReader implements BackendSessionReader {
   const SupabaseBackendSessionReader();
 
   @override
-  String? get currentAccessToken =>
-      Supabase.instance.client.auth.currentSession?.accessToken;
+  String? get currentAccessToken {
+    if (kUseAuthBypass) {
+      return 'mock.dev.token';
+    }
+    return Supabase.instance.client.auth.currentSession?.accessToken;
+  }
 }
 
 class BackendApiException implements Exception {

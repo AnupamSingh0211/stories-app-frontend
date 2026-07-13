@@ -8,6 +8,11 @@ import 'profile_repository.dart';
 part 'profile_notifier.g.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  if (kUseAuthBypass) {
+    return ProfileRepository(
+      dataSource: const MockProfileDataSource(),
+    );
+  }
   return ProfileRepository(
     dataSource: BackendProfileDataSource(
       apiClient: ref.watch(backendApiClientProvider),

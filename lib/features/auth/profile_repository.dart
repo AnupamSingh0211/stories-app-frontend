@@ -205,3 +205,51 @@ class ChildProfileLimitException implements Exception {
   @override
   String toString() => childProfileLimitMessage;
 }
+
+class MockProfileDataSource extends ProfileDataSource {
+  const MockProfileDataSource();
+
+  static final List<Map<String, dynamic>> _profiles = [];
+
+  @override
+  String? get currentUserId => '00000000-0000-0000-0000-000000000000';
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchChildProfiles() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return List.from(_profiles);
+  }
+
+  @override
+  Future<Map<String, dynamic>> insertChildProfile(
+    Map<String, dynamic> profile,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final newProfile = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'user_id': currentUserId,
+      ...profile,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    _profiles.add(newProfile);
+    return newProfile;
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateChildProfile(
+    String childId,
+    Map<String, dynamic> profile,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    for (var i = 0; i < _profiles.length; i++) {
+      if (_profiles[i]['id'] == childId) {
+        _profiles[i] = {
+          ..._profiles[i],
+          ...profile,
+        };
+        return _profiles[i];
+      }
+    }
+    throw StateError('Profile not found');
+  }
+}
