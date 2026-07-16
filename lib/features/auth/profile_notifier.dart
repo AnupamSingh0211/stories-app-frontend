@@ -1,23 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../core/backend_api_client.dart';
 import 'auth_provider.dart';
 import 'profile_repository.dart';
 
 part 'profile_notifier.g.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
-  if (kUseAuthBypass) {
-    return ProfileRepository(
-      dataSource: const MockProfileDataSource(),
-    );
-  }
-  return ProfileRepository(
-    dataSource: BackendProfileDataSource(
-      apiClient: ref.watch(backendApiClientProvider),
-    ),
-  );
+  return ProfileRepository(dataSource: const LocalProfileDataSource());
 });
 
 class ChildProfilesState {

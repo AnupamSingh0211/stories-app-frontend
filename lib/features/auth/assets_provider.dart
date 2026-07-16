@@ -38,5 +38,8 @@ Map<String, String> appAssets(AppAssetsRef ref) {
     'companion_ganesha': storage.getPublicUrl('companions/comp_ganesha.webp'),
     'companion_bheem': storage.getPublicUrl('companions/comp_bheem.webp'),
     'companion_arjun': storage.getPublicUrl('companions/comp_arjun.webp'),
+    'mascot_character': storage.getPublicUrl(
+      'backgrounds/mascot_character.png',
+    ),
   };
 }

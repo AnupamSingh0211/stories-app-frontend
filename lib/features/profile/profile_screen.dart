@@ -128,10 +128,12 @@ class ProfileScreen extends ConsumerWidget {
                               title: 'Companion',
                               subtitle: companionName,
                             ),
-                            const _ProfileMenuRow(
+                            _ProfileMenuRow(
                               iconAsset: 'assets/icons/actions/language.svg',
                               title: 'Story Language',
-                              subtitle: 'Tap to  select  language',
+                              subtitle: profile == null
+                                  ? 'Not set'
+                                  : profileLocaleLabel(profile.locale),
                             ),
                             const _ProfileMenuRow(
                               iconAsset:

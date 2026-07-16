@@ -160,7 +160,7 @@ void main() {
         expect(dataSource.insertedProfile?['child_name'], 'Aarav');
         expect(dataSource.insertedProfile?.containsKey('parent_id'), isFalse);
         expect(dataSource.insertedProfile?.containsKey('user_id'), isFalse);
-        expect(dataSource.insertedProfile?.containsKey('locale'), isFalse);
+        expect(dataSource.insertedProfile?['locale'], defaultProfileLocale);
         expect(child.parentId, 'user-1');
         expect(child.locale, defaultProfileLocale);
       },
