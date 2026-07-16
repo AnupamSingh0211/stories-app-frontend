@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui';
 
+import '../theme/app_colors.dart';
+
 class StoryCard extends StatelessWidget {
   final String title;
   final String episodeCount;
   final String? imageUrl;
+  final double? width;
+  final double imageHeight;
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteTap;
 
@@ -14,6 +18,8 @@ class StoryCard extends StatelessWidget {
     required this.title,
     required this.episodeCount,
     this.imageUrl,
+    this.width,
+    this.imageHeight = 168,
     this.onTap,
     this.onFavoriteTap,
   });
@@ -23,32 +29,42 @@ class StoryCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 160, // Fixed width based on typical card size, can be overridden
-        padding: const EdgeInsets.all(8),
+        width: width,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05), // Card background
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          color: AppColors.backgroundGlass,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              offset: const Offset(0, 4),
+              blurRadius: 4,
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Image Area
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(5),
                   child: Container(
-                    height: 200,
+                    height: imageHeight,
                     width: double.infinity,
-                    color: Colors.grey.withValues(alpha: 0.5), // Placeholder color
-                    child: imageUrl != null 
-                        ? Image.network(imageUrl!, fit: BoxFit.cover) 
+                    color: Colors.white.withValues(alpha: 0.24),
+                    child: imageUrl != null
+                        ? Image.network(
+                            imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const SizedBox.expand();
+                            },
+                          )
                         : null,
                   ),
                 ),
-                // Favorite Button
                 Positioned(
                   top: 8,
                   right: 8,
@@ -61,13 +77,18 @@ class StoryCard extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: Colors.white.withValues(alpha: 0.22),
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.36),
+                            ),
                           ),
                           child: SvgPicture.asset(
                             'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
-                            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                            colorFilter: const ColorFilter.mode(
+                              Colors.white,
+                              BlendMode.srcIn,
+                            ),
                             width: 16,
                             height: 16,
                           ),
@@ -76,7 +97,6 @@ class StoryCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Episode Badge
                 Positioned(
                   bottom: 8,
                   right: 8,
@@ -85,11 +105,16 @@ class StoryCard extends StatelessWidget {
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
                         ),
                         child: Text(
                           episodeCount,
@@ -105,22 +130,18 @@ class StoryCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            // Title
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                height: 20 / 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 4),
           ],
         ),
       ),
