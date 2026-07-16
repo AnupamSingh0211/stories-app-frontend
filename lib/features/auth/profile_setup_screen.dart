@@ -1,37 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'assets_provider.dart';
-import 'companion_flow.dart';
+import '../../shared/theme/app_typography.dart';
 import 'companion_notifier.dart';
-import 'onboarding_progress_header.dart';
 import 'profile_notifier.dart';
-import 'profile_repository.dart';
 
 const _ageOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const _genderOptions = [
-  _ChoiceOption(label: 'Boy', value: 'boy', icon: _ChildIconType.boy),
-  _ChoiceOption(label: 'Girl', value: 'girl', icon: _ChildIconType.girl),
+  _ChoiceOption(label: 'Boy', value: 'boy', icon: _ProfileIconType.boy),
+  _ChoiceOption(label: 'Girl', value: 'girl', icon: _ProfileIconType.girl),
 ];
 const _localeOptions = [
-  _ChoiceOption(label: 'English', value: 'en-IN', icon: _ChildIconType.boy),
-  _ChoiceOption(label: 'Hindi', value: 'hi-IN', icon: _ChildIconType.girl),
+  _ChoiceOption(label: 'English', value: 'en-IN', icon: _ProfileIconType.en),
+  _ChoiceOption(label: 'Hindi', value: 'hi-IN', icon: _ProfileIconType.hi),
 ];
 
-const _backgroundColor = Color(0xFFF5FAFF);
-const _titleColor = Color(0xFF29609B);
-const _bodyColor = Color(0xFF667085);
-const _choiceTextColor = Color(0xFF475467);
-const _fieldHintColor = Color(0xFF98A2B3);
-const _fieldBorderColor = Color(0xFFE4E7EC);
-const _ageBorderColor = Color(0xFFD0D5DD);
-const _activeBorderColor = Color(0xFF99E1FA);
-const _iconBlue = Color(0xFF00AEEF);
-const _buttonBorderColor = Color(0xFF009DD7);
-const _buttonShadowColor = Color(0xFF0082B2);
-const _activeGlowColor = Color(0xFFC2EEFC);
-const _figmaFrameWidth = 390.0;
-const _figmaHorizontalInset = 20.0;
+const _glassColor = Color(0x2EFFFFFF);
+const _selectedColor = Color(0xFFA8D8FB);
+const _selectedTextColor = Color(0xFF16202C);
+const _disabledTextColor = Color(0xFFA9BED6);
+const _secondaryTextColor = Color(0xD9FFFFFF);
+const _lightBorderColor = Color(0x8CFFFFFF);
+const _buttonShadowColor = Color(0x2E000000);
+const _surfaceShadowColor = Color(0x26000000);
+const _glowColor = Color(0x40FFFFFF);
+const _figmaWidth = 390.0;
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key, this.popOnSave = false});
@@ -53,25 +46,28 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   bool _isSubmitting = false;
   bool _submissionLocked = false;
 
+  bool get _isComplete =>
+      _nameController.text.trim().isNotEmpty &&
+      _selectedGender != null &&
+      _selectedAge != null &&
+      _selectedLocale != null;
+
   @override
   void initState() {
     super.initState();
-    _nameController.addListener(_refreshNameState);
-    _nameFocusNode.addListener(_refreshNameState);
+    _nameController.addListener(_refresh);
   }
 
   @override
   void dispose() {
     _nameController
-      ..removeListener(_refreshNameState)
+      ..removeListener(_refresh)
       ..dispose();
-    _nameFocusNode
-      ..removeListener(_refreshNameState)
-      ..dispose();
+    _nameFocusNode.dispose();
     super.dispose();
   }
 
-  void _refreshNameState() {
+  void _refresh() {
     if (mounted) {
       setState(() {});
     }
@@ -80,45 +76,35 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   Future<void> _saveProfile() async {
     if (_submissionLocked ||
         _isSubmitting ||
+        !_isComplete ||
         !_formKey.currentState!.validate()) {
       return;
     }
 
     _submissionLocked = true;
     setState(() => _isSubmitting = true);
-    if (!widget.popOnSave) {
-      ref.read(companionSelectionPendingProvider.notifier).state = true;
-    }
 
     try {
       final child = await ref
           .read(profileNotifierProvider.notifier)
           .addChild(
             name: _nameController.text.trim(),
-            gender: _selectedGender ?? 'boy',
-            age: _selectedAge ?? 2,
+            gender: _selectedGender!,
+            age: _selectedAge!,
             companionId: ref.read(companionNotifierProvider)?.id,
-            locale: _selectedLocale ?? defaultProfileLocale,
+            locale: _selectedLocale!,
           );
 
+      if (!mounted) return;
       if (widget.popOnSave) {
-        if (!mounted) return;
         Navigator.pop(context, child);
-        return;
       }
-    } catch (error) {
+    } catch (_) {
       _submissionLocked = false;
       if (!mounted) return;
-
-      if (!widget.popOnSave) {
-        ref.read(companionSelectionPendingProvider.notifier).state = false;
-      }
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Could not save profile. Please check your connection and try again.',
-          ),
+          content: Text('Could not save profile. Please try again.'),
         ),
       );
     } finally {
@@ -128,142 +114,133 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     }
   }
 
-  void _skipProfile() {
-    Navigator.pop(context);
-  }
-
   @override
   Widget build(BuildContext context) {
     final isSaving =
         _isSubmitting ||
         ref.watch(profileNotifierProvider.select((state) => state.isLoading));
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Scaffold(
-      backgroundColor: _backgroundColor,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final bottomPadding = 18.0 + bottomInset;
-            final horizontalPadding =
-                constraints.maxWidth *
-                (_figmaHorizontalInset / _figmaFrameWidth);
-            final minHeight = (constraints.maxHeight - bottomPadding)
-                .clamp(0.0, double.infinity)
-                .toDouble();
-
-            return Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.only(bottom: bottomPadding),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: minHeight),
-                  child: Column(
-                    children: [
-                      OnboardingProgressHeader(
-                        activeStep: 0,
-                        onBack: () => Navigator.pop(context),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: horizontalPadding,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _HeroSection(),
-                            const SizedBox(height: 32),
-                            _ProfileForm(
-                              nameController: _nameController,
-                              nameFocusNode: _nameFocusNode,
-                              isNameActive:
-                                  _nameFocusNode.hasFocus ||
-                                  _nameController.text.trim().isNotEmpty,
-                              selectedGender: _selectedGender,
-                              selectedAge: _selectedAge,
-                              selectedLocale: _selectedLocale,
-                              onGenderChanged: (gender) =>
-                                  setState(() => _selectedGender = gender),
-                              onAgeChanged: (age) =>
-                                  setState(() => _selectedAge = age),
-                              onLocaleChanged: (locale) =>
-                                  setState(() => _selectedLocale = locale),
-                            ),
-                            const SizedBox(height: 32),
-                            _FooterActions(
-                              isSaving: isSaving,
-                              onContinue: isSaving ? null : _saveProfile,
-                              onSkip: _skipProfile,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+    return MediaQuery.withNoTextScaling(
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: SizedBox.expand(
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF6BC5F7),
+                  Color(0xFF268BEA),
+                  Color(0xFF0D367F),
+                ],
+                stops: [0, 0.48, 1],
               ),
-            );
-          },
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final scale = (constraints.maxWidth / _figmaWidth)
+                      .clamp(0.88, 1.18)
+                      .toDouble();
+                  final horizontal = 19.0 * scale;
+
+                  return Form(
+                    key: _formKey,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: CustomPaint(painter: _GlowPainter()),
+                        ),
+                        SingleChildScrollView(
+                          physics: const ClampingScrollPhysics(),
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          padding: EdgeInsets.fromLTRB(
+                            horizontal,
+                            38 * scale,
+                            horizontal,
+                            118 * scale + bottomInset,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _HeaderCopy(),
+                              SizedBox(height: 32 * scale),
+                              _ProfileForm(
+                                nameController: _nameController,
+                                nameFocusNode: _nameFocusNode,
+                                selectedGender: _selectedGender,
+                                selectedAge: _selectedAge,
+                                selectedLocale: _selectedLocale,
+                                onGenderChanged: (gender) =>
+                                    setState(() => _selectedGender = gender),
+                                onAgeChanged: (age) =>
+                                    setState(() => _selectedAge = age),
+                                onLocaleChanged: (locale) =>
+                                    setState(() => _selectedLocale = locale),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          left: 16 * scale,
+                          right: 16 * scale,
+                          bottom: 38 * scale,
+                          child: _StartButton(
+                            enabled: _isComplete && !isSaving,
+                            isSaving: isSaving,
+                            onTap: _saveProfile,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _ChoiceOption {
-  const _ChoiceOption({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+class _HeaderCopy extends StatelessWidget {
+  const _HeaderCopy();
 
-  final String label;
-  final String value;
-  final _ChildIconType icon;
-}
-
-enum _ChildIconType { boy, girl }
-
-class _HeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: [
-        const SizedBox(
-          width: 108,
-          height: 108,
-          child: ClipOval(
-            child: Image(
-              image: AssetImage(profileSetupIconAsset),
-              fit: BoxFit.cover,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Tell us about your little one',
+            maxLines: 1,
+            style: TextStyle(
+              fontFamily: AppTypography.fontFamily,
+              fontSize: 24,
+              height: 28 / 24,
+              letterSpacing: -0.25,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 4),
         Text(
-          'Add child Profile',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: _titleColor,
-            fontSize: 28,
-            height: 32 / 28,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'We use this to personalise experience',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: _bodyColor,
+          'We personalise every story to fit.',
+          style: TextStyle(
+            fontFamily: AppTypography.fontFamily,
             fontSize: 14,
             height: 20 / 14,
             fontWeight: FontWeight.w500,
-            letterSpacing: 0,
+            color: _secondaryTextColor,
           ),
         ),
       ],
@@ -275,7 +252,6 @@ class _ProfileForm extends StatelessWidget {
   const _ProfileForm({
     required this.nameController,
     required this.nameFocusNode,
-    required this.isNameActive,
     required this.selectedGender,
     required this.selectedAge,
     required this.selectedLocale,
@@ -286,7 +262,6 @@ class _ProfileForm extends StatelessWidget {
 
   final TextEditingController nameController;
   final FocusNode nameFocusNode;
-  final bool isNameActive;
   final String? selectedGender;
   final int? selectedAge;
   final String? selectedLocale;
@@ -297,18 +272,18 @@ class _ProfileForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _FormGroup(
-          label: 'Child’s name',
+          label: 'Child\'s Name',
           child: _NameField(
             controller: nameController,
             focusNode: nameFocusNode,
-            isActive: isNameActive,
           ),
         ),
         const SizedBox(height: 24),
         _FormGroup(
-          label: 'Child’s gender',
+          label: 'Child\'s Gender',
           child: _ChoiceRow(
             options: _genderOptions,
             selectedValue: selectedGender,
@@ -317,7 +292,7 @@ class _ProfileForm extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _FormGroup(
-          label: 'How old are they?',
+          label: 'Child\'s Age',
           child: _AgeSelector(
             selectedAge: selectedAge,
             onAgeChanged: onAgeChanged,
@@ -325,7 +300,7 @@ class _ProfileForm extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _FormGroup(
-          label: 'Preferred story language',
+          label: 'Story Language',
           child: _ChoiceRow(
             options: _localeOptions,
             selectedValue: selectedLocale,
@@ -348,16 +323,7 @@ class _FormGroup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: _bodyColor,
-            fontSize: 14,
-            height: 20 / 14,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0,
-          ),
-        ),
+        Text(label, style: _ProfileSetupTextStyles.label),
         const SizedBox(height: 8),
         child,
       ],
@@ -366,52 +332,38 @@ class _FormGroup extends StatelessWidget {
 }
 
 class _NameField extends StatelessWidget {
-  const _NameField({
-    required this.controller,
-    required this.focusNode,
-    required this.isActive,
-  });
+  const _NameField({required this.controller, required this.focusNode});
 
   final TextEditingController controller;
   final FocusNode focusNode;
-  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
-    return _ActiveSurface(
-      isActive: isActive,
+    return _GlassSurface(
+      height: 52,
       child: TextFormField(
         key: const ValueKey('childNameField'),
         controller: controller,
         focusNode: focusNode,
         textInputAction: TextInputAction.done,
-        cursorColor: _iconBlue,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: _choiceTextColor,
-          fontSize: 14,
-          height: 20 / 14,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-        ),
-        decoration: InputDecoration(
+        cursorColor: Colors.white,
+        style: _ProfileSetupTextStyles.input,
+        decoration: const InputDecoration(
           hintText: 'Enter here',
-          hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: _fieldHintColor,
-            fontSize: 12,
-            height: 16 / 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0,
-          ),
+          hintStyle: _ProfileSetupTextStyles.hint,
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           errorBorder: InputBorder.none,
           focusedErrorBorder: InputBorder.none,
           disabledBorder: InputBorder.none,
+          filled: false,
+          fillColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          hoverColor: Colors.transparent,
           isCollapsed: true,
           contentPadding: EdgeInsets.zero,
-          filled: false,
-          errorStyle: const TextStyle(height: 0.01, fontSize: 0),
+          errorStyle: TextStyle(height: 0.01, fontSize: 0),
         ),
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
@@ -424,6 +376,20 @@ class _NameField extends StatelessWidget {
     );
   }
 }
+
+class _ChoiceOption {
+  const _ChoiceOption({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final _ProfileIconType icon;
+}
+
+enum _ProfileIconType { boy, girl, en, hi }
 
 class _ChoiceRow extends StatelessWidget {
   const _ChoiceRow({
@@ -440,7 +406,7 @@ class _ChoiceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        for (var index = 0; index < options.length; index++) ...[
+        for (var index = 0; index < options.length; index += 1) ...[
           Expanded(
             child: _ChoiceButton(
               option: options[index],
@@ -448,7 +414,7 @@ class _ChoiceRow extends StatelessWidget {
               onTap: () => onChanged(options[index].value),
             ),
           ),
-          if (index != options.length - 1) const SizedBox(width: 24),
+          if (index != options.length - 1) const SizedBox(width: 33),
         ],
       ],
     );
@@ -468,6 +434,8 @@ class _ChoiceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = isSelected ? _selectedTextColor : Colors.white;
+
     return Semantics(
       button: true,
       selected: isSelected,
@@ -476,28 +444,24 @@ class _ChoiceButton extends StatelessWidget {
         key: ValueKey(
           'choice${option.value}${isSelected ? 'Selected' : 'Unselected'}',
         ),
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: _ActiveSurface(
-          isActive: isSelected,
+        child: _GlassSurface(
+          height: 52,
+          selected: isSelected,
           horizontalPadding: 16,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _ChildFaceIcon(type: option.icon),
+              _ProfileOptionIcon(type: option.icon, color: color),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   option.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: _choiceTextColor,
-                    fontSize: 14,
-                    height: 20 / 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
-                  ),
+                  style: _ProfileSetupTextStyles.choice.copyWith(color: color),
                 ),
               ),
             ],
@@ -517,12 +481,13 @@ class _AgeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
+      height: 60,
       child: ListView.separated(
+        clipBehavior: Clip.none,
         scrollDirection: Axis.horizontal,
         physics: const ClampingScrollPhysics(),
         itemCount: _ageOptions.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 16),
+        separatorBuilder: (context, index) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final age = _ageOptions[index];
           return _AgeChip(
@@ -555,25 +520,17 @@ class _AgeChip extends StatelessWidget {
       label: '$age',
       child: GestureDetector(
         onTap: onTap,
-        child: AnimatedContainer(
+        child: _GlassSurface(
           key: ValueKey('ageChip$age${isSelected ? 'Selected' : ''}'),
-          duration: const Duration(milliseconds: 160),
           width: 52,
           height: 52,
-          alignment: Alignment.center,
-          decoration: _surfaceDecoration(
-            isActive: isSelected,
-            borderColor: isSelected ? _activeBorderColor : _ageBorderColor,
-            radius: 32,
-          ),
+          radius: isSelected ? 24 : 32,
+          selected: isSelected,
+          horizontalPadding: 0,
           child: Text(
             '$age',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: _choiceTextColor,
-              fontSize: 16,
-              height: 20 / 16,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
+            style: _ProfileSetupTextStyles.age.copyWith(
+              color: isSelected ? _selectedTextColor : Colors.white,
             ),
           ),
         ),
@@ -582,166 +539,85 @@ class _AgeChip extends StatelessWidget {
   }
 }
 
-class _ActiveSurface extends StatelessWidget {
-  const _ActiveSurface({
-    required this.isActive,
+class _GlassSurface extends StatelessWidget {
+  const _GlassSurface({
+    super.key,
     required this.child,
+    required this.height,
+    this.width,
+    this.selected = false,
+    this.radius = 24,
     this.horizontalPadding = 20,
   });
 
-  final bool isActive;
   final Widget child;
+  final double height;
+  final double? width;
+  final bool selected;
+  final double radius;
   final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      key: ValueKey('activeSurface$isActive'),
       duration: const Duration(milliseconds: 160),
-      width: double.infinity,
-      height: 52,
+      width: width ?? double.infinity,
+      height: height,
       padding: EdgeInsets.symmetric(
         horizontal: horizontalPadding,
         vertical: 12,
       ),
       alignment: Alignment.center,
-      decoration: _surfaceDecoration(
-        isActive: isActive,
-        borderColor: isActive ? _activeBorderColor : _fieldBorderColor,
-        radius: 24,
+      decoration: BoxDecoration(
+        color: selected ? _selectedColor : _glassColor,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: selected ? _lightBorderColor : _lightBorderColor,
+          width: selected ? 1 : 0.8,
+        ),
+        boxShadow: [
+          const BoxShadow(
+            color: _surfaceShadowColor,
+            offset: Offset(0, 2),
+            blurRadius: 4,
+          ),
+          if (selected)
+            const BoxShadow(color: _glowColor, blurRadius: 4, spreadRadius: 2),
+        ],
       ),
       child: child,
     );
   }
 }
 
-BoxDecoration _surfaceDecoration({
-  required bool isActive,
-  required Color borderColor,
-  required double radius,
-}) {
-  return BoxDecoration(
-    color: _backgroundColor,
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: borderColor),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.15),
-        offset: const Offset(0, 2),
-        blurRadius: 4,
-      ),
-      if (isActive)
-        const BoxShadow(
-          color: _activeGlowColor,
-          offset: Offset.zero,
-          blurRadius: 12,
-          spreadRadius: 2,
-        ),
-    ],
-  );
-}
-
-class _ChildFaceIcon extends StatelessWidget {
-  const _ChildFaceIcon({required this.type});
-
-  final _ChildIconType type;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 24,
-      child: CustomPaint(painter: _ChildFacePainter(type)),
-    );
-  }
-}
-
-class _ChildFacePainter extends CustomPainter {
-  const _ChildFacePainter(this.type);
-
-  final _ChildIconType type;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = Paint()
-      ..color = _iconBlue
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final fill = Paint()
-      ..color = _iconBlue
-      ..style = PaintingStyle.fill;
-
-    final rect = Rect.fromLTWH(3, 3, size.width - 6, size.height - 6);
-    canvas.drawOval(rect, stroke);
-    canvas.drawCircle(const Offset(8.5, 10), 1.1, fill);
-    canvas.drawCircle(const Offset(15.5, 10), 1.1, fill);
-    canvas.drawLine(const Offset(9, 16), const Offset(15, 16), stroke);
-
-    if (type == _ChildIconType.girl) {
-      final hair = Path()
-        ..moveTo(6.2, 7.5)
-        ..quadraticBezierTo(12, 1.5, 17.8, 7.5);
-      canvas.drawPath(hair, stroke);
-      canvas.drawLine(const Offset(5.5, 6), const Offset(3.8, 10), stroke);
-      canvas.drawLine(const Offset(18.5, 6), const Offset(20.2, 10), stroke);
-    } else {
-      canvas.drawArc(Rect.fromLTWH(6, 4, 12, 7), 3.45, 2.55, false, stroke);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ChildFacePainter oldDelegate) {
-    return oldDelegate.type != type;
-  }
-}
-
-class _FooterActions extends StatelessWidget {
-  const _FooterActions({
+class _StartButton extends StatelessWidget {
+  const _StartButton({
+    required this.enabled,
     required this.isSaving,
-    required this.onContinue,
-    required this.onSkip,
+    required this.onTap,
   });
 
+  final bool enabled;
   final bool isSaving;
-  final VoidCallback? onContinue;
-  final VoidCallback onSkip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _ContinueButton(isSaving: isSaving, onTap: onContinue),
-        const SizedBox(height: 8),
-        _SkipButton(onTap: onSkip),
-      ],
-    );
-  }
-}
-
-class _ContinueButton extends StatelessWidget {
-  const _ContinueButton({required this.isSaving, required this.onTap});
-
-  final bool isSaving;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? onTap : null,
       child: Container(
-        width: double.infinity,
         height: 52,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _iconBlue,
+          color: _glassColor,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _buttonBorderColor),
+          border: Border.all(color: _lightBorderColor, width: 0.8),
           boxShadow: const [
             BoxShadow(
               color: _buttonShadowColor,
               offset: Offset(0, 2),
-              blurRadius: 4,
+              blurRadius: 8,
             ),
           ],
         ),
@@ -754,13 +630,9 @@ class _ContinueButton extends StatelessWidget {
                 ),
               )
             : Text(
-                'Continue',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Colors.white,
-                  fontSize: 16,
-                  height: 20 / 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
+                'Start Storytime',
+                style: _ProfileSetupTextStyles.button.copyWith(
+                  color: enabled ? Colors.white : _disabledTextColor,
                 ),
               ),
       ),
@@ -768,31 +640,164 @@ class _ContinueButton extends StatelessWidget {
   }
 }
 
-class _SkipButton extends StatelessWidget {
-  const _SkipButton({required this.onTap});
+class _ProfileOptionIcon extends StatelessWidget {
+  const _ProfileOptionIcon({required this.type, required this.color});
 
-  final VoidCallback onTap;
+  final _ProfileIconType type;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: Center(
-          child: Text(
-            'Skip for now',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: _bodyColor,
-              fontSize: 16,
-              height: 20 / 16,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-      ),
+    return SizedBox.square(
+      dimension: 24,
+      child: CustomPaint(painter: _ProfileIconPainter(type, color)),
     );
   }
+}
+
+class _ProfileIconPainter extends CustomPainter {
+  const _ProfileIconPainter(this.type, this.color);
+
+  final _ProfileIconType type;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    if (type == _ProfileIconType.en || type == _ProfileIconType.hi) {
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(4, 4, size.width - 8, size.height - 8),
+        const Radius.circular(2),
+      );
+      canvas.drawRRect(rect, stroke);
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: type == _ProfileIconType.en ? 'En' : 'अ',
+          style: TextStyle(
+            color: color,
+            fontFamily: AppTypography.fontFamily,
+            fontSize: type == _ProfileIconType.en ? 9 : 13,
+            fontWeight: FontWeight.w700,
+            height: 1,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          (size.width - textPainter.width) / 2,
+          (size.height - textPainter.height) / 2,
+        ),
+      );
+      return;
+    }
+
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final rect = Rect.fromLTWH(4, 4, size.width - 8, size.height - 8);
+    canvas.drawOval(rect, stroke);
+    canvas.drawCircle(const Offset(9, 11), 1.1, fill);
+    canvas.drawCircle(const Offset(15, 11), 1.1, fill);
+    canvas.drawArc(Rect.fromLTWH(9, 13, 6, 4), 0.1, 2.95, false, stroke);
+
+    if (type == _ProfileIconType.girl) {
+      final hair = Path()
+        ..moveTo(6.5, 8)
+        ..quadraticBezierTo(12, 3, 17.5, 8);
+      canvas.drawPath(hair, stroke);
+    } else {
+      final hair = Path()
+        ..moveTo(6.5, 8)
+        ..quadraticBezierTo(10, 4.5, 14, 5)
+        ..quadraticBezierTo(16.5, 5.4, 18, 8);
+      canvas.drawPath(hair, stroke);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProfileIconPainter oldDelegate) {
+    return oldDelegate.type != type || oldDelegate.color != color;
+  }
+}
+
+class _GlowPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.18),
+              Colors.white.withValues(alpha: 0),
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.05, size.height * 0.12),
+              radius: size.width * 0.85,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(size.width * 0.05, size.height * 0.12),
+      size.width * 0.85,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+abstract final class _ProfileSetupTextStyles {
+  static const label = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+  );
+
+  static const hint = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 12,
+    height: 16 / 12,
+    fontWeight: FontWeight.w600,
+    color: _secondaryTextColor,
+  );
+
+  static const input = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w700,
+    color: _secondaryTextColor,
+  );
+
+  static const choice = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+  );
+
+  static const age = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 16,
+    height: 20 / 16,
+    fontWeight: FontWeight.w600,
+  );
+
+  static const button = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 16,
+    height: 20 / 16,
+    fontWeight: FontWeight.w700,
+  );
 }

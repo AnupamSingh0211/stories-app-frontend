@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/backend_api_client.dart';
 
@@ -74,6 +77,74 @@ class BackendProfileDataSource extends ProfileDataSource {
       authenticated: true,
       body: profile,
     );
+  }
+}
+
+class LocalProfileDataSource extends ProfileDataSource {
+  const LocalProfileDataSource();
+
+  static const _storageKey = 'local_child_profiles';
+  static const _currentUserId = 'local-parent';
+
+  @override
+  String? get currentUserId => _currentUserId;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchChildProfiles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = prefs.getString(_storageKey);
+    if (encoded == null || encoded.isEmpty) {
+      return const [];
+    }
+
+    final decoded = jsonDecode(encoded);
+    if (decoded is! List) {
+      return const [];
+    }
+
+    return decoded
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList(growable: false);
+  }
+
+  @override
+  Future<Map<String, dynamic>> insertChildProfile(
+    Map<String, dynamic> profile,
+  ) async {
+    final profiles = await fetchChildProfiles();
+    final now = DateTime.now().toUtc();
+    final newProfile = {
+      'id': now.microsecondsSinceEpoch.toString(),
+      'user_id': _currentUserId,
+      ...profile,
+      'created_at': now.toIso8601String(),
+    };
+    await _saveProfiles([newProfile, ...profiles]);
+    return newProfile;
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateChildProfile(
+    String childId,
+    Map<String, dynamic> profile,
+  ) async {
+    final profiles = await fetchChildProfiles();
+    for (var index = 0; index < profiles.length; index += 1) {
+      if (profiles[index]['id'] == childId) {
+        final updated = {...profiles[index], ...profile};
+        profiles[index] = updated;
+        await _saveProfiles(profiles);
+        return updated;
+      }
+    }
+
+    throw StateError('Profile not found');
+  }
+
+  Future<void> _saveProfiles(List<Map<String, dynamic>> profiles) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_storageKey, jsonEncode(profiles));
   }
 }
 
@@ -171,6 +242,7 @@ class ProfileRepository {
       'age': age,
       'companion_id': companionId,
       'avatar_url': avatarUrl,
+      'locale': normalizeProfileLocale(locale),
     });
 
     final child = ChildProfileModel.fromMap(row).copyWith(
@@ -243,10 +315,7 @@ class MockProfileDataSource extends ProfileDataSource {
     await Future.delayed(const Duration(milliseconds: 300));
     for (var i = 0; i < _profiles.length; i++) {
       if (_profiles[i]['id'] == childId) {
-        _profiles[i] = {
-          ..._profiles[i],
-          ...profile,
-        };
+        _profiles[i] = {..._profiles[i], ...profile};
         return _profiles[i];
       }
     }

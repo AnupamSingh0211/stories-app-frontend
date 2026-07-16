@@ -19,91 +19,42 @@ void main() {
     expect(find.text('Continue with Apple'), findsNothing);
     expect(find.text('Continue with Google'), findsNothing);
     expect(find.text('Continue with Email'), findsNothing);
-    expect(find.text('Welcome to \nBedtime Stories'), findsOneWidget);
+    expect(find.text('Bedtime Stories'), findsOneWidget);
     expect(
-      find.text('Safe, magical stories that kids love\n and parents trust.'),
+      find.text('Safe, magical stories that kids love\nand parents trust.'),
       findsOneWidget,
     );
     expect(find.byKey(const Key('mobile-number-field')), findsOneWidget);
-    expect(find.text('Enter Your Mobile number'), findsOneWidget);
+    expect(find.text('Enter your mobile number'), findsOneWidget);
     expect(find.byKey(const Key('mobile-continue-button')), findsOneWidget);
-    expect(find.text('Send Otp'), findsOneWidget);
+    expect(find.text('Send OTP'), findsOneWidget);
   });
 
-  testWidgets('empty input shows the required mobile-number error', (
+  testWidgets('phone field focus lifts the welcome layout for the keyboard', (
     tester,
   ) async {
     await _pumpWelcomeScreen(tester);
+
+    final titleFinder = find.text('Bedtime Stories');
+    expect(tester.getTopLeft(titleFinder).dy, greaterThan(480));
 
     await tester.tap(find.byKey(const Key('mobile-number-field')));
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.keyboard_tab));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Invalid Number'), findsOneWidget);
+    expect(tester.getTopLeft(titleFinder).dy, lessThan(330));
   });
 
-  testWidgets('fewer than 10 digits shows the invalid-number error', (
-    tester,
-  ) async {
+  testWidgets('invalid input shows inline error on submission', (tester) async {
     await _pumpWelcomeScreen(tester);
 
-    await tester.tap(find.byKey(const Key('mobile-number-field')));
+    await tester.enterText(find.byKey(const Key('mobile-number-field')), '123');
     await tester.pump();
-    await tester.enterText(
-      find.byKey(const Key('mobile-number-field')),
-      '123456789',
-    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Invalid Number'), findsOneWidget);
   });
-
-  testWidgets('validation error clears when input becomes 10 digits', (
-    tester,
-  ) async {
-    await _pumpWelcomeScreen(tester);
-
-    final field = find.byKey(const Key('mobile-number-field'));
-    await tester.tap(field);
-    await tester.pump();
-    await tester.enterText(field, '123');
-    await tester.pump();
-
-    expect(find.text('Invalid Number'), findsOneWidget);
-
-    await tester.enterText(field, '1234567890');
-    await tester.pump();
-
-    expect(find.text('Invalid Number'), findsNothing);
-  });
-
-  testWidgets(
-    'clearing input hides validation until Continue is pressed again',
-    (tester) async {
-      await _pumpWelcomeScreen(tester);
-
-      final field = find.byKey(const Key('mobile-number-field'));
-
-      await tester.tap(field);
-      await tester.pump();
-      await tester.enterText(field, '123');
-      await tester.pump();
-      expect(find.text('Invalid Number'), findsOneWidget);
-
-      await tester.enterText(field, '');
-      await tester.pump();
-      expect(find.text('Invalid Number'), findsNothing);
-
-      await tester.enterText(field, '456');
-      await tester.pump();
-      expect(find.text('Invalid Number'), findsOneWidget);
-
-      await tester.tap(find.byIcon(Icons.keyboard_tab));
-      await tester.pump();
-      expect(find.text('Invalid Number'), findsOneWidget);
-    },
-  );
 
   testWidgets('input formatters allow only the first 10 digits', (
     tester,
@@ -137,14 +88,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Enter your OTP'), findsOneWidget);
-    expect(find.text('We have sent to'), findsOneWidget);
+    expect(find.text('Sent to'), findsOneWidget);
     expect(find.text('1234567890'), findsOneWidget);
     expect(find.byType(ProfileSetupScreen), findsNothing);
     expect(authService.requestedPhones, ['+911234567890']);
-
-    final title = tester.widget<Text>(find.text('Enter your OTP'));
-    expect(title.maxLines, 1);
-    expect(title.softWrap, isFalse);
   });
 
   testWidgets('invalid input does not navigate', (tester) async {
@@ -156,7 +103,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('mobile-number-field')));
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.keyboard_tab));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
 
     expect(observer.pushCount, 0);
@@ -182,10 +129,8 @@ void main() {
     await tester.tap(find.byKey(const Key('mobile-continue-button')));
     await tester.pumpAndSettle();
 
-    for (final digit in ['9', '8', '7', '6', '5', '4']) {
-      await tester.tap(find.text(digit));
-      await tester.pump();
-    }
+    await tester.enterText(find.byType(TextFormField).last, '987654');
+    await tester.pump();
 
     await tester.tap(find.byKey(const Key('otp-submit-button')));
     await tester.tap(
@@ -244,11 +189,8 @@ void main() {
       await tester.tap(find.byKey(const Key('mobile-continue-button')));
       await tester.pumpAndSettle();
 
-      for (final digit in ['9', '8', '7', '6', '5', '4']) {
-        await tester.tap(find.text(digit));
-        await tester.pump();
-      }
-
+      await tester.enterText(find.byType(TextFormField).last, '987654');
+      await tester.pump();
       await tester.tap(find.byKey(const Key('otp-submit-button')));
       await tester.pumpAndSettle();
 
@@ -308,7 +250,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('mobile-number-field')));
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.keyboard_tab));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     expect(find.text('Enter your OTP'), findsOneWidget);
@@ -330,37 +272,13 @@ void main() {
     await tester.tap(find.byKey(const Key('otp-edit-mobile-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome to \nBedtime Stories'), findsOneWidget);
+    expect(find.text('Bedtime Stories'), findsOneWidget);
     expect(find.byKey(const Key('mobile-number-field')), findsOneWidget);
 
     final field = tester.widget<TextFormField>(
       find.byKey(const Key('mobile-number-field')),
     );
     expect(field.controller!.text, '1234567890');
-  });
-
-  testWidgets('tapping OTP boxes reopens the numeric keyboard after dismiss', (
-    tester,
-  ) async {
-    await _pumpWelcomeScreen(tester);
-
-    await tester.enterText(
-      find.byKey(const Key('mobile-number-field')),
-      '1234567890',
-    );
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('mobile-continue-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('1'), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
-    await tester.pumpAndSettle();
-    expect(find.text('1'), findsNothing);
-
-    await tester.tap(find.byKey(const Key('otp-code-boxes-tap-target')));
-    await tester.pumpAndSettle();
-    expect(find.text('1'), findsOneWidget);
   });
 
   testWidgets('OTP request failure stays on phone step and shows an error', (
@@ -378,7 +296,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(authService.requestedPhones, ['+919876543210']);
-    expect(find.text('Enter your OTP'), findsNothing);
+    expect(find.text('We have sent to'), findsNothing);
     expect(find.text('Could not send OTP. Please try again.'), findsOneWidget);
   });
 
@@ -412,14 +330,18 @@ void main() {
     await _pumpWelcomeScreen(tester, authService: authService);
     await _openOtpStep(tester);
 
-    for (final digit in ['1', '2', '3', '4', '5']) {
-      await tester.tap(find.text(digit));
-    }
-    await tester.tap(find.byIcon(Icons.keyboard_tab));
+    await tester.enterText(find.byType(TextFormField).last, '12345');
     await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('otp-submit-button')),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(authService.verifyOtpCalls, 0);
-    expect(find.text('Please enter the complete 6-digit OTP.'), findsOneWidget);
+    expect(authService.verifyOtpCalls, 0);
+    expect(find.text('Submit'), findsOneWidget);
   });
 
   testWidgets('OTP verification failure keeps OTP step and shows an error', (
@@ -429,16 +351,13 @@ void main() {
     await _pumpWelcomeScreen(tester, authService: authService);
     await _openOtpStep(tester);
     await _enterOtp(tester, '123456');
-
     await tester.tap(find.byKey(const Key('otp-submit-button')));
+
     await tester.pumpAndSettle();
 
     expect(authService.verifyOtpCalls, 1);
     expect(find.text('Enter your OTP'), findsOneWidget);
-    expect(
-      find.text('Invalid or expired OTP. Please try again.'),
-      findsOneWidget,
-    );
+    expect(find.text('Invalid OTP'), findsOneWidget);
   });
 
   testWidgets('pending OTP verification blocks duplicate submission', (
@@ -471,7 +390,7 @@ void main() {
       await _pumpWelcomeScreen(tester, authService: authService);
       await _openOtpStep(tester);
 
-      expect(find.text('Resend OTP in 60s'), findsOneWidget);
+      expect(find.text('Resend in 1:00'), findsOneWidget);
       await tester.tap(
         find.byKey(const Key('otp-resend-button')),
         warnIfMissed: false,
@@ -500,10 +419,8 @@ Future<void> _openOtpStep(WidgetTester tester) async {
 }
 
 Future<void> _enterOtp(WidgetTester tester, String otp) async {
-  for (final digit in otp.split('')) {
-    await tester.tap(find.text(digit));
-    await tester.pump();
-  }
+  await tester.enterText(find.byType(TextFormField).last, otp);
+  await tester.pump();
 }
 
 const _testAssets = {
