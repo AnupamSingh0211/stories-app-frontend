@@ -79,6 +79,7 @@ flutter:
     - assets/icons/
     - assets/icons/profile_icon.webp
     - assets/icons/actions/
+    - assets/icons/new_boopi/
     - assets/icons/nav/
     - assets/icons/notifications/
     - assets/icons/player/

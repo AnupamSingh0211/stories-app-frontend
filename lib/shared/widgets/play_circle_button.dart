@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui';
 
 class PlayCircleButton extends StatelessWidget {
   final double size;
   final VoidCallback? onTap;
 
-  const PlayCircleButton({
-    super.key,
-    this.size = 64.0,
-    this.onTap,
-  });
+  const PlayCircleButton({super.key, this.size = 64.0, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -39,11 +34,10 @@ class PlayCircleButton extends StatelessWidget {
                   color: Colors.white,
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset(
-                  'assets/icons/new_boopi/State=Default, Icon=Play.svg',
-                  colorFilter: const ColorFilter.mode(Colors.black, BlendMode.srcIn),
-                  width: size * 0.25,
-                  height: size * 0.25,
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  color: const Color(0xFF3D6A83),
+                  size: size * 0.32,
                 ),
               ),
             ),
