@@ -6,10 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
-import '../../shared/widgets/app_bottom_navigation.dart';
-import '../auth/companion_model.dart';
-import '../auth/companion_notifier.dart';
-import '../auth/companions_provider.dart';
+import '../../shared/widgets/glassy_bottom_nav_bar.dart';
 import '../auth/profile_notifier.dart';
 import '../auth/profile_repository.dart';
 import '../auth/profile_setup_screen.dart';
@@ -32,46 +29,35 @@ class ProfileScreen extends ConsumerWidget {
     final profileState = ref.watch(profileNotifierProvider);
     final childProfiles = profileState.valueOrNull;
     final profile = childProfiles?.selectedChild;
-    final companionsState = ref.watch(companionsProvider);
-    final selectedCompanion = ref.watch(companionNotifierProvider);
-    final companionName = _companionName(
-      profile: profile,
-      selectedCompanion: selectedCompanion,
-      companions: companionsState.valueOrNull,
-    );
     final email =
         Supabase.instance.client.auth.currentUser?.email ?? 'Email not set';
 
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
-        backgroundColor: _ProfileFigmaColors.background,
-        bottomNavigationBar: AppPrimaryBottomNavigation(
-          selectedIndex: 3,
-          onItemSelected: (index) {
-            switch (index) {
-              case 0:
-                _openHome(context, profile);
-                break;
-              case 1:
-                break;
-              case 2:
-                _openLibrary(context);
-                break;
-            }
-          },
-        ),
-        body: Stack(
-          children: [
-            Column(
-              children: [
-                const _ProfileHeaderBar(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+        extendBody: true,
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: SafeArea(
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      const _ProfileHeaderBar(),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const ClampingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
                         _ChildSwitcher(
                           children: childProfiles?.children ?? const [],
                           selectedChildId: profile?.id,
@@ -118,39 +104,27 @@ class ProfileScreen extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            const _ProfileMenuRow(
-                              iconAsset: 'assets/icons/actions/globe.svg',
-                              title: 'App Languge',
-                              subtitle: 'English',
-                            ),
                             _ProfileMenuRow(
-                              iconAsset: 'assets/icons/actions/sparks.svg',
-                              title: 'Companion',
-                              subtitle: companionName,
-                            ),
-                            _ProfileMenuRow(
-                              iconAsset: 'assets/icons/actions/language.svg',
+                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Website.svg',
                               title: 'Story Language',
                               subtitle: profile == null
-                                  ? 'Not set'
+                                  ? 'English'
                                   : profileLocaleLabel(profile.locale),
                             ),
                             const _ProfileMenuRow(
-                              iconAsset:
-                                  'assets/icons/actions/notification_disable.svg',
+                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Notification.svg',
                               title: 'Notification',
-                              subtitle: 'Enabled',
+                              subtitle: 'Disabled',
                               trailing: _ProfileSwitch(value: false),
                             ),
                             _ProfileMenuRow(
-                              iconAsset: 'assets/icons/actions/heart.svg',
+                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
                               title: 'Favourites',
-                              subtitle: 'Click to manage  your subscription',
+                              subtitle: 'Click to manage your subscription',
                               onTap: () => _openLibrary(context),
                             ),
                             const _ProfileMenuRow(
-                              iconAsset:
-                                  'assets/icons/actions/outline_play.svg',
+                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Play.svg',
                               title: 'Auto-play next story',
                               trailing: _ProfileSwitch(value: true),
                             ),
@@ -161,9 +135,9 @@ class ProfileScreen extends ConsumerWidget {
                           title: 'SUPPORT AND SOCIALS',
                           children: [
                             _ProfileMenuRow(
-                              iconAsset: 'assets/icons/actions/help.svg',
+                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Danger Circle.svg',
                               title: 'Help & Support',
-                              subtitle: 'Click to manage  your subscription',
+                              subtitle: 'Click to manage your subscription',
                             ),
                             _ProfileMenuRow(
                               iconAsset: 'assets/icons/actions/share.svg',
@@ -171,11 +145,23 @@ class ProfileScreen extends ConsumerWidget {
                               subtitle: 'Share with friends and family',
                             ),
                             _ProfileMenuRow(
-                              iconAsset: 'assets/icons/actions/privacy.svg',
+                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Shield Done.svg',
                               title: 'Privacy Policy',
                               subtitle: 'View our privacy policy',
+                              showDivider: false,
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 24),
+                        _ProfileMenuRow(
+                          iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Logout.svg',
+                          title: 'Log Out',
+                          titleStyle: _ProfileTextStyles.rowTitle,
+                          trailing: const SizedBox.shrink(),
+                          showDivider: false,
+                          onTap: () async {
+                            await Supabase.instance.client.auth.signOut();
+                          },
                         ),
                       ],
                     ),
@@ -183,15 +169,38 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            Positioned(
-              left: 0,
-              top: 0,
-              child: Opacity(opacity: 0, child: Text(email)),
-            ),
-          ],
+          ),
         ),
-      ),
-    );
+        Positioned(
+          left: 0,
+          top: 0,
+          child: Opacity(opacity: 0, child: Text(email)),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: GlassyBottomNavBar(
+            currentIndex: 3,
+            onTap: (index) {
+              switch (index) {
+                case 0:
+                  _openHome(context, profile);
+                  break;
+                case 1:
+                  break;
+                case 2:
+                  _openLibrary(context);
+                  break;
+              }
+            },
+          ),
+        ),
+      ],
+    ),
+  ),
+),
+);
   }
 
   static String _displayValue(String? value) {
@@ -221,33 +230,6 @@ class ProfileScreen extends ConsumerWidget {
       return 'Not set';
     }
     return '$age yrs';
-  }
-
-  static String _companionName({
-    required ChildProfileModel? profile,
-    required CompanionModel? selectedCompanion,
-    required List<CompanionModel>? companions,
-  }) {
-    final companionId = profile?.companionId;
-    if (profile == null) {
-      return selectedCompanion?.displayName ?? 'Not set';
-    }
-
-    if (companionId == null || companionId.isEmpty) {
-      return 'Not set';
-    }
-
-    for (final companion in companions ?? const <CompanionModel>[]) {
-      if (companion.id == companionId) {
-        return companion.displayName;
-      }
-    }
-
-    if (selectedCompanion?.id == companionId) {
-      return selectedCompanion!.displayName;
-    }
-
-    return 'Not set';
   }
 
   Future<void> _addChild(BuildContext context, int childCount) async {
@@ -305,7 +287,7 @@ class _ProfileHeaderBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 80,
-      color: _ProfileFigmaColors.background,
+      color: Colors.transparent,
       padding: const EdgeInsets.all(16),
       alignment: Alignment.centerLeft,
       child: Row(
@@ -318,7 +300,7 @@ class _ProfileHeaderBar extends StatelessWidget {
               radius: 24,
               child: const Icon(
                 Icons.arrow_back_rounded,
-                color: _ProfileFigmaColors.indigo800,
+                color: AppColors.textOnPrimary,
                 size: 24,
                 applyTextScaling: false,
               ),
@@ -422,17 +404,17 @@ class _ProfileChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.blue500 : AppColors.gray500;
+    final color = AppColors.textOnPrimary;
     final chip = DecoratedBox(
       decoration: ShapeDecoration(
-        color: selected ? AppColors.blue50 : AppColors.surfaceWhite,
+        color: selected ? AppColors.glassBackground : Colors.transparent,
         shape: StadiumBorder(
           side: BorderSide(
             color: dashed
-                ? AppColors.transparent
+                ? Colors.transparent
                 : selected
-                ? AppColors.blue500
-                : AppColors.gray400,
+                ? AppColors.glassBorder
+                : AppColors.borderLight,
             width: 1.3895,
             strokeAlign: BorderSide.strokeAlignInside,
           ),
@@ -441,7 +423,7 @@ class _ProfileChip extends StatelessWidget {
       child: CustomPaint(
         foregroundPainter: dashed
             ? _DashedStadiumBorderPainter(
-                color: AppColors.gray400,
+                color: AppColors.borderLight,
                 strokeWidth: 1.3895,
               )
             : null,
@@ -529,7 +511,7 @@ class _ChildProfileCard extends StatelessWidget {
               ),
               const Icon(
                 Icons.edit_rounded,
-                color: AppColors.blue500,
+                color: AppColors.textOnPrimary,
                 size: 24,
               ),
             ],
@@ -566,7 +548,7 @@ class _Avatar extends StatelessWidget {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.blue500, width: 2.779),
+              border: Border.all(color: AppColors.glassBorder, width: 2.779),
             ),
             child: ClipOval(
               child: hasAvatar
@@ -583,7 +565,7 @@ class _Avatar extends StatelessWidget {
             right: -1,
             bottom: -1,
             child: SvgPicture.asset(
-              'assets/icons/player/camera.svg',
+              'assets/icons/new_boopi/State=Default, Icon=Camera.svg',
               width: 24,
               height: 24,
             ),
@@ -678,7 +660,7 @@ class _ProfileMenuRow extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: showDivider
-              ? const Border(bottom: BorderSide(color: AppColors.gray100))
+              ? const Border(bottom: BorderSide(color: AppColors.glassBorder))
               : null,
         ),
         child: Padding(
@@ -714,8 +696,8 @@ class _ProfileMenuRow extends StatelessWidget {
               trailing ??
                   const Icon(
                     Icons.chevron_right_rounded,
-                    color: AppColors.gray400,
-                    size: 18,
+                    color: AppColors.textOnPrimary,
+                    size: 24,
                   ),
             ],
           ),
@@ -742,11 +724,17 @@ class _MenuIcon extends StatelessWidget {
       width: 39.993,
       height: 39.993,
       decoration: BoxDecoration(
-        color: AppColors.blue50,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.glassBackground,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.borderLight),
       ),
       alignment: Alignment.center,
-      child: SvgPicture.asset(asset, width: 20, height: 20),
+      child: SvgPicture.asset(
+        asset,
+        width: 20,
+        height: 20,
+        colorFilter: const ColorFilter.mode(AppColors.textOnPrimary, BlendMode.srcIn),
+      ),
     );
   }
 }
@@ -758,12 +746,24 @@ class _ProfileSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      value
-          ? 'assets/icons/switch/switch_active.svg'
-          : 'assets/icons/switch/switch_inactive.svg',
-      width: 43.105,
-      height: 23.105,
+    return Container(
+      width: 44,
+      height: 24,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundGlass,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        width: 18,
+        height: 18,
+        decoration: BoxDecoration(
+          color: value ? AppColors.textOnPrimary : AppColors.glassBackground,
+          shape: BoxShape.circle,
+        ),
+      ),
     );
   }
 }
@@ -863,10 +863,9 @@ class _ProfileCard extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
+        color: AppColors.backgroundGlass,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray100),
-        boxShadow: const [BoxShadow(color: AppColors.blue50, blurRadius: 8)],
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: child,
     );
@@ -910,11 +909,6 @@ class _DashedStadiumBorderPainter extends CustomPainter {
   }
 }
 
-abstract final class _ProfileFigmaColors {
-  static const background = Color(0xFFF5FAFF);
-  static const indigo800 = Color(0xFF001033);
-}
-
 abstract final class _ProfileTextStyles {
   static const headerTitle = TextStyle(
     fontFamily: AppTypography.fontFamily,
@@ -922,7 +916,7 @@ abstract final class _ProfileTextStyles {
     height: 28 / 24,
     letterSpacing: -0.25,
     fontWeight: FontWeight.w600,
-    color: _ProfileFigmaColors.indigo800,
+    color: AppColors.textOnPrimary,
   );
 
   static const chip = TextStyle(
@@ -937,7 +931,7 @@ abstract final class _ProfileTextStyles {
     fontSize: 16,
     height: 20 / 16,
     fontWeight: FontWeight.w700,
-    color: _ProfileFigmaColors.indigo800,
+    color: AppColors.textOnPrimary,
   );
 
   static const profileAge = TextStyle(
@@ -945,7 +939,7 @@ abstract final class _ProfileTextStyles {
     fontSize: 14,
     height: 20 / 14,
     fontWeight: FontWeight.w600,
-    color: _ProfileFigmaColors.indigo800,
+    color: AppColors.textOnPrimary,
   );
 
   static const sectionLabel = TextStyle(
@@ -954,7 +948,7 @@ abstract final class _ProfileTextStyles {
     height: 16 / 12,
     letterSpacing: 0.5,
     fontWeight: FontWeight.w700,
-    color: _ProfileFigmaColors.indigo800,
+    color: AppColors.textOnPrimary,
   );
 
   static const rowTitle = TextStyle(
@@ -962,7 +956,7 @@ abstract final class _ProfileTextStyles {
     fontSize: 14,
     height: 20 / 14,
     fontWeight: FontWeight.w600,
-    color: _ProfileFigmaColors.indigo800,
+    color: AppColors.textOnPrimary,
   );
 
   static const rowSubtitle = TextStyle(
@@ -970,6 +964,6 @@ abstract final class _ProfileTextStyles {
     fontSize: 10,
     height: 12 / 10,
     fontWeight: FontWeight.w400,
-    color: _ProfileFigmaColors.indigo800,
+    color: AppColors.textOnPrimary,
   );
 }
