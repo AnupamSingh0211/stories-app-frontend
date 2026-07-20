@@ -41,5 +41,8 @@ Map<String, String> appAssets(AppAssetsRef ref) {
     'mascot_character': storage.getPublicUrl(
       'backgrounds/mascot_character.png',
     ),
+    'mascot_character_favorite': storage.getPublicUrl(
+      'backgrounds/mascot_character_favorites.png',
+    ),
   };
 }

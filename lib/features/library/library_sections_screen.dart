@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_bottom_navigation.dart';
+import '../auth/assets_provider.dart';
 import '../auth/companion_notifier.dart';
 import '../auth/companions_provider.dart';
 import '../auth/profile_notifier.dart';
@@ -12,6 +13,7 @@ import '../home/home_screen.dart';
 import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/continue_listening_provider.dart';
+import '../storytime/providers/favorite_stories_provider.dart';
 import '../storytime/screens/story_player_screen.dart';
 import '../storytime/widgets/story_image_view.dart';
 
@@ -23,6 +25,9 @@ const _downloadAsset = 'assets/icons/download_icon.svg';
 const _storyTextColor = Color(0xFF001033);
 const _emptyTitleColor = Color(0xFF29609B);
 const _tabBorderColor = AppColors.gray400;
+const _figmaWidth = 390.0;
+const _favoriteMascotFallbackUrl =
+    'https://ozdvhjcumeujfxodiawc.supabase.co/storage/v1/object/public/app-assets/backgrounds/mascot_character_favorites.png';
 
 enum LibrarySection {
   favourites(
@@ -93,6 +98,23 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
     final profileState = ref.watch(profileNotifierProvider).valueOrNull;
     final selectedChild = profileState?.selectedChild;
     final childName = selectedChild?.childName ?? 'Svayudh';
+    final favoriteMascotUrl =
+        ref.watch(appAssetsProvider)['mascot_character_favorite'] ??
+        _favoriteMascotFallbackUrl;
+
+    if (_selectedSection == LibrarySection.favourites) {
+      final favoriteStories = ref.watch(favoriteStoriesProvider);
+      if (favoriteStories.isNotEmpty) {
+        return _FavouritesScreen(stories: favoriteStories);
+      }
+
+      return _NoFavouritesScreen(
+        childName: childName,
+        childAge: selectedChild?.age,
+        mascotUrl: favoriteMascotUrl,
+      );
+    }
+
     final companionUrl = _companionImageUrl(ref, selectedChild?.companionId);
     final history = ref.watch(sessionStoryHistoryProvider);
 
@@ -187,6 +209,562 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
       ),
     );
   }
+}
+
+class _FavouritesScreen extends ConsumerWidget {
+  const _FavouritesScreen({required this.stories});
+
+  final List<StoryModel> stories;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MediaQuery.withNoTextScaling(
+      child: Scaffold(
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
+            ),
+          ),
+          child: SizedBox.expand(
+            child: SafeArea(
+              bottom: false,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final rawScale = constraints.maxWidth / _figmaWidth;
+                  final scale = rawScale < 0.88 ? 0.88 : rawScale;
+                  final sideInset = 16.0 * scale;
+                  final itemGap = 16.0 * scale;
+
+                  return Stack(
+                    children: [
+                      const _FavouritesHeader(),
+                      Positioned.fill(
+                        top: 56 * scale,
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            sideInset,
+                            0,
+                            sideInset,
+                            0,
+                          ),
+                          child: GridView.builder(
+                            physics: const ClampingScrollPhysics(),
+                            padding: EdgeInsets.only(bottom: 24 * scale),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: itemGap,
+                                  mainAxisSpacing: itemGap,
+                                  mainAxisExtent: 253 * scale,
+                                ),
+                            itemCount: stories.length,
+                            itemBuilder: (context, index) {
+                              final story = stories[index];
+                              return _FavouriteStoryCard(
+                                story: story,
+                                scale: scale,
+                                onFavoriteTap: () {
+                                  ref
+                                      .read(favoriteStoriesProvider.notifier)
+                                      .removeStory(story.id);
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FavouritesHeader extends StatelessWidget {
+  const _FavouritesHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 24,
+              child: InkResponse(
+                onTap: () => Navigator.of(context).maybePop(),
+                radius: 24,
+                child: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: AppColors.textOnPrimary,
+                  size: 24,
+                  applyTextScaling: false,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('Favourites', style: _FavouritesTextStyles.headerTitle),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FavouriteStoryCard extends StatelessWidget {
+  const _FavouriteStoryCard({
+    required this.story,
+    required this.scale,
+    required this.onFavoriteTap,
+  });
+
+  final StoryModel story;
+  final double scale;
+  final VoidCallback onFavoriteTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => StoryPlayerScreen(
+            storyId: story.id,
+            title: story.title,
+            story: story,
+          ),
+        ),
+      ),
+      child: Container(
+        padding: EdgeInsets.all(12 * scale),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundGlass,
+          borderRadius: BorderRadius.circular(8 * scale),
+          border: Border.all(color: AppColors.borderLight, width: 0.8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              offset: const Offset(0, 4),
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _FavouriteStoryImage(
+              story: story,
+              scale: scale,
+              onFavoriteTap: onFavoriteTap,
+            ),
+            SizedBox(height: 8 * scale),
+            Expanded(
+              child: Text(
+                story.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: _FavouritesTextStyles.cardTitle.copyWith(
+                  fontSize: 14 * scale,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FavouriteStoryImage extends StatelessWidget {
+  const _FavouriteStoryImage({
+    required this.story,
+    required this.scale,
+    required this.onFavoriteTap,
+  });
+
+  final StoryModel story;
+  final double scale;
+  final VoidCallback onFavoriteTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 147 * scale,
+      height: 181 * scale,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4 * scale),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              story.thumbnailUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const ColoredBox(color: AppColors.backgroundGlass),
+            ),
+            Positioned(
+              top: 8 * scale,
+              right: 8 * scale,
+              child: _FavouriteHeartButton(
+                scale: scale,
+                onTap: onFavoriteTap,
+              ),
+            ),
+            Positioned(
+              right: 8 * scale,
+              bottom: 8 * scale,
+              child: const _EpisodeBadge(label: 'Ep 3 of 7'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FavouriteHeartButton extends StatelessWidget {
+  const _FavouriteHeartButton({required this.scale, required this.onTap});
+
+  final double scale;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Remove from favorites',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          width: 28 * scale,
+          height: 28 * scale,
+          padding: EdgeInsets.all(6.36 * scale),
+          decoration: BoxDecoration(
+            color: AppColors.glassBackground,
+            shape: BoxShape.circle,
+          ),
+          child: SvgPicture.asset(
+            'assets/icons/new_boopi/State=Bold, Icon=Heart.svg',
+            colorFilter: const ColorFilter.mode(
+              AppColors.textOnPrimary,
+              BlendMode.srcIn,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EpisodeBadge extends StatelessWidget {
+  const _EpisodeBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.glassShadow,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(label, style: _FavouritesTextStyles.episode),
+    );
+  }
+}
+
+abstract final class _FavouritesTextStyles {
+  static const headerTitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 20,
+    height: 24 / 20,
+    letterSpacing: -0.25,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const cardTitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const episode = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 10,
+    height: 12 / 10,
+    letterSpacing: 1,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textOnPrimary,
+  );
+}
+
+class _NoFavouritesScreen extends StatelessWidget {
+  const _NoFavouritesScreen({
+    required this.childName,
+    required this.childAge,
+    required this.mascotUrl,
+  });
+
+  final String childName;
+  final int? childAge;
+  final String mascotUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return MediaQuery.withNoTextScaling(
+      child: Scaffold(
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
+            ),
+          ),
+          child: SizedBox.expand(
+            child: SafeArea(
+              bottom: false,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final scale = (constraints.maxWidth / _figmaWidth)
+                      .clamp(0.88, 1.18)
+                      .toDouble();
+                  final horizontal = 16.0 * scale;
+
+                  return Stack(
+                    children: [
+                      const _NoFavouritesHeader(),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: 163 * scale,
+                        child: _NoFavouritesContent(
+                          mascotUrl: mascotUrl,
+                          scale: scale,
+                        ),
+                      ),
+                      Positioned(
+                        left: horizontal,
+                        right: horizontal,
+                        bottom: 38 * scale,
+                        child: _ExploreStoriesButton(
+                          onTap: () => _openHome(context),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openHome(BuildContext context) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (context) => HomeScreen(
+          childName: childName,
+          childAge: childAge,
+        ),
+      ),
+      (route) => false,
+    );
+  }
+}
+
+class _NoFavouritesHeader extends StatelessWidget {
+  const _NoFavouritesHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 24,
+              child: InkResponse(
+                onTap: () => Navigator.of(context).maybePop(),
+                radius: 24,
+                child: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: AppColors.textOnPrimary,
+                  size: 24,
+                  applyTextScaling: false,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Favourites',
+              style: _NoFavouritesTextStyles.headerTitle,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoFavouritesContent extends StatelessWidget {
+  const _NoFavouritesContent({required this.mascotUrl, required this.scale});
+
+  final String mascotUrl;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 179 * scale,
+          height: 221 * scale,
+          child: Image.network(
+            mascotUrl,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) =>
+                const _FavoriteMascotFallback(),
+          ),
+        ),
+        SizedBox(height: 16 * scale),
+        SizedBox(
+          width: 341 * scale,
+          child: Column(
+            children: [
+              const Text(
+                'No Favourites Yet',
+                textAlign: TextAlign.center,
+                style: _NoFavouritesTextStyles.title,
+              ),
+              const SizedBox(height: 0),
+              Text(
+                'Save the stories you love and find them\nhere anytime.',
+                textAlign: TextAlign.center,
+                style: _NoFavouritesTextStyles.subtitle,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FavoriteMascotFallback extends StatelessWidget {
+  const _FavoriteMascotFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.backgroundGlass,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.favorite_border_rounded,
+          color: AppColors.textOnPrimary,
+          size: 56,
+        ),
+      ),
+    );
+  }
+}
+
+class _ExploreStoriesButton extends StatelessWidget {
+  const _ExploreStoriesButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Explore Stories',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: 52,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundGlass,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.borderLight, width: 0.8),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x2E000000),
+                offset: Offset(0, 2),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+          child: const Text(
+            'Explore Stories',
+            style: _NoFavouritesTextStyles.button,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+abstract final class _NoFavouritesTextStyles {
+  static const headerTitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 20,
+    height: 24 / 20,
+    letterSpacing: -0.25,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const title = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 20,
+    height: 24 / 20,
+    letterSpacing: -0.25,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const subtitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w500,
+    color: Color(0xD9FFFFFF),
+  );
+
+  static const button = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 16,
+    height: 20 / 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textOnPrimary,
+  );
 }
 
 String _greeting() {

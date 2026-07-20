@@ -144,6 +144,10 @@ void main() {
         overrides: [
           profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
           companionsProvider.overrideWith((ref) async => const []),
+          appAssetsProvider.overrideWithValue({
+            'mascot_character_favorite':
+                'https://example.com/mascot_character_favorite.png',
+          }),
           storytimeContentProvider.overrideWith(
             (ref) async => StorytimeContent.empty(),
           ),
@@ -266,7 +270,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LibrarySectionsScreen), findsOneWidget);
-    expect(find.text('No Favorites Yet'), findsOneWidget);
+    expect(find.text('No Favourites Yet'), findsOneWidget);
+    expect(find.text('Explore Stories'), findsOneWidget);
   });
 
   testWidgets('profile favourites opens the library stories page', (
@@ -277,6 +282,10 @@ void main() {
         overrides: [
           profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
           companionsProvider.overrideWith((ref) async => const []),
+          appAssetsProvider.overrideWithValue({
+            'mascot_character_favorite':
+                'https://example.com/mascot_character_favorite.png',
+          }),
           storytimeContentProvider.overrideWith(
             (ref) async => StorytimeContent.empty(),
           ),
@@ -297,8 +306,45 @@ void main() {
     await tester.tap(find.text('Favourites'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(StorytimeScreen), findsOneWidget);
-    expect(find.text('Dreamy Tales'), findsOneWidget);
+    expect(find.byType(LibrarySectionsScreen), findsOneWidget);
+    expect(find.text('No Favourites Yet'), findsOneWidget);
+
+    await tester.tap(find.text('Explore Stories'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+  });
+
+  testWidgets('home story favourite appears in favourites screen', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const HomeScreen(childName: 'Aarav', childAge: 3),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Add to favorites').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Open favorites'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LibrarySectionsScreen), findsOneWidget);
+    expect(find.text('Shararati Krishna ke karname'), findsWidgets);
+    expect(find.bySemanticsLabel('Remove from favorites'), findsWidgets);
+    expect(find.text('No Favourites Yet'), findsNothing);
   });
 
   testWidgets('home and stories stay stable on compact scaled Android layout', (

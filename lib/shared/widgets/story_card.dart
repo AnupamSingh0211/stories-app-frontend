@@ -1,6 +1,7 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'dart:ui';
 
 import '../theme/app_colors.dart';
 
@@ -12,6 +13,7 @@ class StoryCard extends StatelessWidget {
   final double imageHeight;
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteTap;
+  final bool isFavorite;
 
   const StoryCard({
     super.key,
@@ -22,6 +24,7 @@ class StoryCard extends StatelessWidget {
     this.imageHeight = 168,
     this.onTap,
     this.onFavoriteTap,
+    this.isFavorite = false,
   });
 
   @override
@@ -68,29 +71,37 @@ class StoryCard extends StatelessWidget {
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: GestureDetector(
-                    onTap: onFavoriteTap,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.22),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.36),
+                  child: Semantics(
+                    button: true,
+                    label: isFavorite
+                        ? 'Remove from favorites'
+                        : 'Add to favorites',
+                    child: GestureDetector(
+                      onTap: onFavoriteTap,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.36),
+                              ),
                             ),
-                          ),
-                          child: SvgPicture.asset(
-                            'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
-                            colorFilter: const ColorFilter.mode(
-                              Colors.white,
-                              BlendMode.srcIn,
+                            child: SvgPicture.asset(
+                              isFavorite
+                                  ? 'assets/icons/new_boopi/State=Bold, Icon=Heart.svg'
+                                  : 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
+                              colorFilter: const ColorFilter.mode(
+                                Colors.white,
+                                BlendMode.srcIn,
+                              ),
+                              width: 16,
+                              height: 16,
                             ),
-                            width: 16,
-                            height: 16,
                           ),
                         ),
                       ),

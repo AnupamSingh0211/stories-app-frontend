@@ -11,8 +11,8 @@ import '../auth/profile_notifier.dart';
 import '../auth/profile_repository.dart';
 import '../auth/profile_setup_screen.dart';
 import '../home/home_screen.dart';
+import '../library/library_sections_screen.dart';
 import '../membership/membership_screen.dart';
-import '../storytime/screens/storytime_screen.dart';
 import 'story_language_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -276,8 +276,10 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _openLibrary(BuildContext context) {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (context) => const StorytimeScreen()),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const LibrarySectionsScreen(),
+      ),
     );
   }
 
