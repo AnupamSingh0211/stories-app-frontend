@@ -264,6 +264,17 @@ class ProfileRepository {
 
     return ChildProfileModel.fromMap(row);
   }
+
+  Future<ChildProfileModel> updateChildLocale({
+    required ChildProfileModel child,
+    required String locale,
+  }) async {
+    final row = await _dataSource.updateChildProfile(child.id, {
+      'locale': normalizeProfileLocale(locale),
+    });
+
+    return ChildProfileModel.fromMap(row);
+  }
 }
 
 const maxChildProfiles = 2;
