@@ -11,8 +11,10 @@ import '../../shared/widgets/glassy_bottom_nav_bar.dart';
 import '../../shared/widgets/play_circle_button.dart';
 import '../../shared/widgets/story_card.dart';
 import '../auth/profile_notifier.dart';
+import '../library/library_sections_screen.dart';
 import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
+import '../storytime/providers/favorite_stories_provider.dart';
 import '../storytime/providers/story_player_provider.dart';
 
 const String _supabaseAssetBase =
@@ -42,6 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'Little One',
     ]);
     final contentState = ref.watch(storytimeContentProvider);
+    final favoriteStories = ref.watch(favoriteStoriesProvider);
 
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
@@ -78,7 +81,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _Header(name: childName, scale: scale),
+                            _Header(
+                              name: childName,
+                              scale: scale,
+                              onFavoritesTap: () => _openFavorites(context),
+                            ),
                             SizedBox(height: 24 * scale),
                             const CustomSearchBar(),
                             SizedBox(height: 20 * scale),
@@ -89,6 +96,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             _TwoColumnStoryGrid(
                               scale: scale,
                               stories: _topPickStories,
+                              favoriteStoryIds: {
+                                for (final story in favoriteStories) story.id,
+                              },
                             ),
                             SizedBox(height: 22 * scale),
                             _SectionTitle('Made for You', scale: scale),
@@ -96,6 +106,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             _TwoColumnStoryGrid(
                               scale: scale,
                               stories: _madeForYouStories,
+                              favoriteStoryIds: {
+                                for (final story in favoriteStories) story.id,
+                              },
                             ),
                             if (contentState.hasError) ...[
                               SizedBox(height: 16 * scale),
@@ -154,13 +167,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       subtitle: 'TONIGHT',
     );
   }
+
+  void _openFavorites(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const LibrarySectionsScreen(),
+      ),
+    );
+  }
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.name, required this.scale});
+  const _Header({
+    required this.name,
+    required this.scale,
+    required this.onFavoritesTap,
+  });
 
   final String name;
   final double scale;
+  final VoidCallback onFavoritesTap;
 
   @override
   Widget build(BuildContext context) {
@@ -195,12 +221,14 @@ class _Header extends StatelessWidget {
         Row(
           children: [
             _GlassyActionButton(
+              label: 'Open favorites',
               iconPath: 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
               size: 42 * scale,
-              onTap: () {},
+              onTap: onFavoritesTap,
             ),
             SizedBox(width: 10 * scale),
             _GlassyActionButton(
+              label: 'Notifications',
               iconPath:
                   'assets/icons/new_boopi/State=Default, Icon=Notification.svg',
               size: 42 * scale,
@@ -215,39 +243,45 @@ class _Header extends StatelessWidget {
 
 class _GlassyActionButton extends StatelessWidget {
   const _GlassyActionButton({
+    required this.label,
     required this.iconPath,
     required this.size,
     required this.onTap,
   });
 
+  final String label;
   final String iconPath;
   final double size;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            width: size,
-            height: size,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.2),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.38)),
-            ),
-            child: SvgPicture.asset(
-              iconPath,
-              width: size * 0.48,
-              height: size * 0.48,
-              colorFilter: const ColorFilter.mode(
-                Colors.white,
-                BlendMode.srcIn,
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              width: size,
+              height: size,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.2),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.38)),
+              ),
+              child: SvgPicture.asset(
+                iconPath,
+                width: size * 0.48,
+                height: size * 0.48,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
               ),
             ),
           ),
@@ -371,10 +405,15 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _TwoColumnStoryGrid extends StatelessWidget {
-  const _TwoColumnStoryGrid({required this.stories, required this.scale});
+  const _TwoColumnStoryGrid({
+    required this.stories,
+    required this.scale,
+    required this.favoriteStoryIds,
+  });
 
   final List<StoryModel> stories;
   final double scale;
+  final Set<String> favoriteStoryIds;
 
   @override
   Widget build(BuildContext context) {
@@ -396,12 +435,23 @@ class _TwoColumnStoryGrid extends StatelessWidget {
               SizedBox(
                 width: cardWidth,
                 height: 253 * scale,
-                child: StoryCard(
-                  title: stories[index].title,
-                  imageUrl: stories[index].thumbnailUrl,
-                  episodeCount: 'Ep 3 of 7',
-                  imageHeight: 147 * scale,
-                  onTap: () {},
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final story = stories[index];
+                    return StoryCard(
+                      title: story.title,
+                      imageUrl: story.thumbnailUrl,
+                      episodeCount: 'Ep 3 of 7',
+                      imageHeight: 147 * scale,
+                      onTap: () {},
+                      isFavorite: favoriteStoryIds.contains(story.id),
+                      onFavoriteTap: () {
+                        ref
+                            .read(favoriteStoriesProvider.notifier)
+                            .toggleStory(story);
+                      },
+                    );
+                  },
                 ),
               ),
           ],
