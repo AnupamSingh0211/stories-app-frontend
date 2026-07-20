@@ -13,6 +13,7 @@ import '../auth/profile_setup_screen.dart';
 import '../home/home_screen.dart';
 import '../membership/membership_screen.dart';
 import '../storytime/screens/storytime_screen.dart';
+import 'story_language_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({
@@ -110,6 +111,7 @@ class ProfileScreen extends ConsumerWidget {
                               subtitle: profile == null
                                   ? 'English'
                                   : profileLocaleLabel(profile.locale),
+                              onTap: () => _openStoryLanguage(context),
                             ),
                             const _ProfileMenuRow(
                               iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Notification.svg',
@@ -276,6 +278,14 @@ class ProfileScreen extends ConsumerWidget {
   void _openLibrary(BuildContext context) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (context) => const StorytimeScreen()),
+    );
+  }
+
+  void _openStoryLanguage(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const StoryLanguageScreen(),
+      ),
     );
   }
 }

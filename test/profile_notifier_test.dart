@@ -143,6 +143,23 @@ void main() {
     expect(repository.updatedCompanionId, 'krishna');
   });
 
+  test('updates selected child locale in state and repository', () async {
+    final repository = _FakeProfileRepository(childCount: 1);
+    final container = _authenticatedContainer(repository);
+    addTearDown(container.dispose);
+    await container.read(profileNotifierProvider.future);
+
+    final updated = await container
+        .read(profileNotifierProvider.notifier)
+        .updateSelectedChildLocale('hi-IN');
+
+    final state = container.read(profileNotifierProvider).requireValue;
+    expect(updated.locale, 'hi-IN');
+    expect(state.selectedChild?.locale, 'hi-IN');
+    expect(repository.updatedChildId, 'child-1');
+    expect(repository.updatedLocale, 'hi-IN');
+  });
+
   group('ProfileRepository authentication', () {
     test(
       'creates a child profile without sending parent_id or user_id',
@@ -204,6 +221,28 @@ void main() {
       expect(dataSource.updatedChildId, 'child-1');
       expect(dataSource.updatedProfile?['companion_id'], 'krishna');
       expect(updated.companionId, 'krishna');
+    });
+
+    test('updates child locale by child id only', () async {
+      final dataSource = _FakeProfileDataSource();
+      final repository = ProfileRepository(dataSource: dataSource);
+      final child = ChildProfileModel(
+        id: 'child-1',
+        parentId: 'user-1',
+        childName: 'Aarav',
+        age: 2,
+        gender: 'boy',
+        createdAt: DateTime.utc(2026, 6, 9),
+      );
+
+      final updated = await repository.updateChildLocale(
+        child: child,
+        locale: 'hi-IN',
+      );
+
+      expect(dataSource.updatedChildId, 'child-1');
+      expect(dataSource.updatedProfile?['locale'], 'hi-IN');
+      expect(updated.locale, 'hi-IN');
     });
 
     test('fetches children from the authenticated backend route', () async {
@@ -277,6 +316,7 @@ class _FakeProfileRepository extends ProfileRepository {
   final Object? createError;
   String? updatedChildId;
   String? updatedCompanionId;
+  String? updatedLocale;
   int createCalls = 0;
   int fetchCalls = 0;
 
@@ -323,6 +363,23 @@ class _FakeProfileRepository extends ProfileRepository {
     updatedChildId = child.id;
     updatedCompanionId = companionId;
     final updated = child.copyWith(companionId: companionId);
+    final index = children.indexWhere((item) => item.id == child.id);
+    if (index == -1) {
+      children.insert(0, updated);
+    } else {
+      children[index] = updated;
+    }
+    return updated;
+  }
+
+  @override
+  Future<ChildProfileModel> updateChildLocale({
+    required ChildProfileModel child,
+    required String locale,
+  }) async {
+    updatedChildId = child.id;
+    updatedLocale = locale;
+    final updated = child.copyWith(locale: locale);
     final index = children.indexWhere((item) => item.id == child.id);
     if (index == -1) {
       children.insert(0, updated);

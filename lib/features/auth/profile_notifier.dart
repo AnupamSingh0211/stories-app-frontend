@@ -144,6 +144,29 @@ class ProfileNotifier extends _$ProfileNotifier {
     return updated;
   }
 
+  Future<ChildProfileModel> updateSelectedChildLocale(String locale) async {
+    final previous = state.valueOrNull;
+    final selectedChild = previous?.selectedChild;
+    if (previous == null || selectedChild == null) {
+      throw StateError('No child profile selected');
+    }
+
+    final updated = await _repository.updateChildLocale(
+      child: selectedChild,
+      locale: locale,
+    );
+    state = AsyncData(
+      previous.copyWith(
+        children: [
+          updated,
+          ...previous.children.where((child) => child.id != updated.id),
+        ],
+        selectedChildId: updated.id,
+      ),
+    );
+    return updated;
+  }
+
   Future<void> refresh() async {
     final selectedId = state.valueOrNull?.selectedChildId;
     final session = ref.read(activeSessionProvider);
