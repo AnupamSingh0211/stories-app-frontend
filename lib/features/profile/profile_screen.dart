@@ -13,6 +13,7 @@ import '../auth/profile_setup_screen.dart';
 import '../home/home_screen.dart';
 import '../library/library_sections_screen.dart';
 import '../membership/membership_screen.dart';
+import 'privacy_policy_screen.dart';
 import 'story_language_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -133,15 +134,15 @@ class ProfileScreen extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 24),
-                        const _ProfileSection(
+                        _ProfileSection(
                           title: 'SUPPORT AND SOCIALS',
                           children: [
-                            _ProfileMenuRow(
+                            const _ProfileMenuRow(
                               iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Danger Circle.svg',
                               title: 'Help & Support',
                               subtitle: 'Click to manage your subscription',
                             ),
-                            _ProfileMenuRow(
+                            const _ProfileMenuRow(
                               iconAsset: 'assets/icons/actions/share.svg',
                               title: 'Share Nani ki Kahnai',
                               subtitle: 'Share with friends and family',
@@ -151,6 +152,7 @@ class ProfileScreen extends ConsumerWidget {
                               title: 'Privacy Policy',
                               subtitle: 'View our privacy policy',
                               showDivider: false,
+                              onTap: () => _openPrivacyPolicy(context),
                             ),
                           ],
                         ),
@@ -287,6 +289,14 @@ class ProfileScreen extends ConsumerWidget {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const StoryLanguageScreen(),
+      ),
+    );
+  }
+
+  void _openPrivacyPolicy(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const PrivacyPolicyScreen(),
       ),
     );
   }

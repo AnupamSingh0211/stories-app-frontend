@@ -15,6 +15,7 @@ import 'package:dharma_app/features/auth/profile_setup_screen.dart';
 import 'package:dharma_app/features/auth/welcome_screen.dart';
 import 'package:dharma_app/features/home/home_screen.dart';
 import 'package:dharma_app/features/library/library_sections_screen.dart';
+import 'package:dharma_app/features/profile/privacy_policy_screen.dart';
 import 'package:dharma_app/features/profile/profile_screen.dart';
 import 'package:dharma_app/features/storytime/models/story_model.dart';
 import 'package:dharma_app/features/storytime/providers/continue_listening_provider.dart';
@@ -313,6 +314,39 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeScreen), findsOneWidget);
+  });
+
+  testWidgets('profile privacy policy opens the privacy policy screen', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          companionsProvider.overrideWith((ref) async => const []),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const ProfileScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Privacy Policy'));
+    await tester.tap(find.text('Privacy Policy'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PrivacyPolicyScreen), findsOneWidget);
+    expect(
+      find.textContaining('Last updated: 15 July 2026', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('support@boopi.app', findRichText: true),
+      findsOneWidget,
+    );
   });
 
   testWidgets('home story favourite appears in favourites screen', (
