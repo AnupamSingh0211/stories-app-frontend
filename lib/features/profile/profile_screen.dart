@@ -13,6 +13,7 @@ import '../auth/profile_setup_screen.dart';
 import '../home/home_screen.dart';
 import '../library/library_sections_screen.dart';
 import '../membership/membership_screen.dart';
+import 'help_and_support_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'story_language_screen.dart';
 
@@ -60,151 +61,164 @@ class ProfileScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                        _ChildSwitcher(
-                          children: childProfiles?.children ?? const [],
-                          selectedChildId: profile?.id,
-                          onSelected: (childId) {
-                            ref
-                                .read(profileNotifierProvider.notifier)
-                                .selectChild(childId);
-                          },
-                          onAddChild: () => _addChild(
-                            context,
-                            childProfiles?.children.length ?? 0,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        if (profileState.isLoading)
-                          const _LoadingPanel()
-                        else if (profile == null)
-                          _EmptyChildrenCard(
-                            onAddChild: () => _addChild(context, 0),
-                          )
-                        else
-                          _ChildProfileCard(
-                            name: _displayValue(
-                              _firstNonEmpty(
-                                profile.childName,
-                                fallbackChildName,
-                              ),
-                            ),
-                            age: _ageValue(profile.age),
-                            rawAge: profile.age,
-                            avatarUrl: profile.avatarUrl,
-                          ),
-                        const SizedBox(height: 24),
-                        _ProfileSection(
-                          title: 'APP SETTINGS',
-                          children: [
-                            _ProfileMenuRow(
-                              iconAsset: 'assets/icons/actions/star_badge.svg',
-                              title: 'Subscription',
-                              subtitle: 'Click to manage your subscription',
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const MembershipScreen(),
+                              _ChildSwitcher(
+                                children: childProfiles?.children ?? const [],
+                                selectedChildId: profile?.id,
+                                onSelected: (childId) {
+                                  ref
+                                      .read(profileNotifierProvider.notifier)
+                                      .selectChild(childId);
+                                },
+                                onAddChild: () => _addChild(
+                                  context,
+                                  childProfiles?.children.length ?? 0,
                                 ),
                               ),
-                            ),
-                            _ProfileMenuRow(
-                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Website.svg',
-                              title: 'Story Language',
-                              subtitle: profile == null
-                                  ? 'English'
-                                  : profileLocaleLabel(profile.locale),
-                              onTap: () => _openStoryLanguage(context),
-                            ),
-                            const _ProfileMenuRow(
-                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Notification.svg',
-                              title: 'Notification',
-                              subtitle: 'Disabled',
-                              trailing: _ProfileSwitch(value: false),
-                            ),
-                            _ProfileMenuRow(
-                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
-                              title: 'Favourites',
-                              subtitle: 'Click to manage your subscription',
-                              onTap: () => _openLibrary(context),
-                            ),
-                            const _ProfileMenuRow(
-                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Play.svg',
-                              title: 'Auto-play next story',
-                              trailing: _ProfileSwitch(value: true),
-                            ),
-                          ],
+                              const SizedBox(height: 24),
+                              if (profileState.isLoading)
+                                const _LoadingPanel()
+                              else if (profile == null)
+                                _EmptyChildrenCard(
+                                  onAddChild: () => _addChild(context, 0),
+                                )
+                              else
+                                _ChildProfileCard(
+                                  name: _displayValue(
+                                    _firstNonEmpty(
+                                      profile.childName,
+                                      fallbackChildName,
+                                    ),
+                                  ),
+                                  age: _ageValue(profile.age),
+                                  rawAge: profile.age,
+                                  avatarUrl: profile.avatarUrl,
+                                ),
+                              const SizedBox(height: 24),
+                              _ProfileSection(
+                                title: 'APP SETTINGS',
+                                children: [
+                                  _ProfileMenuRow(
+                                    iconAsset:
+                                        'assets/icons/actions/star_badge.svg',
+                                    title: 'Subscription',
+                                    subtitle:
+                                        'Click to manage your subscription',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            const MembershipScreen(),
+                                      ),
+                                    ),
+                                  ),
+                                  _ProfileMenuRow(
+                                    iconAsset:
+                                        'assets/icons/new_boopi/State=Default, Icon=Website.svg',
+                                    title: 'Story Language',
+                                    subtitle: profile == null
+                                        ? 'English'
+                                        : profileLocaleLabel(profile.locale),
+                                    onTap: () => _openStoryLanguage(context),
+                                  ),
+                                  const _ProfileMenuRow(
+                                    iconAsset:
+                                        'assets/icons/new_boopi/State=Default, Icon=Notification.svg',
+                                    title: 'Notification',
+                                    subtitle: 'Disabled',
+                                    trailing: _ProfileSwitch(value: false),
+                                  ),
+                                  _ProfileMenuRow(
+                                    iconAsset:
+                                        'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
+                                    title: 'Favourites',
+                                    subtitle:
+                                        'Click to manage your subscription',
+                                    onTap: () => _openLibrary(context),
+                                  ),
+                                  const _ProfileMenuRow(
+                                    iconAsset:
+                                        'assets/icons/new_boopi/State=Default, Icon=Play.svg',
+                                    title: 'Auto-play next story',
+                                    trailing: _ProfileSwitch(value: true),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              _ProfileSection(
+                                title: 'SUPPORT AND SOCIALS',
+                                children: [
+                                  _ProfileMenuRow(
+                                    iconAsset:
+                                        'assets/icons/new_boopi/State=Default, Icon=Danger Circle.svg',
+                                    title: 'Help & Support',
+                                    subtitle:
+                                        'Click to manage your subscription',
+                                    onTap: () => _openHelpAndSupport(context),
+                                  ),
+                                  const _ProfileMenuRow(
+                                    iconAsset: 'assets/icons/actions/share.svg',
+                                    title: 'Share Nani ki Kahnai',
+                                    subtitle: 'Share with friends and family',
+                                  ),
+                                  _ProfileMenuRow(
+                                    iconAsset:
+                                        'assets/icons/new_boopi/State=Default, Icon=Shield Done.svg',
+                                    title: 'Privacy Policy',
+                                    subtitle: 'View our privacy policy',
+                                    showDivider: false,
+                                    onTap: () => _openPrivacyPolicy(context),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              _ProfileMenuRow(
+                                iconAsset:
+                                    'assets/icons/new_boopi/State=Default, Icon=Logout.svg',
+                                title: 'Log Out',
+                                titleStyle: _ProfileTextStyles.rowTitle,
+                                trailing: const SizedBox.shrink(),
+                                showDivider: false,
+                                onTap: () async {
+                                  await Supabase.instance.client.auth.signOut();
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 24),
-                        _ProfileSection(
-                          title: 'SUPPORT AND SOCIALS',
-                          children: [
-                            const _ProfileMenuRow(
-                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Danger Circle.svg',
-                              title: 'Help & Support',
-                              subtitle: 'Click to manage your subscription',
-                            ),
-                            const _ProfileMenuRow(
-                              iconAsset: 'assets/icons/actions/share.svg',
-                              title: 'Share Nani ki Kahnai',
-                              subtitle: 'Share with friends and family',
-                            ),
-                            _ProfileMenuRow(
-                              iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Shield Done.svg',
-                              title: 'Privacy Policy',
-                              subtitle: 'View our privacy policy',
-                              showDivider: false,
-                              onTap: () => _openPrivacyPolicy(context),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        _ProfileMenuRow(
-                          iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Logout.svg',
-                          title: 'Log Out',
-                          titleStyle: _ProfileTextStyles.rowTitle,
-                          trailing: const SizedBox.shrink(),
-                          showDivider: false,
-                          onTap: () async {
-                            await Supabase.instance.client.auth.signOut();
-                          },
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                left: 0,
+                top: 0,
+                child: Opacity(opacity: 0, child: Text(email)),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: GlassyBottomNavBar(
+                  currentIndex: 3,
+                  onTap: (index) {
+                    switch (index) {
+                      case 0:
+                        _openHome(context, profile);
+                        break;
+                      case 1:
+                        break;
+                      case 2:
+                        _openLibrary(context);
+                        break;
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ),
-        Positioned(
-          left: 0,
-          top: 0,
-          child: Opacity(opacity: 0, child: Text(email)),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: GlassyBottomNavBar(
-            currentIndex: 3,
-            onTap: (index) {
-              switch (index) {
-                case 0:
-                  _openHome(context, profile);
-                  break;
-                case 1:
-                  break;
-                case 2:
-                  _openLibrary(context);
-                  break;
-              }
-            },
-          ),
-        ),
-      ],
-    ),
-  ),
-),
-);
+      ),
+    );
   }
 
   static String _displayValue(String? value) {
@@ -297,6 +311,14 @@ class ProfileScreen extends ConsumerWidget {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const PrivacyPolicyScreen(),
+      ),
+    );
+  }
+
+  void _openHelpAndSupport(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const HelpAndSupportScreen(),
       ),
     );
   }
@@ -755,7 +777,10 @@ class _MenuIcon extends StatelessWidget {
         asset,
         width: 20,
         height: 20,
-        colorFilter: const ColorFilter.mode(AppColors.textOnPrimary, BlendMode.srcIn),
+        colorFilter: const ColorFilter.mode(
+          AppColors.textOnPrimary,
+          BlendMode.srcIn,
+        ),
       ),
     );
   }
