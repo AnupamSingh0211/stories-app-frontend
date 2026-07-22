@@ -22,6 +22,7 @@ import 'package:dharma_app/features/storytime/providers/continue_listening_provi
 import 'package:dharma_app/features/storytime/providers/saved_library_provider.dart';
 import 'package:dharma_app/features/storytime/providers/story_player_provider.dart';
 import 'package:dharma_app/features/storytime/repositories/story_repository.dart';
+import 'package:dharma_app/features/storytime/screens/episodes_screen.dart';
 import 'package:dharma_app/features/storytime/screens/storytime_screen.dart';
 import 'package:dharma_app/main.dart';
 import 'package:dharma_app/shared/theme/app_theme.dart';
@@ -379,6 +380,47 @@ void main() {
     expect(find.text('Shararati Krishna ke karname'), findsWidgets);
     expect(find.bySemanticsLabel('Remove from favorites'), findsWidgets);
     expect(find.text('No Favourites Yet'), findsNothing);
+  });
+
+  testWidgets('home story card opens the episodes screen', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 868);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const HomeScreen(childName: 'Aarav', childAge: 3),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Shararati Krishna ke karname').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EpisodesScreen), findsOneWidget);
+    expect(find.text('Makhan Ki Talaash'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('episode-stage-completed-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('episode-stage-continuing-2')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('episode-stage-left-3')), findsOneWidget);
   });
 
   testWidgets('home and stories stay stable on compact scaled Android layout', (

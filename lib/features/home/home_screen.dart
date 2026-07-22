@@ -16,6 +16,7 @@ import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/favorite_stories_provider.dart';
 import '../storytime/providers/story_player_provider.dart';
+import '../storytime/screens/episodes_screen.dart';
 
 const String _supabaseAssetBase =
     'https://ozdvhjcumeujfxodiawc.supabase.co/storage/v1/object/public/app-assets/';
@@ -443,7 +444,11 @@ class _TwoColumnStoryGrid extends StatelessWidget {
                       imageUrl: story.thumbnailUrl,
                       episodeCount: 'Ep 3 of 7',
                       imageHeight: 147 * scale,
-                      onTap: () {},
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => const EpisodesScreen(),
+                        ),
+                      ),
                       isFavorite: favoriteStoryIds.contains(story.id),
                       onFavoriteTap: () {
                         ref

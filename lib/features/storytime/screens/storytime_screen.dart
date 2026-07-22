@@ -14,6 +14,7 @@ import '../../profile/profile_screen.dart';
 import '../models/story_model.dart';
 import '../providers/story_player_provider.dart';
 import '../widgets/story_image_view.dart';
+import 'episodes_screen.dart';
 import 'story_player_screen.dart';
 
 const _likeInactiveAsset = 'assets/icons/like_inactive.svg';
@@ -490,7 +491,14 @@ class _FeaturedStoriesSection extends StatelessWidget {
                       final banner = banners[index % banners.length];
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _FeaturedStoryCard(banner: banner),
+                        child: _FeaturedStoryCard(
+                          banner: banner,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (context) => const EpisodesScreen(),
+                            ),
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -507,51 +515,60 @@ class _FeaturedStoriesSection extends StatelessWidget {
 }
 
 class _FeaturedStoryCard extends StatelessWidget {
-  const _FeaturedStoryCard({required this.banner});
+  const _FeaturedStoryCard({required this.banner, required this.onTap});
 
   final FeaturedBannerModel banner;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 321,
-      height: 170,
-      child: ClipRRect(
+    return Semantics(
+      button: true,
+      label: 'Open ${banner.title} episodes',
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            StoryImageView(imageUrl: banner.imageUrl),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.surfaceBlack.withValues(alpha: 0.02),
-                    AppColors.surfaceBlack.withValues(alpha: 0.12),
-                    AppColors.surfaceBlack.withValues(alpha: 0.44),
-                  ],
+        child: SizedBox(
+          width: 321,
+          height: 170,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                StoryImageView(imageUrl: banner.imageUrl),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppColors.surfaceBlack.withValues(alpha: 0.02),
+                        AppColors.surfaceBlack.withValues(alpha: 0.12),
+                        AppColors.surfaceBlack.withValues(alpha: 0.44),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Text(
-                banner.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.heading3Bold.copyWith(
-                  color: AppColors.surfaceWhite,
-                  fontSize: 20,
-                  height: 24 / 20,
-                  letterSpacing: -0.25,
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  child: Text(
+                    banner.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.heading3Bold.copyWith(
+                      color: AppColors.surfaceWhite,
+                      fontSize: 20,
+                      height: 24 / 20,
+                      letterSpacing: -0.25,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
