@@ -435,7 +435,7 @@ class _TwoColumnStoryGrid extends StatelessWidget {
             for (var index = 0; index < count; index += 1)
               SizedBox(
                 width: cardWidth,
-                height: 253 * scale,
+                height: 256 * scale,
                 child: Consumer(
                   builder: (context, ref, child) {
                     final story = stories[index];
@@ -443,7 +443,7 @@ class _TwoColumnStoryGrid extends StatelessWidget {
                       title: story.title,
                       imageUrl: story.thumbnailUrl,
                       episodeCount: 'Ep 3 of 7',
-                      imageHeight: 147 * scale,
+                      imageHeight: 184 * scale,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (context) => const EpisodesScreen(),

@@ -407,6 +407,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final thumbnailSize = tester.getSize(
+      find.byKey(const ValueKey('story-card-thumbnail')).first,
+    );
+    expect(thumbnailSize, const Size(147, 184));
+
     await tester.tap(find.text('Shararati Krishna ke karname').first);
     await tester.pumpAndSettle();
 

@@ -21,7 +21,7 @@ class StoryCard extends StatelessWidget {
     required this.episodeCount,
     this.imageUrl,
     this.width,
-    this.imageHeight = 168,
+    this.imageHeight = 184,
     this.onTap,
     this.onFavoriteTap,
     this.isFavorite = false,
@@ -54,6 +54,7 @@ class StoryCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(5),
                   child: Container(
+                    key: const ValueKey('story-card-thumbnail'),
                     height: imageHeight,
                     width: double.infinity,
                     color: Colors.white.withValues(alpha: 0.24),

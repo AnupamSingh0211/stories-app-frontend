@@ -101,8 +101,7 @@ class ProfileScreen extends ConsumerWidget {
                                     iconAsset:
                                         'assets/icons/actions/star_badge.svg',
                                     title: 'Subscription',
-                                    subtitle:
-                                        'Click to manage your subscription',
+                                    subtitle: 'For yawns and cuddles.',
                                     onTap: () => Navigator.of(context).push(
                                       MaterialPageRoute<void>(
                                         builder: (_) =>
@@ -114,24 +113,22 @@ class ProfileScreen extends ConsumerWidget {
                                     iconAsset:
                                         'assets/icons/new_boopi/State=Default, Icon=Website.svg',
                                     title: 'Story Language',
-                                    subtitle: profile == null
-                                        ? 'English'
-                                        : profileLocaleLabel(profile.locale),
+                                    subtitle:
+                                        "Tonight's stories in ${profile == null ? 'English' : profileLocaleLabel(profile.locale)}.",
                                     onTap: () => _openStoryLanguage(context),
                                   ),
                                   const _ProfileMenuRow(
                                     iconAsset:
                                         'assets/icons/new_boopi/State=Default, Icon=Notification.svg',
                                     title: 'Notification',
-                                    subtitle: 'Disabled',
+                                    subtitle: "To nudge you when it's story time.",
                                     trailing: _ProfileSwitch(value: false),
                                   ),
                                   _ProfileMenuRow(
                                     iconAsset:
                                         'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
                                     title: 'Favourites',
-                                    subtitle:
-                                        'Click to manage your subscription',
+                                    subtitle: 'They just loved this. \u2764\uFE0F',
                                     onTap: () => _openLibrary(context),
                                   ),
                                   const _ProfileMenuRow(
@@ -150,14 +147,13 @@ class ProfileScreen extends ConsumerWidget {
                                     iconAsset:
                                         'assets/icons/new_boopi/State=Default, Icon=Danger Circle.svg',
                                     title: 'Help & Support',
-                                    subtitle:
-                                        'Click to manage your subscription',
+                                    subtitle: "We're here to help.",
                                     onTap: () => _openHelpAndSupport(context),
                                   ),
                                   const _ProfileMenuRow(
                                     iconAsset: 'assets/icons/actions/share.svg',
-                                    title: 'Share Nani ki Kahnai',
-                                    subtitle: 'Share with friends and family',
+                                    title: 'Share Boopi',
+                                    subtitle: 'Spread the bedtime magic.',
                                   ),
                                   _ProfileMenuRow(
                                     iconAsset:
@@ -170,13 +166,7 @@ class ProfileScreen extends ConsumerWidget {
                                 ],
                               ),
                               const SizedBox(height: 24),
-                              _ProfileMenuRow(
-                                iconAsset:
-                                    'assets/icons/new_boopi/State=Default, Icon=Logout.svg',
-                                title: 'Log Out',
-                                titleStyle: _ProfileTextStyles.rowTitle,
-                                trailing: const SizedBox.shrink(),
-                                showDivider: false,
+                              _LogoutButton(
                                 onTap: () async {
                                   await Supabase.instance.client.auth.signOut();
                                 },
@@ -666,6 +656,44 @@ class _ProfileSection extends StatelessWidget {
   }
 }
 
+class _LogoutButton extends StatelessWidget {
+  const _LogoutButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Log Out', style: _ProfileTextStyles.logoutLabel),
+            const SizedBox(width: 4),
+            SizedBox.square(
+              dimension: 24,
+              child: Center(
+                child: SvgPicture.asset(
+                  'assets/icons/new_boopi/Iconly/Light/Arrow - Right.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: const ColorFilter.mode(
+                    AppColors.textOnPrimary,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileMenuRow extends StatelessWidget {
   const _ProfileMenuRow({
     required this.iconAsset,
@@ -699,8 +727,8 @@ class _ProfileMenuRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = SizedBox(
-      height: 72.993,
+    final child = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 72.993),
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: showDivider
@@ -708,7 +736,7 @@ class _ProfileMenuRow extends StatelessWidget {
               : null,
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Row(
             children: [
               _MenuIcon(asset: iconAsset),
@@ -717,6 +745,7 @@ class _ProfileMenuRow extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       title,
@@ -728,7 +757,7 @@ class _ProfileMenuRow extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         subtitle!,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: _ProfileTextStyles.rowSubtitle,
                       ),
@@ -999,6 +1028,14 @@ abstract final class _ProfileTextStyles {
   );
 
   static const rowTitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const logoutLabel = TextStyle(
     fontFamily: AppTypography.fontFamily,
     fontSize: 14,
     height: 20 / 14,

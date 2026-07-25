@@ -254,10 +254,13 @@ class _SupportContact extends StatelessWidget {
       TextSpan(
         children: [
           TextSpan(
-            text: 'Still need help?  \n',
+            text: 'Questions, Ideas and feedback?\n',
             style: _HelpTextStyles.sectionTitle,
           ),
-          TextSpan(text: 'support@boopi.app', style: _HelpTextStyles.body),
+          TextSpan(
+            text: 'Drop us a note at hello@boopikids.com.',
+            style: _HelpTextStyles.body,
+          ),
         ],
       ),
     );
