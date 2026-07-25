@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/theme/app_colors.dart';
@@ -294,10 +295,10 @@ class _HeroHeartButton extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.borderGlass),
       ),
-      child: Icon(
-        Icons.favorite_border_rounded,
-        color: AppColors.textOnPrimary,
-        size: 25 * scale,
+      child: SvgPicture.asset(
+        'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
+        width: 25 * scale,
+        height: 25 * scale,
       ),
     );
   }
