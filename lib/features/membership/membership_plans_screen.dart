@@ -2,11 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../auth/assets_provider.dart';
-import 'membership_benefits.dart';
+import 'membership_verification_screen.dart';
 
 enum MembershipPlan { monthly, annual }
 
@@ -40,28 +41,35 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
     setState(() => _selectedPlan = plan);
   }
 
+  void _continue(BuildContext context) {
+    final onContinue = widget.onContinue;
+    if (onContinue != null) {
+      onContinue(_selectedPlan);
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const MembershipVerificationScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
-        backgroundColor: _PlansColors.background,
+        backgroundColor: _PlansColors.bottomBlue,
         body: SafeArea(
+          left: false,
+          right: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final contentWidth = math.min(
-                constraints.maxWidth,
-                _PlansLayout.maxContentWidth,
-              );
+              final contentWidth = constraints.maxWidth;
+              final scale = contentWidth / _PlansLayout.designWidth;
               final canvasHeight = math.max(
-                constraints.maxHeight,
-                _PlansLayout.minimumCanvasHeight,
-              );
-              final continueTop =
-                  canvasHeight - _PlansLayout.continueBottomOffset;
-              final trustTop = canvasHeight - _PlansLayout.trustBottomOffset;
-              final promoTextTop = math.max(
-                _PlansLayout.minimumPromoTextTop,
-                continueTop - _PlansLayout.promoToContinueOffset,
+                constraints.maxHeight / scale,
+                _PlansLayout.designHeight,
               );
 
               return SingleChildScrollView(
@@ -69,97 +77,58 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
                 child: Center(
                   child: SizedBox(
                     width: contentWidth,
-                    height: canvasHeight,
-                    child: ClipRect(
-                      child: Stack(
-                        clipBehavior: Clip.hardEdge,
-                        children: [
-                          const _PlanHero(),
-                          const _PlansHeader(),
-                          const Positioned(
-                            top: _PlansLayout.introTop,
-                            left: 12,
-                            right: 12,
-                            child: _PlansIntro(),
-                          ),
-                          const Positioned(
-                            top: _PlansLayout.benefitsTop,
-                            left: 0,
-                            right: 0,
-                            child: MembershipBenefitsStrip(
-                              key: ValueKey('membershipPlansBenefits'),
-                              heading: "Everything You'll Unlock",
-                              headingGap: 12,
-                            ),
-                          ),
-                          Positioned(
-                            top: _PlansLayout.monthlyTop,
-                            left: _PlansLayout.planHorizontalMargin,
-                            right: _PlansLayout.planHorizontalMargin,
-                            child: Transform.translate(
-                              offset: const Offset(
-                                _PlansLayout.planCenterOffset,
-                                0,
+                    height: canvasHeight * scale,
+                    child: FittedBox(
+                      fit: BoxFit.fill,
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        width: _PlansLayout.designWidth,
+                        height: canvasHeight,
+                        child: ClipRect(
+                          child: Stack(
+                            clipBehavior: Clip.hardEdge,
+                            children: [
+                              const Positioned.fill(child: _PlansBackground()),
+                              const _PlansArtwork(),
+                              const _PlansHeader(),
+                              const Positioned(
+                                top: _PlansLayout.heroGroupTop,
+                                left: 0,
+                                right: 0,
+                                child: _PlansHeroCopy(),
                               ),
-                              child: _PlanOptionCard(
-                                semanticKey: const ValueKey('monthlyPlanCard'),
-                                label: 'Monthly',
-                                price: '₹149/month',
-                                semanticPrice: '149 rupees per month',
-                                selected:
-                                    _selectedPlan == MembershipPlan.monthly,
-                                onTap: () =>
-                                    _selectPlan(MembershipPlan.monthly),
+                              const Positioned(
+                                top: _PlansLayout.benefitsTop,
+                                left: 0,
+                                right: 0,
+                                child: _MembershipBenefits(),
                               ),
-                            ),
-                          ),
-                          Positioned(
-                            top: _PlansLayout.annualTop,
-                            left: _PlansLayout.planHorizontalMargin,
-                            right: _PlansLayout.planHorizontalMargin,
-                            child: Transform.translate(
-                              offset: const Offset(
-                                _PlansLayout.planCenterOffset,
-                                0,
+                              Positioned(
+                                top: _PlansLayout.planSelectorTop,
+                                left: _PlansLayout.planSelectorLeft,
+                                child: _PlanSelector(
+                                  selectedPlan: _selectedPlan,
+                                  onSelected: _selectPlan,
+                                  onPromoCode: widget.onPromoCode ?? () {},
+                                ),
                               ),
-                              child: _PlanOptionCard(
-                                semanticKey: const ValueKey('annualPlanCard'),
-                                label: 'Annually',
-                                price: '₹999/year',
-                                semanticPrice: '999 rupees per year',
-                                selected:
-                                    _selectedPlan == MembershipPlan.annual,
-                                onTap: () => _selectPlan(MembershipPlan.annual),
+                              Positioned(
+                                top: canvasHeight - _PlansLayout.ctaGap,
+                                left: _PlansLayout.ctaLeft,
+                                child: _SubscribeButton(
+                                  plan: _selectedPlan,
+                                  onPressed: () => _continue(context),
+                                ),
                               ),
-                            ),
+                              Positioned(
+                                top: canvasHeight - _PlansLayout.trustGap,
+                                left: 0,
+                                right: 0,
+                                child: const _TrustIndicators(),
+                              ),
+                            ],
                           ),
-                          Positioned(
-                            top:
-                                promoTextTop -
-                                _PlansLayout.promoTouchVerticalInset,
-                            left: 0,
-                            right: 0,
-                            child: _PromoCodeAction(
-                              onPressed: widget.onPromoCode ?? () {},
-                            ),
-                          ),
-                          Positioned(
-                            top: continueTop,
-                            left: _PlansLayout.continueHorizontalMargin,
-                            right: _PlansLayout.continueHorizontalMargin,
-                            child: _ContinueButton(
-                              plan: _selectedPlan,
-                              onPressed: () =>
-                                  widget.onContinue?.call(_selectedPlan),
-                            ),
-                          ),
-                          Positioned(
-                            top: trustTop,
-                            left: 16,
-                            right: 16,
-                            child: const _TrustIndicators(),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -173,6 +142,28 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
   }
 }
 
+class _PlansBackground extends StatelessWidget {
+  const _PlansBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _PlansColors.topBlue,
+            _PlansColors.midBlue,
+            _PlansColors.bottomBlue,
+          ],
+          stops: [0, 0.54, 1],
+        ),
+      ),
+    );
+  }
+}
+
 class _PlansHeader extends StatelessWidget {
   const _PlansHeader();
 
@@ -180,7 +171,7 @@ class _PlansHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: _PlansLayout.headerHeight,
-      color: _PlansColors.background,
+      color: _PlansColors.headerOverlay,
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
@@ -195,7 +186,7 @@ class _PlansHeader extends StatelessWidget {
                 dimension: 24,
                 child: Icon(
                   Icons.arrow_back_rounded,
-                  color: _PlansColors.indigo800,
+                  color: AppColors.textOnPrimary,
                   size: 24,
                   applyTextScaling: false,
                 ),
@@ -217,7 +208,7 @@ class _PlansHeader extends StatelessWidget {
                   height: 24 / 20,
                   letterSpacing: -0.25,
                   fontWeight: FontWeight.w600,
-                  color: _PlansColors.indigo800,
+                  color: AppColors.textOnPrimary,
                 ),
               ),
             ),
@@ -228,79 +219,252 @@ class _PlansHeader extends StatelessWidget {
   }
 }
 
-class _PlansIntro extends StatelessWidget {
-  const _PlansIntro();
+class _PlansArtwork extends StatelessWidget {
+  const _PlansArtwork();
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      key: ValueKey('membershipPlansIntro'),
+    return Positioned.fill(
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          Positioned(
+            left: _PlansLayout.sideArtworkLeft,
+            top: _PlansLayout.sideArtworkTop,
+            child: Image.asset(
+              membershipSideFrameAsset,
+              width: _PlansLayout.sideArtworkWidth,
+              height: _PlansLayout.sideArtworkHeight,
+              fit: BoxFit.contain,
+              alignment: Alignment.topLeft,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlansHeroCopy extends StatelessWidget {
+  const _PlansHeroCopy();
+
+  @override
+  Widget build(BuildContext context) {
+    final mascotUrl = _membershipMascotUrl();
+
+    return Column(
+      key: const ValueKey('membershipPlansIntro'),
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
+        mascotUrl == null
+            ? const SizedBox(
+                key: ValueKey('membershipPlansHero'),
+                width: _PlansLayout.mascotWidth,
+                height: _PlansLayout.mascotHeight,
+              )
+            : Image.network(
+                mascotUrl,
+                key: const ValueKey('membershipPlansHero'),
+                width: _PlansLayout.mascotWidth,
+                height: _PlansLayout.mascotHeight,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(
+                  width: _PlansLayout.mascotWidth,
+                  height: _PlansLayout.mascotHeight,
+                ),
+              ),
+        const SizedBox(height: 20),
+        const _PlusMemberBadge(),
+        const SizedBox(height: 12),
+        const Text(
           'Unlock the Magic',
           maxLines: 1,
           softWrap: false,
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: AppTypography.fontFamily,
-            fontSize: 28,
-            height: 32 / 28,
-            letterSpacing: -0.5,
-            fontWeight: FontWeight.w700,
-            color: AppColors.blue800,
-          ),
+          style: _PlansTextStyles.heroTitle,
         ),
-        SizedBox(height: 4),
-        Text(
+        const SizedBox(height: 8),
+        const Text(
           'Unlimited stories to inspire, learn, and dream.',
           maxLines: 1,
           softWrap: false,
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: AppTypography.fontFamily,
-            fontSize: 14,
-            height: 20 / 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.gray500,
-          ),
+          style: _PlansTextStyles.heroSubtitle,
+        ),
+      ],
+    );
+  }
+
+  String? _membershipMascotUrl() {
+    try {
+      return Supabase.instance.client.storage
+          .from('app-assets')
+          .getPublicUrl('backgrounds/membership_mascot_character.png');
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+class _PlusMemberBadge extends StatelessWidget {
+  const _PlusMemberBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: _PlansColors.glass,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _PlansColors.glassBorder),
+      ),
+      child: const Text('PLUS MEMBER', style: _PlansTextStyles.badge),
+    );
+  }
+}
+
+class _MembershipBenefits extends StatelessWidget {
+  const _MembershipBenefits();
+
+  static const _benefits = [
+    _BenefitData(
+      label: 'New\nReleases',
+      iconAsset: 'assets/icons/membership/new_releases.svg',
+    ),
+    _BenefitData(
+      label: 'Offline\nListening',
+      iconAsset: 'assets/icons/membership/offline_listening.svg',
+    ),
+    _BenefitData(
+      label: 'Ad-Free\nAccess',
+      iconAsset: 'assets/icons/membership/Ad-free_access.svg',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Text(
+          'Your Membership Includes',
+          key: ValueKey('membershipPlansBenefits'),
+          textAlign: TextAlign.center,
+          style: _PlansTextStyles.benefitsHeading,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var index = 0; index < _benefits.length; index += 1) ...[
+              _BenefitCard(data: _benefits[index]),
+              if (index < _benefits.length - 1)
+                const SizedBox(width: _PlansLayout.benefitGap),
+            ],
+          ],
         ),
       ],
     );
   }
 }
 
-class _PlanHero extends StatelessWidget {
-  const _PlanHero();
+class _BenefitCard extends StatelessWidget {
+  const _BenefitCard({required this.data});
+
+  final _BenefitData data;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final left =
-            (constraints.maxWidth / 2) +
-            _PlansLayout.heroCenterOffset -
-            (_PlansLayout.heroWidth / 2);
-
-        return Stack(
-          children: [
-            Positioned(
-              left: left,
-              top: _PlansLayout.heroTop,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(_PlansLayout.heroRadius),
-                child: Image.asset(
-                  membershipHeroImageAsset,
-                  key: const ValueKey('membershipPlansHero'),
-                  width: _PlansLayout.heroWidth,
-                  height: _PlansLayout.heroHeight,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.high,
-                ),
-              ),
+    return Container(
+      width: _PlansLayout.benefitCardWidth,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _PlansColors.glass,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _PlansColors.glassBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            offset: Offset(0, 2),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SvgPicture.asset(
+            data.iconAsset,
+            width: 32,
+            height: 32,
+            colorFilter: const ColorFilter.mode(
+              AppColors.textOnPrimary,
+              BlendMode.srcIn,
             ),
-          ],
-        );
-      },
+          ),
+          const SizedBox(height: 4),
+          Text(
+            data.label,
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            style: _PlansTextStyles.benefitLabel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BenefitData {
+  const _BenefitData({required this.label, required this.iconAsset});
+
+  final String label;
+  final String iconAsset;
+}
+
+class _PlanSelector extends StatelessWidget {
+  const _PlanSelector({
+    required this.selectedPlan,
+    required this.onSelected,
+    required this.onPromoCode,
+  });
+
+  final MembershipPlan selectedPlan;
+  final ValueChanged<MembershipPlan> onSelected;
+  final VoidCallback onPromoCode;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _PlansLayout.planSelectorWidth,
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _PlanOptionCard(
+                semanticKey: const ValueKey('monthlyPlanCard'),
+                label: 'Monthly',
+                price: '\u20B9149/month',
+                semanticPrice: '149 rupees per month',
+                selected: selectedPlan == MembershipPlan.monthly,
+                onTap: () => onSelected(MembershipPlan.monthly),
+              ),
+              _PlanOptionCard(
+                semanticKey: const ValueKey('annualPlanCard'),
+                label: 'Annually',
+                price: '\u20B9999/year',
+                semanticPrice: '999 rupees per year',
+                selected: selectedPlan == MembershipPlan.annual,
+                onTap: () => onSelected(MembershipPlan.annual),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          _PromoCodeAction(onPressed: onPromoCode),
+        ],
+      ),
     );
   }
 }
@@ -324,8 +488,6 @@ class _PlanOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected ? AppColors.blue200 : AppColors.blue50;
-
     return Semantics(
       key: semanticKey,
       container: true,
@@ -336,11 +498,14 @@ class _PlanOptionCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Ink(
+          width: _PlansLayout.planCardWidth,
           height: _PlansLayout.planCardHeight,
           decoration: BoxDecoration(
-            color: AppColors.surfaceWhite,
+            color: _PlansColors.glass,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: borderColor),
+            border: Border.all(
+              color: selected ? _PlansColors.selectedBorder : _PlansColors.glassBorder,
+            ),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x1A000000),
@@ -354,34 +519,17 @@ class _PlanOptionCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             excludeFromSemantics: true,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          fontFamily: AppTypography.fontFamily,
-                          fontSize: 14,
-                          height: 20 / 14,
-                          fontWeight: FontWeight.w400,
-                          color: _PlansColors.indigo800,
-                        ),
-                      ),
+                      _PlanTextLine(text: label, style: _PlansTextStyles.planLabel),
                       const SizedBox(height: 4),
-                      Text(
-                        price,
-                        style: const TextStyle(
-                          fontFamily: AppTypography.fontFamily,
-                          fontSize: 16,
-                          height: 20 / 16,
-                          fontWeight: FontWeight.w600,
-                          color: _PlansColors.indigo800,
-                        ),
-                      ),
+                      _PlanTextLine(text: price, style: _PlansTextStyles.planPrice),
                     ],
                   ),
                   _PlanRadio(selected: selected),
@@ -395,6 +543,30 @@ class _PlanOptionCard extends StatelessWidget {
   }
 }
 
+class _PlanTextLine extends StatelessWidget {
+  const _PlanTextLine({required this.text, required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _PlansLayout.planTextWidth,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          text,
+          maxLines: 1,
+          softWrap: false,
+          style: style,
+        ),
+      ),
+    );
+  }
+}
+
 class _PlanRadio extends StatelessWidget {
   const _PlanRadio({required this.selected});
 
@@ -402,17 +574,29 @@ class _PlanRadio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOut,
-      width: 20,
-      height: 20,
-      decoration: BoxDecoration(
-        color: selected ? AppColors.blue500 : AppColors.transparent,
+    if (!selected) {
+      return Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: _PlansColors.glassBorder, width: 2),
+        ),
+      );
+    }
+
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: const BoxDecoration(
+        color: AppColors.textOnPrimary,
         shape: BoxShape.circle,
-        border: selected
-            ? null
-            : Border.all(color: AppColors.gray600, width: 2),
+      ),
+      child: const Icon(
+        Icons.check_rounded,
+        color: AppColors.blue500,
+        size: 18,
+        applyTextScaling: false,
       ),
     );
   }
@@ -425,30 +609,19 @@ class _PromoCodeAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Semantics(
-        button: true,
-        child: InkWell(
-          key: const ValueKey('membershipPromoCodeButton'),
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(22),
-          child: const SizedBox(
-            height: _PlansLayout.minimumTouchTarget,
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Center(
-                child: Text(
-                  'Have a promo code?',
-                  key: ValueKey('membershipPromoCodeText'),
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontFamily,
-                    fontSize: 14,
-                    height: 20 / 14,
-                    fontWeight: FontWeight.w600,
-                    color: _PlansColors.indigo800,
-                  ),
-                ),
-              ),
+    return Semantics(
+      button: true,
+      child: InkWell(
+        key: const ValueKey('membershipPromoCodeButton'),
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(22),
+        child: const SizedBox(
+          height: _PlansLayout.minimumTouchTarget,
+          child: Center(
+            child: Text(
+              'Have a promo code?',
+              key: ValueKey('membershipPromoCodeText'),
+              style: _PlansTextStyles.promo,
             ),
           ),
         ),
@@ -457,15 +630,15 @@ class _PromoCodeAction extends StatelessWidget {
   }
 }
 
-class _ContinueButton extends StatelessWidget {
-  const _ContinueButton({required this.plan, required this.onPressed});
+class _SubscribeButton extends StatelessWidget {
+  const _SubscribeButton({required this.plan, required this.onPressed});
 
   final MembershipPlan plan;
   final VoidCallback onPressed;
 
   String get _label => switch (plan) {
-    MembershipPlan.monthly => 'Continue with Monthly',
-    MembershipPlan.annual => 'Continue with Annually',
+    MembershipPlan.monthly => 'Subscribe Monthly',
+    MembershipPlan.annual => 'Subscribe Yearly',
   };
 
   @override
@@ -477,19 +650,17 @@ class _ContinueButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Ink(
-          height: _PlansLayout.continueHeight,
+          width: _PlansLayout.ctaWidth,
+          height: _PlansLayout.ctaHeight,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.blue500, AppColors.blue400, AppColors.blue500],
-              stops: [0, 0.51442, 1],
-            ),
+            color: _PlansColors.glass,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.blue600),
+            border: Border.all(color: _PlansColors.glassBorder),
             boxShadow: const [
               BoxShadow(
-                color: AppColors.blue700,
+                color: Color(0x2E000000),
                 offset: Offset(0, 2),
-                blurRadius: 2,
+                blurRadius: 8,
               ),
             ],
           ),
@@ -497,16 +668,7 @@ class _ContinueButton extends StatelessWidget {
             onTap: onPressed,
             borderRadius: BorderRadius.circular(24),
             child: Center(
-              child: Text(
-                _label,
-                style: const TextStyle(
-                  fontFamily: AppTypography.fontFamily,
-                  fontSize: 16,
-                  height: 20 / 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.surfaceWhite,
-                ),
-              ),
+              child: Text(_label, style: _PlansTextStyles.cta),
             ),
           ),
         ),
@@ -520,34 +682,34 @@ class _TrustIndicators extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      key: const ValueKey('membershipTrustIndicators'),
+    return const SizedBox(
+      key: ValueKey('membershipTrustIndicators'),
       height: _PlansLayout.trustHeight,
       child: Center(
         child: SizedBox(
           width: _PlansLayout.trustWidth,
           height: _PlansLayout.trustHeight,
-          child: const FittedBox(
+          child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _TrustIndicator(
-                  iconAsset: 'assets/icons/membership/secure_payment.svg',
+                  iconAsset: 'assets/icons/membership/secure.svg',
                   iconWidth: 10.5,
                   iconHeight: 14,
                   label: 'Secure Payment',
                 ),
                 SizedBox(width: 24),
                 _TrustIndicator(
-                  iconAsset: 'assets/icons/membership/cancel_anytime.svg',
+                  iconAsset: 'assets/icons/membership/cancel.svg',
                   iconWidth: 13.417,
                   iconHeight: 14,
                   label: 'Cancel anytime',
                 ),
                 SizedBox(width: 24),
                 _TrustIndicator(
-                  iconAsset: 'assets/icons/membership/family_friendly.svg',
+                  iconAsset: 'assets/icons/membership/family.svg',
                   iconWidth: 13.089,
                   iconHeight: 11.941,
                   iconGap: 4.333,
@@ -589,7 +751,15 @@ class _TrustIndicator extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SvgPicture.asset(iconAsset, width: iconWidth, height: iconHeight),
+        SvgPicture.asset(
+          iconAsset,
+          width: iconWidth,
+          height: iconHeight,
+          colorFilter: const ColorFilter.mode(
+            AppColors.textOnPrimary,
+            BlendMode.srcIn,
+          ),
+        ),
         SizedBox(width: iconGap),
         Text(
           label,
@@ -600,7 +770,7 @@ class _TrustIndicator extends StatelessWidget {
             fontSize: fontSize,
             height: lineHeight / fontSize,
             fontWeight: FontWeight.w400,
-            color: _PlansColors.indigo800,
+            color: _PlansColors.textSecondaryOpacity,
           ),
         ),
       ],
@@ -609,40 +779,123 @@ class _TrustIndicator extends StatelessWidget {
 }
 
 abstract final class _PlansLayout {
-  static const maxContentWidth = 600.0;
-  static const minimumCanvasHeight = 817.0;
+  static const designWidth = 390.0;
+  static const designHeight = 868.0;
   static const headerHeight = 56.0;
-  static const introTop = 63.0;
 
-  static const heroTop = 135.0;
-  static const heroWidth = 209.567;
-  static const heroHeight = 176.0;
-  static const heroCenterOffset = 1.7835;
-  static const heroRadius = 14.515;
+  static const sideArtworkLeft = -136.25;
+  static const sideArtworkTop = -40.47;
+  static const sideArtworkWidth = 375.004;
+  static const sideArtworkHeight = 318.124;
 
-  static const benefitsTop = 327.0;
+  static const heroGroupTop = 98.0;
+  static const mascotWidth = 116.614;
+  static const mascotHeight = 152.0;
 
-  static const planHorizontalMargin = 20.0;
-  static const planCenterOffset = 2.0;
-  static const planCardHeight = 70.0;
-  static const monthlyTop = 485.0;
-  static const annualTop = 571.0;
+  static const benefitsTop = 415.0;
+  static const benefitCardWidth = 100.0;
+  static const benefitGap = 16.0;
 
-  static const minimumPromoTextTop = 663.0;
-  static const promoTouchVerticalInset = 12.0;
-  static const promoToContinueOffset = 67.0;
+  static const planSelectorTop = 597.0;
+  static const planSelectorLeft = 15.0;
+  static const planSelectorWidth = 354.0;
+  static const planCardWidth = 171.0;
+  static const planCardHeight = 68.0;
+  static const planTextWidth = 93.0;
   static const minimumTouchTarget = 44.0;
 
-  static const continueHorizontalMargin = 20.0;
-  static const continueBottomOffset = 114.0;
-  static const continueHeight = 52.0;
-
-  static const trustBottomOffset = 43.0;
+  static const ctaLeft = 16.0;
+  static const ctaWidth = 358.0;
+  static const ctaHeight = 52.0;
+  static const ctaGap = 117.0;
+  static const trustGap = 45.0;
   static const trustWidth = 325.339;
   static const trustHeight = 14.0;
 }
 
 abstract final class _PlansColors {
-  static const background = AppColors.blue25;
-  static const indigo800 = Color(0xFF001033);
+  static const topBlue = Color(0xFF49A7F4);
+  static const midBlue = Color(0xFF2D86EA);
+  static const bottomBlue = Color(0xFF0F4E9B);
+  static const headerOverlay = Color(0xFF49A7F4);
+  static const glass = Color(0x2EFFFFFF);
+  static const glassBorder = Color(0x66FFFFFF);
+  static const selectedBorder = Color(0xFF99E1FA);
+  static const textSecondaryOpacity = Color(0xD9FFFFFF);
+}
+
+abstract final class _PlansTextStyles {
+  static const badge = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 16 / 14,
+    letterSpacing: 0.2,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const heroTitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 24,
+    height: 28 / 24,
+    letterSpacing: -0.25,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const heroSubtitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+    color: _PlansColors.textSecondaryOpacity,
+  );
+
+  static const benefitsHeading = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 18,
+    height: 20 / 18,
+    fontWeight: FontWeight.w700,
+    color: _PlansColors.textSecondaryOpacity,
+  );
+
+  static const benefitLabel = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 12,
+    height: 16 / 12,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const planLabel = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const planPrice = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 16,
+    height: 20 / 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const promo = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const cta = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 16,
+    height: 20 / 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textOnPrimary,
+  );
 }
