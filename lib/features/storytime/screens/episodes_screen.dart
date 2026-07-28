@@ -13,6 +13,8 @@ typedef EpisodeAssetUrlBuilder = String Function(String bucket, String path);
 
 const _storyTitle = 'Shararati Krishna ke karname';
 const _storyAssetFolder = 'stories/kanha ki sunheri subah/images';
+const _storyPlayerImagePath =
+    'stories/kanha aur makhan/images/story_player_img.webp';
 const _bannerPath = 'featured_banners/kanha ki sunheri subah.webp';
 const _baseWidth = 390.0;
 
@@ -51,11 +53,7 @@ class EpisodesScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF69BCF6),
-              Color(0xFF2D86EA),
-              Color(0xFF0F3F88),
-            ],
+            colors: [Color(0xFF69BCF6), Color(0xFF2D86EA), Color(0xFF0F3F88)],
             stops: [0, 0.52, 1],
           ),
         ),
@@ -124,6 +122,8 @@ class EpisodesScreen extends StatelessWidget {
         builder: (context) => StoryPlayerScreen(
           storyId: StoryRepository.morningWhispersStoryId,
           title: episode.title,
+          openDirectly: true,
+          playerImageUrl: _assetUrl('story-assets', _storyPlayerImagePath),
           story: StoryModel(
             id: StoryRepository.morningWhispersStoryId,
             title: episode.title,
