@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:page_flip/page_flip.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/theme/app_border_radius.dart';
 import '../../../shared/theme/app_colors.dart';
@@ -34,12 +35,22 @@ const bool _storyPageFlipEnabled = bool.fromEnvironment(
   defaultValue: true,
 );
 
+const _episodePlayerImagePath =
+    'stories/kanha aur makhan/images/story_player_img.webp';
+const _episodePlayerHorizontalPadding = 16.0;
+const _episodePlayerImageHeight = 636.0;
+const _episodePlayerGap = 22.0;
+const _episodeControlsHeight = 76.0;
+const _episodeHeaderHeight = 56.0;
+
 class StoryPlayerScreen extends ConsumerStatefulWidget {
   const StoryPlayerScreen({
     this.storyId = StoryRepository.morningWhispersStoryId,
     this.title = 'Kanha Ki Sunheri Subah',
     this.story,
     this.initialPages = const [],
+    this.openDirectly = false,
+    this.playerImageUrl,
     super.key,
   });
 
@@ -47,6 +58,8 @@ class StoryPlayerScreen extends ConsumerStatefulWidget {
   final String title;
   final StoryModel? story;
   final List<StoryPage> initialPages;
+  final bool openDirectly;
+  final String? playerImageUrl;
 
   @override
   ConsumerState<StoryPlayerScreen> createState() => _StoryPlayerScreenState();
@@ -225,6 +238,15 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       }
     });
 
+    if (widget.openDirectly) {
+      return _EpisodeStoryPlayerScaffold(
+        storyId: widget.storyId,
+        imageUrl: widget.playerImageUrl ?? _defaultEpisodePlayerImageUrl(),
+        onBack: _exitStory,
+        onToggleFavorite: ref.read(provider.notifier).toggleFavorite,
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.blue25,
       body: Column(
@@ -327,6 +349,12 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
         ),
       ),
     );
+  }
+
+  String _defaultEpisodePlayerImageUrl() {
+    return Supabase.instance.client.storage
+        .from('story-assets')
+        .getPublicUrl(_episodePlayerImagePath);
   }
 
   Future<void> _startStory() async {
@@ -1083,6 +1111,437 @@ bool _sameStoryPages(List<StoryPage> left, List<StoryPage> right) {
     }
   }
   return true;
+}
+
+class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
+  const _EpisodeStoryPlayerScaffold({
+    required this.storyId,
+    required this.imageUrl,
+    required this.onBack,
+    required this.onToggleFavorite,
+  });
+
+  final String storyId;
+  final String imageUrl;
+  final VoidCallback onBack;
+  final VoidCallback onToggleFavorite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = storyPlayerProvider(storyId);
+    final state = ref.watch(
+      provider.select(
+        (state) => (
+          isPlaying: state.isPlaying,
+          isFavorite: state.isFavorite,
+          audioPosition: state.audioPosition,
+          audioDuration: state.audioDuration,
+          isEnabled: state.pages.isNotEmpty && state.errorMessage == null,
+        ),
+      ),
+    );
+    final notifier = ref.read(provider.notifier);
+
+    return Scaffold(
+      backgroundColor: AppColors.blue500,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF69BCF6), Color(0xFF2D86EA), Color(0xFF0F3F88)],
+            stops: [0, 0.52, 1],
+          ),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const playerBlockHeight =
+                _episodePlayerImageHeight +
+                _episodePlayerGap +
+                _episodeControlsHeight;
+            final playerWidth =
+                (constraints.maxWidth - _episodePlayerHorizontalPadding * 2)
+                    .clamp(0.0, constraints.maxWidth);
+            const playerLeft = _episodePlayerHorizontalPadding;
+            final playerTop = (constraints.maxHeight - playerBlockHeight) / 2;
+            final safeTop = MediaQuery.paddingOf(context).top;
+            final headerTop = (playerTop - _episodeHeaderHeight).clamp(
+              safeTop,
+              constraints.maxHeight - _episodeHeaderHeight,
+            );
+
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned(
+                  left: playerLeft,
+                  top: playerTop,
+                  width: playerWidth,
+                  height: playerBlockHeight,
+                  child: Column(
+                    children: [
+                      _EpisodeStoryImage(
+                        imageUrl: imageUrl,
+                        width: playerWidth,
+                      ),
+                      const SizedBox(height: _episodePlayerGap),
+                      _EpisodePlayerControls(
+                        width: playerWidth,
+                        isPlaying: state.isPlaying,
+                        isEnabled: state.isEnabled,
+                        position: state.audioPosition,
+                        duration: state.audioDuration,
+                        onSeek: notifier.seekTo,
+                        onBackward: () =>
+                            notifier.seekBy(const Duration(seconds: -10)),
+                        onTogglePlayback: () {
+                          state.isPlaying ? notifier.pause() : notifier.play();
+                        },
+                        onForward: () =>
+                            notifier.seekBy(const Duration(seconds: 10)),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  left: playerLeft,
+                  top: headerTop,
+                  width: playerWidth,
+                  height: _episodeHeaderHeight,
+                  child: _EpisodePlayerHeader(
+                    isFavorite: state.isFavorite,
+                    onBack: onBack,
+                    onToggleFavorite: onToggleFavorite,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _EpisodePlayerHeader extends StatelessWidget {
+  const _EpisodePlayerHeader({
+    required this.isFavorite,
+    required this.onBack,
+    required this.onToggleFavorite,
+  });
+
+  final bool isFavorite;
+  final VoidCallback onBack;
+  final VoidCallback onToggleFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Semantics(
+              button: true,
+              label: 'Back',
+              child: InkResponse(
+                onTap: onBack,
+                radius: 24,
+                child: const SizedBox.square(
+                  dimension: 24,
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    color: AppColors.textOnPrimary,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+            _EpisodeGlassIconButton(
+              size: 28,
+              iconSize: 15.273,
+              semanticLabel: isFavorite
+                  ? 'Remove from favorites'
+                  : 'Add to favorites',
+              onPressed: onToggleFavorite,
+              asset: 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EpisodeStoryImage extends StatelessWidget {
+  const _EpisodeStoryImage({required this.imageUrl, required this.width});
+
+  final String imageUrl;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: _episodePlayerImageHeight,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: StoryImageView(
+              key: ValueKey(imageUrl),
+              imageUrl: imageUrl,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+          ),
+          IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: AppColors.borderStrong),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EpisodePlayerControls extends StatelessWidget {
+  const _EpisodePlayerControls({
+    required this.width,
+    required this.isPlaying,
+    required this.isEnabled,
+    required this.position,
+    required this.duration,
+    required this.onSeek,
+    required this.onBackward,
+    required this.onTogglePlayback,
+    required this.onForward,
+  });
+
+  final double width;
+  final bool isPlaying;
+  final bool isEnabled;
+  final Duration position;
+  final Duration duration;
+  final ValueChanged<Duration> onSeek;
+  final VoidCallback onBackward;
+  final VoidCallback onTogglePlayback;
+  final VoidCallback onForward;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: _episodeControlsHeight,
+      child: Column(
+        children: [
+          _EpisodeTimeline(
+            position: position,
+            duration: duration,
+            onSeek: onSeek,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _EpisodeGlassIconButton(
+                size: 28,
+                iconSize: 15.273,
+                semanticLabel: 'Backward',
+                onPressed: isEnabled ? onBackward : null,
+                asset:
+                    'assets/icons/new_boopi/State=Default, Icon=Backward.svg',
+              ),
+              const SizedBox(width: 28),
+              _EpisodeGlassIconButton(
+                size: 44,
+                iconSize: 24,
+                semanticLabel: isPlaying ? 'Pause story' : 'Play story',
+                onPressed: isEnabled ? onTogglePlayback : null,
+                asset: isPlaying
+                    ? 'assets/icons/new_boopi/State=Default, Icon=Pause Circle.svg'
+                    : 'assets/icons/new_boopi/State=Default, Icon=Play.svg',
+              ),
+              const SizedBox(width: 28),
+              _EpisodeGlassIconButton(
+                size: 28,
+                iconSize: 15.273,
+                semanticLabel: 'Forward',
+                onPressed: isEnabled ? onForward : null,
+                asset: 'assets/icons/new_boopi/State=Default, Icon=Forward.svg',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EpisodeTimeline extends StatelessWidget {
+  const _EpisodeTimeline({
+    required this.position,
+    required this.duration,
+    required this.onSeek,
+  });
+
+  final Duration position;
+  final Duration duration;
+  final ValueChanged<Duration> onSeek;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = duration.inMilliseconds <= 0
+        ? 0.0
+        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+
+    return SizedBox(
+      height: 16,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          SizedBox(
+            width: 35,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(_formatDuration(position), style: _timelineTextStyle),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Semantics(
+                  slider: true,
+                  label: 'Story progress',
+                  value: '${(progress * 100).round()} percent',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) {
+                      if (duration <= Duration.zero ||
+                          constraints.maxWidth == 0) {
+                        return;
+                      }
+                      final fraction =
+                          (details.localPosition.dx / constraints.maxWidth)
+                              .clamp(0.0, 1.0);
+                      onSeek(
+                        Duration(
+                          milliseconds: (duration.inMilliseconds * fraction)
+                              .round(),
+                        ),
+                      );
+                    },
+                    child: SizedBox(
+                      height: 16,
+                      child: Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(200),
+                          child: LinearProgressIndicator(
+                            minHeight: 6,
+                            value: progress,
+                            backgroundColor: AppColors.backgroundGlass,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppColors.textOnPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 9),
+          SizedBox(
+            width: 35,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(_formatDuration(duration), style: _timelineTextStyle),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static const _timelineTextStyle = TextStyle(
+    fontFamily: 'Roboto',
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textOnPrimary,
+  );
+
+  String _formatDuration(Duration value) {
+    final safeSeconds = value.inSeconds < 0 ? 0 : value.inSeconds;
+    final minutes = safeSeconds ~/ 60;
+    final seconds = safeSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+}
+
+class _EpisodeGlassIconButton extends StatelessWidget {
+  const _EpisodeGlassIconButton({
+    required this.size,
+    required this.iconSize,
+    required this.semanticLabel,
+    required this.onPressed,
+    required this.asset,
+  });
+
+  final double size;
+  final double iconSize;
+  final String semanticLabel;
+  final VoidCallback? onPressed;
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: semanticLabel,
+      child: InkResponse(
+        onTap: onPressed,
+        radius: size / 2,
+        child: AnimatedOpacity(
+          opacity: enabled ? 1 : 0.55,
+          duration: const Duration(milliseconds: 160),
+          child: Container(
+            width: size,
+            height: size,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.glassBackground,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.borderLight),
+            ),
+            child: SvgPicture.asset(
+              asset,
+              width: iconSize,
+              height: iconSize,
+              colorFilter: const ColorFilter.mode(
+                AppColors.textOnPrimary,
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _StoryFeedHeader extends StatelessWidget {

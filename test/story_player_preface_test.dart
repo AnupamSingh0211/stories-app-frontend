@@ -73,6 +73,57 @@ void main() {
     expect(notifier.state.isPlaying, isFalse);
   });
 
+  testWidgets('direct episode player matches fixed Figma layout', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(453, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          storyPlayerProvider.overrideWith((ref, storyId) => notifier),
+        ],
+        child: const MaterialApp(
+          home: StoryPlayerScreen(
+            storyId: '',
+            title: 'Test Story',
+            story: story,
+            openDirectly: true,
+            playerImageUrl:
+                'https://example.test/story-assets/stories/kanha aur makhan/images/story_player_img.webp',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final imageView = tester.widget<StoryImageView>(
+      find.byType(StoryImageView),
+    );
+    expect(
+      imageView.imageUrl,
+      'https://example.test/story-assets/stories/kanha aur makhan/images/story_player_img.webp',
+    );
+
+    final imageRect = tester.getRect(find.byType(StoryImageView));
+    final progressRect = tester.getRect(
+      find.bySemanticsLabel('Story progress'),
+    );
+    final backRect = tester.getRect(find.bySemanticsLabel('Back'));
+    expect(imageRect.size, const Size(421, 636));
+    expect(imageRect.left, 16);
+    expect(453 - imageRect.right, 16);
+    expect(progressRect.top - imageRect.bottom, 22);
+    expect(backRect.left, imageRect.left + 16);
+    expect(backRect.bottom, lessThanOrEqualTo(imageRect.top));
+    expect(find.text('Test Story'), findsNothing);
+    expect(find.text('Text'), findsNothing);
+    expect(find.byType(AppPrimaryBottomNavigation), findsNothing);
+  });
+
   testWidgets('Play Now vertically activates the first story page', (
     tester,
   ) async {
