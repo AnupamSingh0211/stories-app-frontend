@@ -5,12 +5,14 @@ import '../theme/app_colors.dart';
 
 class CustomSearchBar extends StatelessWidget {
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final String hintText;
   final ValueChanged<String>? onChanged;
 
   const CustomSearchBar({
     super.key,
     this.controller,
+    this.focusNode,
     this.hintText = 'Search stories, characters, type',
     this.onChanged,
   });
@@ -44,6 +46,7 @@ class CustomSearchBar extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: focusNode,
               onChanged: onChanged,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(

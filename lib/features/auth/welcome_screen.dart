@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
@@ -34,13 +35,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   static const _mascotHeight = 421.0;
   static const _keyboardMascotWidth = 178.0;
   static const _keyboardMascotHeight = 267.0;
+  static const _controlBorderRadius = 24.0;
   static const _glassShadow = BoxShadow(
     color: Color(0x26000000),
     blurRadius: 4,
     offset: Offset(0, 2),
   );
   static const _buttonShadow = BoxShadow(
-    color: Color(0x2E000000),
+    color: Color(0x2D000000),
     blurRadius: 8,
     offset: Offset(0, 2),
   );
@@ -323,8 +325,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
         height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment(-0.574, -0.819),
+            end: Alignment(0.574, 0.819),
+            stops: [0.0618, 0.4562, 0.9382],
             colors: [Color(0xFF74C0F8), Color(0xFF2D86EA), Color(0xFF123F87)],
           ),
         ),
@@ -337,20 +340,26 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
               );
               final frameWidth = _figmaFrameWidth * scale;
               final frameHeight = _figmaFrameHeight * scale;
+              final isKeyboardVisible = mediaQuery.viewInsets.bottom > 0;
               final isMobileKeyboardOpen =
-                  !showOtpStep && _isMobileNumberFocused;
+                  !showOtpStep && _isMobileNumberFocused && isKeyboardVisible;
+              final isOtpKeyboardOpen =
+                  showOtpStep && _isOtpFocused && isKeyboardVisible;
               final preferredContentTop = showOtpStep
-                  ? _otpContentTop
+                  ? isOtpKeyboardOpen
+                        ? _otpContentTop
+                        : _contentTop
                   : isMobileKeyboardOpen
                   ? _keyboardContentTop
                   : _contentTop;
-              final mascotTop = showOtpStep || isMobileKeyboardOpen
+              final isCompactLayout = isMobileKeyboardOpen || isOtpKeyboardOpen;
+              final mascotTop = isCompactLayout
                   ? _keyboardMascotTop
                   : _mascotTop;
-              final mascotWidth = showOtpStep || isMobileKeyboardOpen
+              final mascotWidth = isCompactLayout
                   ? _keyboardMascotWidth
                   : _mascotWidth;
-              final mascotHeight = showOtpStep || isMobileKeyboardOpen
+              final mascotHeight = isCompactLayout
                   ? _keyboardMascotHeight
                   : _mascotHeight;
 
@@ -380,12 +389,16 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                                   top: mascotTop,
                                   width: mascotWidth,
                                   height: mascotHeight,
-                                  child: Image.network(
-                                    mascotUrl,
+                                  child: CachedNetworkImage(
+                                    imageUrl: mascotUrl,
                                     fit: BoxFit.contain,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            const SizedBox.shrink(),
+                                    fadeInDuration: Duration.zero,
+                                    fadeOutDuration: Duration.zero,
+                                    filterQuality: FilterQuality.medium,
+                                    placeholder: (context, url) =>
+                                        const SizedBox.expand(),
+                                    errorWidget: (context, url, error) =>
+                                        const SizedBox.shrink(),
                                   ),
                                 ),
                               AnimatedPositioned(
@@ -435,43 +448,56 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Mobile Number',
-          style: TextStyle(
-            fontFamily: AppTypography.fontFamily,
-            fontSize: 12,
-            height: 16 / 12,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textOnPrimary,
-            fontFeatures: [
-              FontFeature.disable('liga'),
-              FontFeature.disable('clig'),
-            ],
-          ),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Mobile Number',
+                style: TextStyle(
+                  fontFamily: AppTypography.fontFamily,
+                  fontSize: 12,
+                  height: 16 / 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textOnPrimary,
+                  fontFeatures: [
+                    FontFeature.disable('liga'),
+                    FontFeature.disable('clig'),
+                  ],
+                ),
+              ),
+            ),
+            if (_shouldShowMobileNumberError)
+              const Text(
+                'Invalid Number',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontFamily: AppTypography.fontFamily,
+                  fontSize: 12,
+                  height: 16 / 12,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFFFF3B30),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => _focusAndShowKeyboard(_mobileNumberFocusNode),
-          child: Container(
+          child: _GlassControl(
             height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.backgroundGlass,
-              borderRadius: BorderRadius.circular(28),
-              border: _shouldShowMobileNumberError
-                  ? Border.all(color: const Color(0xFFFF7765))
-                  : Border.all(color: AppColors.borderGlass),
-              boxShadow: const [_glassShadow],
-            ),
+            borderRadius: _controlBorderRadius,
+            shadow: _glassShadow,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            showErrorBorder: _shouldShowMobileNumberError,
             child: Row(
               children: [
-                const SizedBox(width: 16),
                 SvgPicture.asset(
                   'assets/icons/telephone_icon.svg',
                   width: 24,
                   height: 24,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Container(
                   width: 1,
                   height: 32,
@@ -520,7 +546,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                       isDense: true,
                       filled: false,
                       fillColor: Colors.transparent,
-                      contentPadding: EdgeInsets.symmetric(vertical: 20),
+                      contentPadding: EdgeInsets.zero,
                       errorStyle: TextStyle(
                         height: 0,
                         color: Colors.transparent,
@@ -530,23 +556,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                     onFieldSubmitted: (_) => _continueWithMobileNumber(),
                   ),
                 ),
-                const SizedBox(width: 16),
               ],
             ),
           ),
         ),
-        if (_shouldShowMobileNumberError) ...[
-          const SizedBox(height: 4),
-          const Text(
-            'Invalid Number',
-            style: TextStyle(
-              fontFamily: AppTypography.fontFamily,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFFFF3B30),
-            ),
-          ),
-        ],
         const SizedBox(height: 24),
         GestureDetector(
           key: const Key('mobile-continue-button'),
@@ -554,16 +567,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
               ? _continueWithMobileNumber
               : null,
           behavior: HitTestBehavior.opaque,
-          child: Container(
+          child: _GlassControl(
             height: 52,
-            alignment: Alignment.center,
+            borderRadius: _controlBorderRadius,
+            shadow: _buttonShadow,
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.backgroundGlass,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: AppColors.borderGlass),
-              boxShadow: const [_buttonShadow],
-            ),
             child: Text(
               _isRequestingOtp ? 'Sending...' : 'Send OTP',
               style: TextStyle(
@@ -742,6 +750,46 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 }
 
+class _GlassControl extends StatelessWidget {
+  const _GlassControl({
+    required this.height,
+    required this.borderRadius,
+    required this.shadow,
+    required this.child,
+    this.padding,
+    this.showErrorBorder = false,
+  });
+
+  final double height;
+  final double borderRadius;
+  final BoxShadow shadow;
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final bool showErrorBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(borderRadius);
+
+    return Container(
+      height: height,
+      alignment: Alignment.center,
+      padding: padding,
+      decoration: ShapeDecoration(
+        color: AppColors.backgroundGlass,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: showErrorBorder
+              ? const BorderSide(color: Color(0xFFFF7765))
+              : const BorderSide(color: AppColors.borderLight, width: 1),
+        ),
+        shadows: [shadow],
+      ),
+      child: child,
+    );
+  }
+}
+
 class _OtpTitleBlock extends StatelessWidget {
   const _OtpTitleBlock({
     required this.mobileNumber,
@@ -847,7 +895,7 @@ class _WelcomeTitleBlock extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Bedtime Stories',
+          'Boopi',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: AppTypography.fontFamily,
@@ -866,7 +914,7 @@ class _WelcomeTitleBlock extends StatelessWidget {
         const SizedBox(
           width: 299,
           child: Text(
-            'Safe, magical stories that kids love\nand parents trust.',
+            'Where every story ends in sweet dreams.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTypography.fontFamily,

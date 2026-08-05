@@ -14,6 +14,10 @@ final storytimeContentProvider = FutureProvider<StorytimeContent>((ref) {
   return ref.watch(storyRepositoryProvider).fetchStorytimeContent();
 });
 
+final cmsEpisodeStoriesProvider = FutureProvider<List<StoryModel>>((ref) {
+  return ref.watch(storyRepositoryProvider).fetchStoriesWithEpisodes();
+});
+
 final storyPlayerProvider = StateNotifierProvider.autoDispose
     .family<StoryPlayerNotifier, StoryPlayerState, String>((ref, storyId) {
       final continueEntry = ref.read(continueListeningProvider);

@@ -20,7 +20,8 @@ class StoryRepository {
   static const arrivalNewsStoryId = '22222222-2222-4222-8222-222222222222';
   static const _storyAssetsBucket = 'story-assets';
   static const _storyColumns =
-      'id, title, category_id, thumbnail_url, duration_seconds, is_featured';
+      'id, title, category_id, thumbnail_url, cover_url, duration_seconds, '
+      'is_featured, created_at';
   static final StoryPageMemoryCache _storyPageCache = StoryPageMemoryCache();
   static final StorytimeContentMemoryCache _storytimeContentCache =
       StorytimeContentMemoryCache();
@@ -52,6 +53,49 @@ class StoryRepository {
 
   void invalidateStorytimeContentCache() {
     _storytimeContentCache.clear();
+  }
+
+  Future<List<StoryModel>> fetchStoriesWithEpisodes() async {
+    final client = SupabaseClientProvider.client;
+
+    try {
+      final episodeRows = await _trackedSupabaseRequest(
+        'episodes.select_story_ids',
+        () async => client
+            .from('episodes')
+            .select('story_id')
+            .order('episode_number', ascending: true),
+      );
+      final storyIds = _mapRows(episodeRows)
+          .map((row) => row['story_id']?.toString())
+          .whereType<String>()
+          .where((id) => id.trim().isNotEmpty)
+          .where(
+            (id) => id != morningWhispersStoryId && id != arrivalNewsStoryId,
+          )
+          .toSet()
+          .toList(growable: false);
+
+      if (storyIds.isEmpty) {
+        return const [];
+      }
+
+      final storyRows = await _trackedSupabaseRequest(
+        'stories.select_episode_stories',
+        () async => client
+            .from('stories')
+            .select(_storyColumns)
+            .inFilter('id', storyIds)
+            .order('created_at', ascending: true),
+      );
+
+      return _storyModelsFromRows(client, _mapRows(storyRows));
+    } catch (error) {
+      debugPrint('StoryRepository: episode story query failed. $error');
+      throw const StoryRepositoryException(
+        'CMS stories could not be loaded from the database.',
+      );
+    }
   }
 
   Future<StorytimeContent> _loadStorytimeContent() async {
@@ -207,9 +251,7 @@ class StoryRepository {
 
     try {
       final client = SupabaseClientProvider.client;
-      final storyAssets = client.storage.from(_storyAssetsBucket);
-      final pageRows = await _fetchDatabaseStoryPages(client, storyId);
-      final pages = _storyPagesFromRows(pageRows, storyAssets);
+      final pages = await _fetchPlayableStoryPages(client, storyId);
 
       if (pages.isEmpty) {
         throw const StoryRepositoryException(
@@ -238,6 +280,28 @@ class StoryRepository {
     }
   }
 
+  Future<List<StoryPage>> _fetchPlayableStoryPages(
+    SupabaseClient client,
+    String storyId,
+  ) async {
+    final storyAssets = client.storage.from(_storyAssetsBucket);
+
+    try {
+      final pageRows = await _fetchDatabaseStoryPages(client, storyId);
+      final pages = _storyPagesFromRows(pageRows, storyAssets);
+      if (pages.isNotEmpty) {
+        return pages;
+      }
+    } catch (error) {
+      debugPrint(
+        'StoryRepository: story_pages unavailable for $storyId. $error',
+      );
+    }
+
+    final episodeRows = await _fetchDatabaseEpisodes(client, storyId);
+    return _storyPagesFromEpisodeRows(episodeRows, storyAssets);
+  }
+
   Future<dynamic> _fetchDatabaseStoryPages(
     SupabaseClient client,
     String storyId,
@@ -249,6 +313,23 @@ class StoryRepository {
           .select('id, story_id, page_number, hindi_text, image_url, audio_url')
           .eq('story_id', storyId)
           .order('page_number', ascending: true),
+    );
+  }
+
+  Future<dynamic> _fetchDatabaseEpisodes(
+    SupabaseClient client,
+    String storyId,
+  ) {
+    return _trackedSupabaseRequest(
+      'episodes.select',
+      () async => client
+          .from('episodes')
+          .select(
+            'id, story_id, episode_number, title, hindi_script, '
+            'english_script, image_url, audio_url, duration_seconds',
+          )
+          .eq('story_id', storyId)
+          .order('episode_number', ascending: true),
     );
   }
 
@@ -549,6 +630,30 @@ class StoryRepository {
     return List.unmodifiable(pages);
   }
 
+  StoryPage _storyPageFromEpisodeMap(
+    Map<String, dynamic> row,
+    StorageFileApi storage,
+  ) {
+    final episodeNumber = _intValue(row['episode_number']);
+    return StoryPage(
+      pageNumber: episodeNumber,
+      imageUrl: _assetUrl(storage, _firstString(row, ['image_url'])),
+      audioUrl: _assetUrl(storage, _firstString(row, ['audio_url'])),
+      text: _firstString(row, ['hindi_script', 'english_script', 'title']),
+    );
+  }
+
+  List<StoryPage> _storyPagesFromEpisodeRows(
+    Object? rows,
+    StorageFileApi storage,
+  ) {
+    final pages = _mapRows(
+      rows,
+    ).map((row) => _storyPageFromEpisodeMap(row, storage)).toList();
+    pages.sort((left, right) => left.pageNumber.compareTo(right.pageNumber));
+    return List.unmodifiable(pages);
+  }
+
   StorySectionModel _sectionFromMap(
     Map<String, dynamic> row,
     Map<String, String> categoryNames,
@@ -589,6 +694,8 @@ class StoryRepository {
       durationMinutes: durationSeconds <= 0
           ? 0
           : (durationSeconds / Duration.secondsPerMinute).ceil(),
+      imageUrl: _assetUrl(storage, _firstString(row, ['cover_url'])),
+      coverUrl: _assetUrl(storage, _firstString(row, ['cover_url'])),
     );
   }
 

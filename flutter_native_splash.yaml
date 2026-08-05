@@ -1,8 +1,8 @@
 flutter_native_splash:
   color: "#0F1425"
   color_dark: "#0F1425"
-  image: assets/splash/native_splash_img.png
-  image_dark: assets/splash/native_splash_img.png
+  image: assets/splash/splash_screen_img.png
+  image_dark: assets/splash/splash_screen_img.png
   android_gravity: center
   ios_content_mode: scaleAspectFit
   web_image_mode: contain
@@ -11,5 +11,5 @@ flutter_native_splash:
   android_12:
     color: "#0F1425"
     color_dark: "#0F1425"
-    image: assets/splash/native_splash_img.png
-    image_dark: assets/splash/native_splash_img.png
+    image: assets/splash/splash_screen_img.png
+    image_dark: assets/splash/splash_screen_img.png

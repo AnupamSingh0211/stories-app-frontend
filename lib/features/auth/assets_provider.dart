@@ -6,8 +6,6 @@ part 'assets_provider.g.dart';
 const profileSetupIconAsset = 'assets/icons/profile_icon.webp';
 const membershipHeroImageAsset =
     'assets/images/membership/membership-img-png.png';
-const membershipSideFrameAsset =
-    'assets/images/membership/membership-side-png.png';
 
 @Riverpod(keepAlive: true)
 Map<String, String> appAssets(AppAssetsRef ref) {

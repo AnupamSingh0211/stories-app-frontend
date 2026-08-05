@@ -6,8 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
-import '../auth/assets_provider.dart';
 import 'membership_plans_screen.dart';
+import 'membership_side_banner.dart';
 
 class MembershipScreen extends StatelessWidget {
   const MembershipScreen({super.key, this.onUnlock, this.onSeeAllPlans});
@@ -193,14 +193,7 @@ class _HeroArtwork extends StatelessWidget {
         Positioned(
           left: _MembershipLayout.sideArtworkLeft,
           top: _MembershipLayout.sideArtworkTop,
-          child: Image.asset(
-            membershipSideFrameAsset,
-            width: _MembershipLayout.sideArtworkWidth,
-            height: _MembershipLayout.sideArtworkHeight,
-            fit: BoxFit.contain,
-            alignment: Alignment.topLeft,
-            filterQuality: FilterQuality.high,
-          ),
+          child: const MembershipSideBanner(),
         ),
         Positioned(
           left: _MembershipLayout.mascotLeft,
@@ -461,10 +454,8 @@ abstract final class _MembershipLayout {
   static const designHeight = 868.0;
   static const headerHeight = 56.0;
 
-  static const sideArtworkLeft = -136.25;
-  static const sideArtworkTop = -40.47;
-  static const sideArtworkWidth = 375.004;
-  static const sideArtworkHeight = 318.124;
+  static const sideArtworkLeft = -71.0;
+  static const sideArtworkTop = 154.0;
 
   static const mascotLeft = 136.0;
   static const mascotTop = 98.0;

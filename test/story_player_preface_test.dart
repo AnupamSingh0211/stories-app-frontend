@@ -118,10 +118,58 @@ void main() {
     expect(453 - imageRect.right, 16);
     expect(progressRect.top - imageRect.bottom, 22);
     expect(backRect.left, imageRect.left + 16);
-    expect(backRect.bottom, lessThanOrEqualTo(imageRect.top));
+    expect(imageRect.top - backRect.bottom, 13);
     expect(find.text('Test Story'), findsNothing);
     expect(find.text('Text'), findsNothing);
     expect(find.byType(AppPrimaryBottomNavigation), findsNothing);
+  });
+
+  testWidgets('direct episode player keeps header gap on compact screens', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.padding = const FakeViewPadding(top: 24);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(() => tester.view.padding = FakeViewPadding.zero);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          storyPlayerProvider.overrideWith((ref, storyId) => notifier),
+        ],
+        child: const MaterialApp(
+          home: StoryPlayerScreen(
+            storyId: '',
+            title: 'Test Story',
+            story: story,
+            openDirectly: true,
+            playerImageUrl:
+                'https://example.test/story-assets/stories/kanha aur makhan/images/story_player_img.webp',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+
+    final imageRect = tester.getRect(find.byType(StoryImageView));
+    final progressRect = tester.getRect(
+      find.bySemanticsLabel('Story progress'),
+    );
+    final backRect = tester.getRect(find.bySemanticsLabel('Back'));
+    final favoriteRect = tester.getRect(
+      find.bySemanticsLabel('Add to favorites'),
+    );
+
+    expect(imageRect.top - backRect.bottom, 13);
+    expect(imageRect.top - favoriteRect.bottom, 13);
+    expect(imageRect.height, 636);
+    expect(progressRect.top - imageRect.bottom, 22);
+    expect(imageRect.top, greaterThan(backRect.bottom));
+    expect(progressRect.bottom, greaterThan(640));
   });
 
   testWidgets('Play Now vertically activates the first story page', (
@@ -394,7 +442,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('final-page completion preserves the existing save prompt', (
+  testWidgets('final-page completion does not show the old save prompt', (
     tester,
   ) async {
     notifier = _TestStoryPlayerNotifier(
@@ -414,8 +462,8 @@ void main() {
     notifier.simulateCompletion();
     await tester.pumpAndSettle();
 
-    expect(find.text('Story finished'), findsOneWidget);
-    expect(find.text('Keep this bedtime tale?'), findsOneWidget);
+    expect(find.text('Story finished'), findsNothing);
+    expect(find.text('Keep this bedtime tale?'), findsNothing);
     expect(find.text('Only page'), findsOneWidget);
   });
 

@@ -25,6 +25,8 @@ const _buttonShadowColor = Color(0x2E000000);
 const _surfaceShadowColor = Color(0x26000000);
 const _glowColor = Color(0x40FFFFFF);
 const _figmaWidth = 390.0;
+const _ageChipSize = 52.0;
+const _ageChipMinGap = 12.0;
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key, this.popOnSave = false});
@@ -482,18 +484,37 @@ class _AgeSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 60,
-      child: ListView.separated(
-        clipBehavior: Clip.none,
-        scrollDirection: Axis.horizontal,
-        physics: const ClampingScrollPhysics(),
-        itemCount: _ageOptions.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final age = _ageOptions[index];
-          return _AgeChip(
-            age: age,
-            isSelected: age == selectedAge,
-            onTap: () => onAgeChanged(age),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final fullVisibleChipCount =
+              ((constraints.maxWidth - _ageChipSize / 2 + _ageChipMinGap) /
+                      (_ageChipSize + _ageChipMinGap))
+                  .floor()
+                  .clamp(1, _ageOptions.length - 1);
+          final gap =
+              ((constraints.maxWidth -
+                          _ageChipSize / 2 -
+                          fullVisibleChipCount * _ageChipSize) /
+                      fullVisibleChipCount)
+                  .clamp(_ageChipMinGap, double.infinity)
+                  .toDouble();
+
+          return ListView.separated(
+            clipBehavior: Clip.hardEdge,
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            itemCount: _ageOptions.length,
+            separatorBuilder: (context, index) => SizedBox(width: gap),
+            itemBuilder: (context, index) {
+              final age = _ageOptions[index];
+              return Center(
+                child: _AgeChip(
+                  age: age,
+                  isSelected: age == selectedAge,
+                  onTap: () => onAgeChanged(age),
+                ),
+              );
+            },
           );
         },
       ),
@@ -520,13 +541,34 @@ class _AgeChip extends StatelessWidget {
       label: '$age',
       child: GestureDetector(
         onTap: onTap,
-        child: _GlassSurface(
+        child: AnimatedContainer(
           key: ValueKey('ageChip$age${isSelected ? 'Selected' : ''}'),
-          width: 52,
-          height: 52,
-          radius: isSelected ? 24 : 32,
-          selected: isSelected,
-          horizontalPadding: 0,
+          duration: const Duration(milliseconds: 160),
+          width: _ageChipSize,
+          height: _ageChipSize,
+          padding: const EdgeInsets.all(12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? _selectedColor : _glassColor,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _lightBorderColor,
+              width: isSelected ? 1 : 0.8,
+            ),
+            boxShadow: [
+              const BoxShadow(
+                color: _surfaceShadowColor,
+                offset: Offset(0, 2),
+                blurRadius: 4,
+              ),
+              if (isSelected)
+                const BoxShadow(
+                  color: _glowColor,
+                  blurRadius: 4,
+                  spreadRadius: 2,
+                ),
+            ],
+          ),
           child: Text(
             '$age',
             style: _ProfileSetupTextStyles.age.copyWith(

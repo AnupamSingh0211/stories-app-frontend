@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -7,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/supabase_config.dart';
 import 'core/theme.dart';
 import 'features/auth/auth_provider.dart';
+import 'features/auth/assets_provider.dart';
 import 'features/auth/choose_companion_screen.dart';
 import 'features/auth/companion_flow.dart';
 import 'features/auth/profile_notifier.dart';
@@ -52,6 +54,47 @@ class MyApp extends ConsumerWidget {
   }
 }
 
+class _AuthMascotPrecacheGate extends ConsumerStatefulWidget {
+  const _AuthMascotPrecacheGate({required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<_AuthMascotPrecacheGate> createState() =>
+      _AuthMascotPrecacheGateState();
+}
+
+class _AuthMascotPrecacheGateState
+    extends ConsumerState<_AuthMascotPrecacheGate> {
+  Future<void>? _precacheFuture;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final mascotUrl = ref.read(appAssetsProvider)['mascot_character'];
+    _precacheFuture ??= mascotUrl == null || mascotUrl.isEmpty
+        ? Future<void>.value()
+        : precacheImage(CachedNetworkImageProvider(mascotUrl), context)
+              .timeout(const Duration(seconds: 3), onTimeout: () {})
+              .catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _precacheFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done &&
+            !snapshot.hasError) {
+          return const _StartupScreen();
+        }
+
+        return widget.child;
+      },
+    );
+  }
+}
+
 class AppSessionGate extends ConsumerWidget {
   const AppSessionGate({required this.session, super.key});
 
@@ -61,10 +104,12 @@ class AppSessionGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return session.when(
       loading: () => const _StartupScreen(),
-      error: (error, stackTrace) => const WelcomeScreen(),
+      error: (error, stackTrace) => const _AuthMascotPrecacheGate(
+        child: WelcomeScreen(),
+      ),
       data: (currentSession) {
         if (currentSession == null) {
-          return const WelcomeScreen();
+          return const _AuthMascotPrecacheGate(child: WelcomeScreen());
         }
 
         final profiles = ref.watch(profileNotifierProvider);
