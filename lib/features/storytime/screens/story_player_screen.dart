@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:page_flip/page_flip.dart';
@@ -21,14 +22,12 @@ import '../models/story_model.dart';
 import '../models/story_page.dart';
 import '../notifiers/story_player_state.dart';
 import '../providers/continue_listening_provider.dart';
-import '../providers/saved_library_provider.dart';
 import '../providers/story_player_provider.dart';
 import '../repositories/story_repository.dart';
 import '../widgets/story_controls.dart';
 import '../widgets/story_image_cache_policy.dart';
 import '../widgets/story_image_view.dart';
 import '../widgets/story_player_content.dart';
-import 'storytime_screen.dart';
 
 const bool _storyPageFlipEnabled = bool.fromEnvironment(
   'STORY_PAGE_FLIP_ENABLED',
@@ -39,9 +38,24 @@ const _episodePlayerImagePath =
     'stories/kanha aur makhan/images/story_player_img.webp';
 const _episodePlayerHorizontalPadding = 16.0;
 const _episodePlayerImageHeight = 636.0;
+const _episodeHeaderImageGap = 13.0;
 const _episodePlayerGap = 22.0;
 const _episodeControlsHeight = 76.0;
 const _episodeHeaderHeight = 56.0;
+const _episodePlayerBackgroundGradient = LinearGradient(
+  begin: Alignment.topRight,
+  end: Alignment.bottomLeft,
+  colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
+  stops: [0.0618, 0.4562, 0.9382],
+);
+const _episodeSystemUiStyle = SystemUiOverlayStyle(
+  statusBarColor: Colors.transparent,
+  statusBarIconBrightness: Brightness.light,
+  systemNavigationBarColor: Colors.transparent,
+  systemNavigationBarIconBrightness: Brightness.light,
+  systemNavigationBarDividerColor: Colors.transparent,
+  systemNavigationBarContrastEnforced: false,
+);
 
 class StoryPlayerScreen extends ConsumerStatefulWidget {
   const StoryPlayerScreen({
@@ -72,7 +86,6 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
   final AudioPlayer _backgroundMusicPlayer = AudioPlayer();
   final GlobalKey<_StoryPageFlipViewState> _pageFlipViewKey = GlobalKey();
   late final PageController _feedController;
-  bool _hasShownSavePrompt = false;
   bool _hasLoadedBackgroundMusic = false;
   bool _pendingStoryStart = false;
   bool _isSynchronizingFeed = false;
@@ -81,6 +94,10 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.openDirectly) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setSystemUIOverlayStyle(_episodeSystemUiStyle);
+    }
     _feedController = PageController(viewportFraction: _feedViewportFraction);
     WidgetsBinding.instance.addObserver(this);
     if (widget.initialPages.isNotEmpty) {
@@ -136,22 +153,6 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
         ),
       ),
     );
-
-    ref.listen<bool>(provider.select((state) => state.isComplete), (
-      previous,
-      next,
-    ) {
-      if (!next) {
-        _hasShownSavePrompt = false;
-        return;
-      }
-
-      if (!_hasShownSavePrompt) {
-        _hasShownSavePrompt = true;
-        unawaited(_stopBackgroundMusic());
-        Future.microtask(_showSaveStoryPrompt);
-      }
-    });
 
     ref.listen(
       provider.select(
@@ -562,370 +563,6 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       debugPrint('StoryPlayerScreen: background music failed. $error');
     }
   }
-
-  Future<void> _stopBackgroundMusic() async {
-    try {
-      await _backgroundMusicPlayer.stop();
-      await _backgroundMusicPlayer.seek(Duration.zero);
-    } catch (error) {
-      debugPrint('StoryPlayerScreen: background music stop failed. $error');
-    }
-  }
-
-  Future<void> _showSaveStoryPrompt() async {
-    if (!mounted) {
-      return;
-    }
-
-    final shouldSave = await showDialog<bool>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.62),
-      barrierDismissible: false,
-      builder: (context) => _SaveStoryPrompt(title: widget.title),
-    );
-
-    if (!mounted || shouldSave != true) {
-      return;
-    }
-
-    try {
-      final result = await ref
-          .read(savedLibraryProvider.notifier)
-          .saveStory(widget.storyId);
-
-      if (!mounted) {
-        return;
-      }
-
-      switch (result) {
-        case SaveStoryResult.saved:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Story saved to your Library')),
-          );
-        case SaveStoryResult.alreadySaved:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('This story is already in Library')),
-          );
-        case SaveStoryResult.full:
-          await _showFullLibraryDialog();
-      }
-    } on StoryRepositoryException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
-    }
-  }
-
-  Future<void> _showFullLibraryDialog() async {
-    if (!mounted) {
-      return;
-    }
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Your library is full!'),
-          content: const Text(
-            'Delete an older story to make room, or upgrade to Premium for unlimited saves.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Not now'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const StorytimeScreen(),
-                  ),
-                );
-              },
-              child: const Text('View Library'),
-            ),
-            TextButton(onPressed: () {}, child: const Text('Upgrade')),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SaveStoryPrompt extends StatelessWidget {
-  const _SaveStoryPrompt({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 44),
-      backgroundColor: Colors.transparent,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.playerPurpleDeep.withValues(alpha: 0.38),
-              blurRadius: 26,
-              offset: const Offset(0, 14),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFFFF9ED),
-                  Color(0xFFFFFDF7),
-                  Color(0xFFF1E9FF),
-                ],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.86)),
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: -40,
-                  right: -26,
-                  child: _PromptGlow(
-                    size: 96,
-                    color: AppColors.playerWarmGoldLight,
-                    opacity: 0.28,
-                  ),
-                ),
-                Positioned(
-                  bottom: -46,
-                  left: -42,
-                  child: _PromptGlow(
-                    size: 110,
-                    color: AppColors.playerPrimary,
-                    opacity: 0.1,
-                  ),
-                ),
-                Positioned(
-                  top: 14,
-                  left: 22,
-                  child: Icon(
-                    Icons.star_rounded,
-                    color: AppColors.playerWarmGold,
-                    size: 15,
-                  ),
-                ),
-                Positioned(
-                  top: 42,
-                  right: 26,
-                  child: Icon(
-                    Icons.nightlight_round,
-                    color: AppColors.playerWarmGold.withValues(alpha: 0.72),
-                    size: 18,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF30205F),
-                              Color(0xFF4B3A8F),
-                              Color(0xFF6C4CCF),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.14),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.auto_stories_rounded,
-                                    color: AppColors.playerWarmGoldLight,
-                                    size: 17,
-                                  ),
-                                  const SizedBox(width: 7),
-                                  Text(
-                                    'Story finished',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.78,
-                                      ),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.12),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                  ),
-                                ),
-                                child: const SizedBox(
-                                  width: 48,
-                                  height: 48,
-                                  child: Icon(
-                                    Icons.library_add_check_rounded,
-                                    color: AppColors.playerPrimary,
-                                    size: 28,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              const Text(
-                                'Keep this bedtime tale?',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.08,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.72),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Save it to your Library so your child can replay it anytime.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppColors.playerPurpleDeep.withValues(
-                            alpha: 0.64,
-                          ),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: Colors.white.withValues(
-                                  alpha: 0.58,
-                                ),
-                                foregroundColor: const Color(0xFF55496B),
-                                side: BorderSide(
-                                  color: const Color(
-                                    0xFF55496B,
-                                  ).withValues(alpha: 0.2),
-                                ),
-                                minimumSize: const Size.fromHeight(46),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(17),
-                                ),
-                              ),
-                              child: const Text(
-                                'No, later',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppColors.playerPrimary,
-                                foregroundColor: colors.onPrimary,
-                                minimumSize: const Size.fromHeight(46),
-                                elevation: 0,
-                                shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(17),
-                                ),
-                              ),
-                              child: const Text(
-                                'Yes, save',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PromptGlow extends StatelessWidget {
-  const _PromptGlow({
-    required this.size,
-    required this.color,
-    required this.opacity,
-  });
-
-  final double size;
-  final Color color;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: opacity),
-        shape: BoxShape.circle,
-      ),
-      child: SizedBox(width: size, height: size),
-    );
-  }
 }
 
 class _StoryPageFlipView extends StatefulWidget {
@@ -1142,81 +779,84 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
     );
     final notifier = ref.read(provider.notifier);
 
-    return Scaffold(
-      backgroundColor: AppColors.blue500,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF69BCF6), Color(0xFF2D86EA), Color(0xFF0F3F88)],
-            stops: [0, 0.52, 1],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _episodeSystemUiStyle,
+      child: Scaffold(
+        extendBody: true,
+        backgroundColor: Colors.transparent,
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: _episodePlayerBackgroundGradient,
           ),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            const playerBlockHeight =
-                _episodePlayerImageHeight +
-                _episodePlayerGap +
-                _episodeControlsHeight;
-            final playerWidth =
-                (constraints.maxWidth - _episodePlayerHorizontalPadding * 2)
-                    .clamp(0.0, constraints.maxWidth);
-            const playerLeft = _episodePlayerHorizontalPadding;
-            final playerTop = (constraints.maxHeight - playerBlockHeight) / 2;
-            final safeTop = MediaQuery.paddingOf(context).top;
-            final headerTop = (playerTop - _episodeHeaderHeight).clamp(
-              safeTop,
-              constraints.maxHeight - _episodeHeaderHeight,
-            );
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final playerWidth =
+                  (constraints.maxWidth - _episodePlayerHorizontalPadding * 2)
+                      .clamp(0.0, constraints.maxWidth);
+              final safeTop = MediaQuery.paddingOf(context).top;
+              final bottomSafe = MediaQuery.paddingOf(context).bottom;
+              final availableHeight =
+                  constraints.maxHeight - safeTop - bottomSafe;
+              const contentHeight =
+                  _episodeHeaderHeight +
+                  _episodeHeaderImageGap +
+                  _episodePlayerImageHeight +
+                  _episodePlayerGap +
+                  _episodeControlsHeight;
+              final contentTop =
+                  safeTop +
+                  ((availableHeight - contentHeight) / 2)
+                      .clamp(0.0, double.infinity)
+                      .toDouble();
 
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                Positioned(
-                  left: playerLeft,
-                  top: playerTop,
-                  width: playerWidth,
-                  height: playerBlockHeight,
-                  child: Column(
-                    children: [
-                      _EpisodeStoryImage(
-                        imageUrl: imageUrl,
-                        width: playerWidth,
-                      ),
-                      const SizedBox(height: _episodePlayerGap),
-                      _EpisodePlayerControls(
-                        width: playerWidth,
-                        isPlaying: state.isPlaying,
-                        isEnabled: state.isEnabled,
-                        position: state.audioPosition,
-                        duration: state.audioDuration,
-                        onSeek: notifier.seekTo,
-                        onBackward: () =>
-                            notifier.seekBy(const Duration(seconds: -10)),
-                        onTogglePlayback: () {
-                          state.isPlaying ? notifier.pause() : notifier.play();
-                        },
-                        onForward: () =>
-                            notifier.seekBy(const Duration(seconds: 10)),
-                      ),
-                    ],
-                  ),
+              return SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  _episodePlayerHorizontalPadding,
+                  contentTop,
+                  _episodePlayerHorizontalPadding,
+                  bottomSafe,
                 ),
-                Positioned(
-                  left: playerLeft,
-                  top: headerTop,
-                  width: playerWidth,
-                  height: _episodeHeaderHeight,
-                  child: _EpisodePlayerHeader(
-                    isFavorite: state.isFavorite,
-                    onBack: onBack,
-                    onToggleFavorite: onToggleFavorite,
-                  ),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: playerWidth,
+                      height: _episodeHeaderHeight,
+                      child: _EpisodePlayerHeader(
+                        isFavorite: state.isFavorite,
+                        onBack: onBack,
+                        onToggleFavorite: onToggleFavorite,
+                      ),
+                    ),
+                    const SizedBox(height: _episodeHeaderImageGap),
+                    _EpisodeStoryImage(
+                      imageUrl: imageUrl,
+                      width: playerWidth,
+                      height: _episodePlayerImageHeight,
+                    ),
+                    const SizedBox(height: _episodePlayerGap),
+                    _EpisodePlayerControls(
+                      width: playerWidth,
+                      isPlaying: state.isPlaying,
+                      isEnabled: state.isEnabled,
+                      position: state.audioPosition,
+                      duration: state.audioDuration,
+                      onSeek: notifier.seekTo,
+                      onBackward: () =>
+                          notifier.seekBy(const Duration(seconds: -10)),
+                      onTogglePlayback: () {
+                        state.isPlaying ? notifier.pause() : notifier.play();
+                      },
+                      onForward: () =>
+                          notifier.seekBy(const Duration(seconds: 10)),
+                    ),
+                  ],
                 ),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -1238,37 +878,43 @@ class _EpisodePlayerHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 56,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Semantics(
-              button: true,
-              label: 'Back',
-              child: InkResponse(
-                onTap: onBack,
-                radius: 24,
-                child: const SizedBox.square(
-                  dimension: 24,
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    color: AppColors.textOnPrimary,
-                    size: 24,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SizedBox(
+            height: 28,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Semantics(
+                  button: true,
+                  label: 'Back',
+                  child: InkResponse(
+                    onTap: onBack,
+                    radius: 24,
+                    child: const SizedBox.square(
+                      dimension: 28,
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        color: AppColors.textOnPrimary,
+                        size: 24,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                _EpisodeGlassIconButton(
+                  size: 28,
+                  iconSize: 15.273,
+                  semanticLabel: isFavorite
+                      ? 'Remove from favorites'
+                      : 'Add to favorites',
+                  onPressed: onToggleFavorite,
+                  asset: 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
+                ),
+              ],
             ),
-            _EpisodeGlassIconButton(
-              size: 28,
-              iconSize: 15.273,
-              semanticLabel: isFavorite
-                  ? 'Remove from favorites'
-                  : 'Add to favorites',
-              onPressed: onToggleFavorite,
-              asset: 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1276,16 +922,21 @@ class _EpisodePlayerHeader extends StatelessWidget {
 }
 
 class _EpisodeStoryImage extends StatelessWidget {
-  const _EpisodeStoryImage({required this.imageUrl, required this.width});
+  const _EpisodeStoryImage({
+    required this.imageUrl,
+    required this.width,
+    required this.height,
+  });
 
   final String imageUrl;
   final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
-      height: _episodePlayerImageHeight,
+      height: height,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -1367,7 +1018,7 @@ class _EpisodePlayerControls extends StatelessWidget {
                 onPressed: isEnabled ? onTogglePlayback : null,
                 asset: isPlaying
                     ? 'assets/icons/new_boopi/State=Default, Icon=Pause Circle.svg'
-                    : 'assets/icons/new_boopi/State=Default, Icon=Play.svg',
+                    : 'assets/icons/new_boopi/State=Bold, Icon=pause_fill Circle.svg',
               ),
               const SizedBox(width: 28),
               _EpisodeGlassIconButton(

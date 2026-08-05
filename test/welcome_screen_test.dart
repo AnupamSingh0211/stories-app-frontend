@@ -19,9 +19,9 @@ void main() {
     expect(find.text('Continue with Apple'), findsNothing);
     expect(find.text('Continue with Google'), findsNothing);
     expect(find.text('Continue with Email'), findsNothing);
-    expect(find.text('Bedtime Stories'), findsOneWidget);
+    expect(find.text('Boopi'), findsOneWidget);
     expect(
-      find.text('Safe, magical stories that kids love\nand parents trust.'),
+      find.text('Where every story ends in sweet dreams.'),
       findsOneWidget,
     );
     expect(find.byKey(const Key('mobile-number-field')), findsOneWidget);
@@ -35,13 +35,59 @@ void main() {
   ) async {
     await _pumpWelcomeScreen(tester);
 
-    final titleFinder = find.text('Bedtime Stories');
+    final titleFinder = find.text('Boopi');
     expect(tester.getTopLeft(titleFinder).dy, greaterThan(480));
 
     await tester.tap(find.byKey(const Key('mobile-number-field')));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(() => tester.view.viewInsets = FakeViewPadding.zero);
     await tester.pumpAndSettle();
 
     expect(tester.getTopLeft(titleFinder).dy, lessThan(330));
+  });
+
+  testWidgets('welcome layout restores after keyboard closes', (tester) async {
+    await _pumpWelcomeScreen(tester);
+
+    final titleFinder = find.text('Boopi');
+    final originalTitleTop = tester.getTopLeft(titleFinder).dy;
+
+    await tester.tap(find.byKey(const Key('mobile-number-field')));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(titleFinder).dy, lessThan(originalTitleTop));
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(titleFinder).dy, originalTitleTop);
+  });
+
+  testWidgets('OTP layout restores after keyboard closes', (tester) async {
+    final authService = _FakeAuthService();
+    await _pumpWelcomeScreen(tester, authService: authService);
+
+    await tester.enterText(
+      find.byKey(const Key('mobile-number-field')),
+      '1234567890',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('mobile-continue-button')));
+    await tester.pumpAndSettle();
+
+    final otpTitleFinder = find.text('Enter your OTP');
+    final originalOtpTitleTop = tester.getTopLeft(otpTitleFinder).dy;
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(otpTitleFinder).dy, lessThan(originalOtpTitleTop));
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(otpTitleFinder).dy, originalOtpTitleTop);
   });
 
   testWidgets('invalid input shows inline error on submission', (tester) async {
@@ -54,6 +100,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Invalid Number'), findsOneWidget);
+
+    final labelTopLeft = tester.getTopLeft(find.text('Mobile Number'));
+    final errorTopLeft = tester.getTopLeft(find.text('Invalid Number'));
+    final fieldTopLeft = tester.getTopLeft(
+      find.byKey(const Key('mobile-number-field')),
+    );
+
+    expect(errorTopLeft.dx, greaterThan(labelTopLeft.dx));
+    expect(errorTopLeft.dy, labelTopLeft.dy);
+    expect(errorTopLeft.dy, lessThan(fieldTopLeft.dy));
   });
 
   testWidgets('input formatters allow only the first 10 digits', (
@@ -272,7 +328,7 @@ void main() {
     await tester.tap(find.byKey(const Key('otp-edit-mobile-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Bedtime Stories'), findsOneWidget);
+    expect(find.text('Boopi'), findsOneWidget);
     expect(find.byKey(const Key('mobile-number-field')), findsOneWidget);
 
     final field = tester.widget<TextFormField>(

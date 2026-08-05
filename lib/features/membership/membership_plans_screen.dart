@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
-import '../auth/assets_provider.dart';
+import 'membership_side_banner.dart';
 import 'membership_verification_screen.dart';
 
 enum MembershipPlan { monthly, annual }
@@ -231,14 +231,7 @@ class _PlansArtwork extends StatelessWidget {
           Positioned(
             left: _PlansLayout.sideArtworkLeft,
             top: _PlansLayout.sideArtworkTop,
-            child: Image.asset(
-              membershipSideFrameAsset,
-              width: _PlansLayout.sideArtworkWidth,
-              height: _PlansLayout.sideArtworkHeight,
-              fit: BoxFit.contain,
-              alignment: Alignment.topLeft,
-              filterQuality: FilterQuality.high,
-            ),
+            child: const MembershipSideBanner(),
           ),
         ],
       ),
@@ -783,10 +776,8 @@ abstract final class _PlansLayout {
   static const designHeight = 868.0;
   static const headerHeight = 56.0;
 
-  static const sideArtworkLeft = -136.25;
-  static const sideArtworkTop = -40.47;
-  static const sideArtworkWidth = 375.004;
-  static const sideArtworkHeight = 318.124;
+  static const sideArtworkLeft = -71.0;
+  static const sideArtworkTop = 154.0;
 
   static const heroGroupTop = 98.0;
   static const mascotWidth = 116.614;

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -92,6 +95,24 @@ class LibrarySectionsScreen extends ConsumerStatefulWidget {
 class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
   late LibrarySection _selectedSection = widget.initialSection;
   bool _showSearch = false;
+  bool _didPrecacheFavoriteMascot = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didPrecacheFavoriteMascot) {
+      return;
+    }
+
+    _didPrecacheFavoriteMascot = true;
+    final favoriteMascotUrl =
+        ref.read(appAssetsProvider)['mascot_character_favorite'] ??
+        _favoriteMascotFallbackUrl;
+    unawaited(
+      precacheImage(CachedNetworkImageProvider(favoriteMascotUrl), context)
+          .catchError((_) {}),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -640,10 +661,13 @@ class _NoFavouritesContent extends StatelessWidget {
         SizedBox(
           width: 179 * scale,
           height: 221 * scale,
-          child: Image.network(
-            mascotUrl,
+          child: CachedNetworkImage(
+            imageUrl: mascotUrl,
             fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) =>
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            placeholder: (context, url) => const _FavoriteMascotFallback(),
+            errorWidget: (context, url, error) =>
                 const _FavoriteMascotFallback(),
           ),
         ),

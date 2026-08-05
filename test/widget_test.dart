@@ -55,7 +55,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Bedtime Stories'), findsOneWidget);
+    expect(find.text('Boopi'), findsOneWidget);
     expect(find.text('Send OTP'), findsOneWidget);
   });
 
@@ -179,6 +179,13 @@ void main() {
     expect(find.text('Stories'), findsOneWidget);
     expect(find.text('Library'), findsOneWidget);
     expect(find.text('Profile'), findsNWidgets(2));
+    final profileHeading = tester
+        .widgetList<Text>(find.text('Profile'))
+        .firstWhere((widget) => widget.style?.fontSize == 20);
+    expect(profileHeading.style?.fontFamily, 'PlusJakartaSans');
+    expect(profileHeading.style?.fontWeight, FontWeight.w600);
+    expect(profileHeading.style?.height, 1.20);
+    expect(profileHeading.style?.letterSpacing, -0.25);
 
     await tester.tap(find.text('Library'));
     await tester.pumpAndSettle();
@@ -382,6 +389,51 @@ void main() {
     expect(find.text('No Favourites Yet'), findsNothing);
   });
 
+  testWidgets('home search does not keep focus after opening favourites', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          appAssetsProvider.overrideWithValue(const {}),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const HomeScreen(childName: 'Aarav', childAge: 3),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    final focusedSearchField = tester.widget<TextField>(
+      find.byType(TextField),
+    );
+    expect(focusedSearchField.focusNode?.hasFocus, isTrue);
+
+    await tester.tap(find.bySemanticsLabel('Open favorites'));
+    await tester.pumpAndSettle();
+
+    final offstageSearchField = tester.widget<TextField>(
+      find.byType(TextField, skipOffstage: false),
+    );
+    expect(offstageSearchField.focusNode?.hasFocus, isFalse);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    final returnedSearchField = tester.widget<TextField>(
+      find.byType(TextField),
+    );
+    expect(returnedSearchField.focusNode?.hasFocus, isFalse);
+  });
+
   testWidgets('home story card opens the episodes screen', (
     WidgetTester tester,
   ) async {
@@ -406,6 +458,17 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+
+    final heroRect = tester.getRect(
+      find.byKey(const ValueKey('homeHeroBanner')),
+    );
+    expect(heroRect.size, const Size(359, 202));
+    expect(
+      tester.getTopLeft(find.text('Top Picks for You')).dy,
+      greaterThan(heroRect.bottom),
+    );
 
     final thumbnailSize = tester.getSize(
       find.byKey(const ValueKey('story-card-thumbnail')).first,
@@ -591,6 +654,39 @@ void main() {
     expect(find.byKey(const ValueKey('choiceboySelected')), findsOneWidget);
     expect(find.byKey(const ValueKey('ageChip3Selected')), findsOneWidget);
     expect(find.byKey(const ValueKey('choiceen-INSelected')), findsOneWidget);
+
+    final selectedAgeChip = find.byKey(const ValueKey('ageChip3Selected'));
+    expect(tester.getSize(selectedAgeChip), const Size(52, 52));
+
+    final chipSurface = tester.widget<AnimatedContainer>(selectedAgeChip);
+    final decoration = chipSurface.decoration! as BoxDecoration;
+    expect(decoration.shape, BoxShape.circle);
+    expect(chipSurface.padding, const EdgeInsets.all(12));
+  });
+
+  testWidgets('profile setup age row hints more ages with trailing peek', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpProfileSetup(
+      tester,
+      notifier: _OnboardingProfileNotifier(
+        savedChild: _child(name: 'A', age: 2),
+      ),
+    );
+
+    final ageOneRect = tester.getRect(find.byKey(const ValueKey('ageChip1')));
+    final ageFiveRect = tester.getRect(find.byKey(const ValueKey('ageChip5')));
+    final ageSixRect = tester.getRect(find.byKey(const ValueKey('ageChip6')));
+
+    expect(ageOneRect.size, const Size(52, 52));
+    expect(ageFiveRect.right, lessThanOrEqualTo(390));
+    expect(ageSixRect.left, lessThan(390));
+    expect(ageSixRect.right, greaterThan(390));
   });
 
   testWidgets('start storytime is ignored until the form is complete', (

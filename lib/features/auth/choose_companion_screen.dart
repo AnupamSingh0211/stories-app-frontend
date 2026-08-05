@@ -271,7 +271,7 @@ class _TopBar extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          'Bedtime Stories',
+          'Boopi',
           style: theme.textTheme.labelLarge?.copyWith(
             color: colors.onSurface,
             fontWeight: FontWeight.w700,

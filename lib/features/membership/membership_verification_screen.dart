@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
-import '../auth/assets_provider.dart';
+import 'membership_side_banner.dart';
 
 class MembershipVerificationScreen extends StatefulWidget {
   const MembershipVerificationScreen({super.key});
@@ -183,14 +183,7 @@ class _VerificationArtwork extends StatelessWidget {
           Positioned(
             left: _VerificationLayout.sideArtworkLeft,
             top: _VerificationLayout.sideArtworkTop,
-            child: Image.asset(
-              membershipSideFrameAsset,
-              width: _VerificationLayout.sideArtworkWidth,
-              height: _VerificationLayout.sideArtworkHeight,
-              fit: BoxFit.contain,
-              alignment: Alignment.topLeft,
-              filterQuality: FilterQuality.high,
-            ),
+            child: const MembershipSideBanner(),
           ),
         ],
       ),
@@ -558,10 +551,8 @@ abstract final class _VerificationLayout {
   static const designHeight = 868.0;
   static const headerHeight = 56.0;
 
-  static const sideArtworkLeft = -136.25;
-  static const sideArtworkTop = -40.47;
-  static const sideArtworkWidth = 375.004;
-  static const sideArtworkHeight = 318.124;
+  static const sideArtworkLeft = -71.0;
+  static const sideArtworkTop = 154.0;
 
   static const heroGroupTop = 98.0;
   static const mascotWidth = 116.614;

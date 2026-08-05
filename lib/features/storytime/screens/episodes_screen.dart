@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../models/story_model.dart';
+import '../providers/story_player_provider.dart';
 import '../repositories/story_repository.dart';
 import '../widgets/story_image_view.dart';
 import 'story_player_screen.dart';
@@ -17,8 +19,10 @@ const _storyPlayerImagePath =
     'stories/kanha aur makhan/images/story_player_img.webp';
 const _bannerPath = 'featured_banners/kanha ki sunheri subah.webp';
 const _baseWidth = 390.0;
+const _episodeHeroWidth = 359.0;
+const _episodeHeroHeight = 202.0;
 
-class EpisodesScreen extends StatelessWidget {
+class EpisodesScreen extends ConsumerWidget {
   const EpisodesScreen({this.assetUrlBuilder, super.key});
 
   final EpisodeAssetUrlBuilder? assetUrlBuilder;
@@ -33,18 +37,10 @@ class EpisodesScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bannerUrl = _assetUrl('app-assets', _bannerPath);
-    final episodes = _episodes
-        .map(
-          (episode) => episode.copyWith(
-            imageUrl: _assetUrl(
-              'story-assets',
-              '$_storyAssetFolder/page-${episode.imageNumber.toString().padLeft(3, '0')}.webp',
-            ),
-          ),
-        )
-        .toList(growable: false);
+    final cmsStoriesState = ref.watch(cmsEpisodeStoriesProvider);
+    final episodes = _episodeItems(cmsStoriesState.valueOrNull ?? const []);
 
     return Scaffold(
       backgroundColor: AppColors.blue500,
@@ -60,6 +56,10 @@ class EpisodesScreen extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final scale = (constraints.maxWidth / _baseWidth).toDouble();
+            final heroWidth = _episodeHeroWidth * scale;
+            final horizontal = ((constraints.maxWidth - heroWidth) / 2)
+                .clamp(0.0, double.infinity)
+                .toDouble();
 
             return CustomScrollView(
               physics: const ClampingScrollPhysics(),
@@ -76,12 +76,21 @@ class EpisodesScreen extends StatelessWidget {
                   ),
                 ),
                 SliverToBoxAdapter(
-                  child: _HeroCard(imageUrl: bannerUrl, scale: scale),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: horizontal),
+                    child: _HeroCard(
+                      imageUrl: bannerUrl,
+                      episodeCount: episodes.length,
+                      scale: scale,
+                      width: heroWidth,
+                      height: _episodeHeroHeight * scale,
+                    ),
+                  ),
                 ),
                 SliverToBoxAdapter(child: SizedBox(height: 27 * scale)),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16 * scale),
+                    padding: EdgeInsets.symmetric(horizontal: horizontal),
                     child: Text(
                       'Episodes',
                       style: AppTypography.bodySmallBold.copyWith(
@@ -99,7 +108,7 @@ class EpisodesScreen extends StatelessWidget {
                   separatorBuilder: (context, index) =>
                       SizedBox(height: 12 * scale),
                   itemBuilder: (context, index) => Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16 * scale),
+                    padding: EdgeInsets.symmetric(horizontal: horizontal),
                     child: _EpisodeTile(
                       episode: episodes[index],
                       scale: scale,
@@ -116,7 +125,53 @@ class EpisodesScreen extends StatelessWidget {
     );
   }
 
-  void _openEpisode(BuildContext context, _Episode episode) {
+  List<_EpisodeItem> _episodeItems(List<StoryModel> cmsStories) {
+    final legacyItems = _episodes
+        .map(
+          (episode) => _EpisodeItem.legacy(
+            index: episode.index,
+            title: episode.title,
+            durationMinutes: episode.durationMinutes,
+            state: episode.state,
+            imageUrl: _assetUrl(
+              'story-assets',
+              '$_storyAssetFolder/page-${episode.imageNumber.toString().padLeft(3, '0')}.webp',
+            ),
+          ),
+        )
+        .toList(growable: true);
+
+    final existingIds = legacyItems.map((item) => item.story?.id).toSet();
+    for (final story in cmsStories) {
+      if (existingIds.contains(story.id)) {
+        continue;
+      }
+      legacyItems.add(
+        _EpisodeItem.cmsStory(index: legacyItems.length + 1, story: story),
+      );
+    }
+
+    return List.unmodifiable(legacyItems);
+  }
+
+  void _openEpisode(BuildContext context, _EpisodeItem episode) {
+    final story = episode.story;
+    if (story != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => StoryPlayerScreen(
+            storyId: story.id,
+            title: story.title,
+            openDirectly: true,
+            playerImageUrl:
+                story.coverUrl ?? story.imageUrl ?? story.thumbnailUrl,
+            story: story,
+          ),
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => StoryPlayerScreen(
@@ -183,97 +238,105 @@ class _TopBar extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.imageUrl, required this.scale});
+  const _HeroCard({
+    required this.imageUrl,
+    required this.episodeCount,
+    required this.scale,
+    required this.width,
+    required this.height,
+  });
 
   final String imageUrl;
+  final int episodeCount;
   final double scale;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 17 * scale),
-      child: SizedBox(
-        height: 187 * scale,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20 * scale),
-                  border: Border.all(color: AppColors.blue400),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.surfaceBlack.withValues(alpha: 0.10),
-                      blurRadius: 4 * scale,
-                      offset: Offset(0, 4 * scale),
+    return SizedBox(
+      key: const ValueKey('episodesHeroBanner'),
+      width: width,
+      height: height,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20 * scale),
+                border: Border.all(color: AppColors.blue400),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.surfaceBlack.withValues(alpha: 0.10),
+                    blurRadius: 4 * scale,
+                    offset: Offset(0, 4 * scale),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20 * scale),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    StoryImageView(imageUrl: imageUrl, fit: BoxFit.cover),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            AppColors.transparent,
+                            AppColors.surfaceBlack.withValues(alpha: 0.30),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20 * scale),
-                  child: Stack(
-                    fit: StackFit.expand,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16 * scale,
+            right: 16 * scale,
+            bottom: 13 * scale,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      StoryImageView(imageUrl: imageUrl, fit: BoxFit.cover),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              AppColors.transparent,
-                              AppColors.surfaceBlack.withValues(alpha: 0.30),
-                            ],
-                          ),
+                      Text(
+                        _storyTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.titleSemiBold.copyWith(
+                          color: AppColors.textOnPrimary,
+                          fontSize: 18 * scale,
+                          height: 24 / 18,
+                        ),
+                      ),
+                      SizedBox(height: 4 * scale),
+                      Text(
+                        '$episodeCount Episodes',
+                        style: AppTypography.bodySmallBold.copyWith(
+                          color: AppColors.textOnPrimary,
+                          fontSize: 12 * scale,
+                          height: 16 / 12,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
+                SizedBox(width: 12 * scale),
+                _HeroHeartButton(scale: scale),
+              ],
             ),
-            Positioned(
-              left: 16 * scale,
-              right: 16 * scale,
-              bottom: 13 * scale,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _storyTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.titleSemiBold.copyWith(
-                            color: AppColors.textOnPrimary,
-                            fontSize: 18 * scale,
-                            height: 24 / 18,
-                          ),
-                        ),
-                        SizedBox(height: 4 * scale),
-                        Text(
-                          '7 Episodes',
-                          style: AppTypography.bodySmallBold.copyWith(
-                            color: AppColors.textOnPrimary,
-                            fontSize: 12 * scale,
-                            height: 16 / 12,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: 12 * scale),
-                  _HeroHeartButton(scale: scale),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -311,7 +374,7 @@ class _EpisodeTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final _Episode episode;
+  final _EpisodeItem episode;
   final double scale;
   final VoidCallback onTap;
 
@@ -382,7 +445,7 @@ class _EpisodeTile extends StatelessWidget {
 class _EpisodeText extends StatelessWidget {
   const _EpisodeText({required this.episode, required this.scale});
 
-  final _Episode episode;
+  final _EpisodeItem episode;
   final double scale;
 
   @override
@@ -581,6 +644,64 @@ class _Episode {
       state: state,
       imageUrl: imageUrl ?? this.imageUrl,
     );
+  }
+}
+
+class _EpisodeItem {
+  const _EpisodeItem({
+    required this.index,
+    required this.title,
+    required this.durationMinutes,
+    required this.state,
+    required this.imageUrl,
+    this.story,
+  });
+
+  factory _EpisodeItem.legacy({
+    required int index,
+    required String title,
+    required int durationMinutes,
+    required _EpisodeState state,
+    required String imageUrl,
+  }) {
+    return _EpisodeItem(
+      index: index,
+      title: title,
+      durationMinutes: durationMinutes,
+      state: state,
+      imageUrl: imageUrl,
+    );
+  }
+
+  factory _EpisodeItem.cmsStory({
+    required int index,
+    required StoryModel story,
+  }) {
+    return _EpisodeItem(
+      index: index,
+      title: story.title,
+      durationMinutes: story.durationMinutes,
+      state: _EpisodeState.left,
+      imageUrl: story.thumbnailUrl,
+      story: story,
+    );
+  }
+
+  final int index;
+  final String title;
+  final int durationMinutes;
+  final _EpisodeState state;
+  final String imageUrl;
+  final StoryModel? story;
+
+  String get durationLabel => '$durationMinutes min';
+
+  String get stageLabel {
+    return switch (state) {
+      _EpisodeState.completed => 'completed episode',
+      _EpisodeState.continuing => 'continuing episode',
+      _EpisodeState.left => 'left episode',
+    };
   }
 }
 

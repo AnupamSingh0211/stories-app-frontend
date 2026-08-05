@@ -21,6 +21,8 @@ import '../storytime/screens/episodes_screen.dart';
 const String _supabaseAssetBase =
     'https://ozdvhjcumeujfxodiawc.supabase.co/storage/v1/object/public/app-assets/';
 const double _figmaWidth = 390;
+const double _homeHeroBannerWidth = 359;
+const double _homeHeroBannerHeight = 202;
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, this.childName, this.childAge});
@@ -34,6 +36,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _bottomNavIndex = 0;
+  final FocusNode _searchFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +77,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       final scale = (constraints.maxWidth / _figmaWidth)
                           .clamp(0.88, 1.16)
                           .toDouble();
-                      final horizontal = 16.0 * scale;
+                      final heroWidth = _homeHeroBannerWidth * scale;
+                      final horizontal =
+                          ((constraints.maxWidth - heroWidth) / 2)
+                              .clamp(0.0, double.infinity)
+                              .toDouble();
                       final banner = _resolveBanner(contentState.valueOrNull);
 
                       return SingleChildScrollView(
@@ -88,9 +101,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               onFavoritesTap: () => _openFavorites(context),
                             ),
                             SizedBox(height: 24 * scale),
-                            const CustomSearchBar(),
+                            CustomSearchBar(focusNode: _searchFocusNode),
                             SizedBox(height: 20 * scale),
-                            _HeroBanner(banner: banner, scale: scale),
+                            _HeroBanner(
+                              banner: banner,
+                              scale: scale,
+                              width: heroWidth,
+                              height: _homeHeroBannerHeight * scale,
+                            ),
                             SizedBox(height: 22 * scale),
                             _SectionTitle('Top Picks for You', scale: scale),
                             SizedBox(height: 12 * scale),
@@ -134,6 +152,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: GlassyBottomNavBar(
                   currentIndex: _bottomNavIndex,
                   onTap: (index) {
+                    _dismissSearchFocus();
                     if (index == 3) {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -170,11 +189,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _openFavorites(BuildContext context) {
+    _dismissSearchFocus();
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const LibrarySectionsScreen(),
       ),
     );
+  }
+
+  void _dismissSearchFocus() {
+    if (_searchFocusNode.hasFocus) {
+      _searchFocusNode.unfocus();
+      return;
+    }
+
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 }
 
@@ -293,94 +322,105 @@ class _GlassyActionButton extends StatelessWidget {
 }
 
 class _HeroBanner extends StatelessWidget {
-  const _HeroBanner({required this.banner, required this.scale});
+  const _HeroBanner({
+    required this.banner,
+    required this.scale,
+    required this.width,
+    required this.height,
+  });
 
   final _HomeBannerData banner;
   final double scale;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 172 * scale,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16 * scale),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            offset: const Offset(0, 8),
-            blurRadius: 18,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16 * scale),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.network(
-              banner.imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const ColoredBox(color: AppColors.backgroundHero);
-              },
-            ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.08),
-                    Colors.black.withValues(alpha: 0.72),
-                  ],
-                  stops: const [0.36, 0.66, 1],
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                16 * scale,
-                16 * scale,
-                16 * scale,
-                14 * scale,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          banner.subtitle,
-                          style: AppTypography.captionBold.copyWith(
-                            color: Colors.white,
-                            fontSize: 10 * scale,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        SizedBox(height: 4 * scale),
-                        Text(
-                          banner.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.bodyLargeBold.copyWith(
-                            color: Colors.white,
-                            fontSize: 16 * scale,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: 12 * scale),
-                  PlayCircleButton(size: 42 * scale, onTap: () {}),
-                ],
-              ),
+    return SizedBox(
+      key: const ValueKey('homeHeroBanner'),
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16 * scale),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              offset: const Offset(0, 8),
+              blurRadius: 18,
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16 * scale),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.network(
+                banner.imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const ColoredBox(color: AppColors.backgroundHero);
+                },
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.08),
+                      Colors.black.withValues(alpha: 0.72),
+                    ],
+                    stops: const [0.36, 0.66, 1],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16 * scale,
+                  16 * scale,
+                  16 * scale,
+                  14 * scale,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            banner.subtitle,
+                            style: AppTypography.captionBold.copyWith(
+                              color: Colors.white,
+                              fontSize: 10 * scale,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          SizedBox(height: 4 * scale),
+                          Text(
+                            banner.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.bodyLargeBold.copyWith(
+                              color: Colors.white,
+                              fontSize: 16 * scale,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12 * scale),
+                    PlayCircleButton(size: 42 * scale, onTap: () {}),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

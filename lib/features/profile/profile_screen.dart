@@ -341,27 +341,20 @@ class _ProfileHeaderBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const SizedBox(
+          SizedBox(
             width: 74,
-            height: 28,
-            child: FittedBox(
-              fit: BoxFit.contain,
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                width: 74,
-                height: 28,
-                child: Text(
-                  'Profile',
-                  textScaler: TextScaler.noScaling,
-                  strutStyle: StrutStyle(
-                    fontFamily: AppTypography.fontFamily,
-                    fontSize: 24,
-                    height: 28 / 24,
-                    leading: 0,
-                    forceStrutHeight: true,
-                  ),
-                  style: _ProfileTextStyles.headerTitle,
-                ),
+            child: Text(
+              'Profile',
+              maxLines: 1,
+              overflow: TextOverflow.visible,
+              textScaler: TextScaler.noScaling,
+              style: const TextStyle(
+                color: AppColors.textOnPrimary,
+                fontSize: 20,
+                fontFamily: 'PlusJakartaSans',
+                fontWeight: FontWeight.w600,
+                height: 1.20,
+                letterSpacing: -0.25,
               ),
             ),
           ),
@@ -543,10 +536,14 @@ class _ChildProfileCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(
-                Icons.edit_rounded,
-                color: AppColors.textOnPrimary,
-                size: 24,
+              SvgPicture.asset(
+                'assets/icons/new_boopi/State=Default, Icon=Edit Square.svg',
+                width: 24,
+                height: 24,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.textOnPrimary,
+                  BlendMode.srcIn,
+                ),
               ),
             ],
           ),
@@ -599,9 +596,13 @@ class _Avatar extends StatelessWidget {
             right: -1,
             bottom: -1,
             child: SvgPicture.asset(
-              'assets/icons/new_boopi/State=Default, Icon=Camera.svg',
+              'assets/icons/new_boopi/majesticons_camera.svg',
               width: 24,
               height: 24,
+              colorFilter: const ColorFilter.mode(
+                AppColors.textOnPrimary,
+                BlendMode.srcIn,
+              ),
             ),
           ),
         ],
@@ -797,9 +798,8 @@ class _MenuIcon extends StatelessWidget {
       width: 39.993,
       height: 39.993,
       decoration: BoxDecoration(
-        color: AppColors.glassBackground,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.borderLight),
+        color: AppColors.backgroundGlass,
+        borderRadius: BorderRadius.circular(14),
       ),
       alignment: Alignment.center,
       child: SvgPicture.asset(
@@ -986,15 +986,6 @@ class _DashedStadiumBorderPainter extends CustomPainter {
 }
 
 abstract final class _ProfileTextStyles {
-  static const headerTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 24,
-    height: 28 / 24,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
   static const chip = TextStyle(
     fontFamily: AppTypography.fontFamily,
     fontSize: 14,
