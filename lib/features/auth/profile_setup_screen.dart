@@ -5,7 +5,7 @@ import '../../shared/theme/app_typography.dart';
 import 'companion_notifier.dart';
 import 'profile_notifier.dart';
 
-const _ageOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const _ageOptions = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const _genderOptions = [
   _ChoiceOption(label: 'Boy', value: 'boy', icon: _ProfileIconType.boy),
   _ChoiceOption(label: 'Girl', value: 'girl', icon: _ProfileIconType.girl),
@@ -27,6 +27,33 @@ const _glowColor = Color(0x40FFFFFF);
 const _figmaWidth = 390.0;
 const _ageChipSize = 52.0;
 const _ageChipMinGap = 12.0;
+const _childNameMinLength = 2;
+const _childNameMaxLength = 50;
+
+final _childNameRegex = RegExp(
+  // Unicode letters with optional combining marks, separated by single
+  // spaces, hyphens, straight apostrophes, or curly apostrophes.
+  r"^(?:\p{L}\p{M}*)+(?:[ '\-’](?:\p{L}\p{M}*)+)*$",
+  unicode: true,
+);
+
+String? _validateChildName(String? value) {
+  final name = value?.trim() ?? '';
+
+  if (name.isEmpty) {
+    return 'Please enter your child\'s name';
+  }
+
+  if (name.length < _childNameMinLength || name.length > _childNameMaxLength) {
+    return 'Name must be between 2 and 50 characters';
+  }
+
+  if (!_childNameRegex.hasMatch(name)) {
+    return 'Please enter a valid name';
+  }
+
+  return null;
+}
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key, this.popOnSave = false});
@@ -367,13 +394,7 @@ class _NameField extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           errorStyle: TextStyle(height: 0.01, fontSize: 0),
         ),
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'Enter here';
-          }
-
-          return null;
-        },
+        validator: _validateChildName,
       ),
     );
   }

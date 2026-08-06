@@ -275,6 +275,17 @@ class ProfileRepository {
 
     return ChildProfileModel.fromMap(row);
   }
+
+  Future<ChildProfileModel> updateChildAvatar({
+    required ChildProfileModel child,
+    required String avatarUrl,
+  }) async {
+    final row = await _dataSource.updateChildProfile(child.id, {
+      'avatar_url': avatarUrl,
+    });
+
+    return ChildProfileModel.fromMap(row);
+  }
 }
 
 const maxChildProfiles = 2;

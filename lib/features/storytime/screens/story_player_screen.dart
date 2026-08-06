@@ -89,6 +89,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
   bool _hasLoadedBackgroundMusic = false;
   bool _pendingStoryStart = false;
   bool _isSynchronizingFeed = false;
+  bool _hasClosedAfterCompletion = false;
   int _feedIndex = 0;
 
   @override
@@ -160,6 +161,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
           pageCount: state.pageCount,
           currentPageIndex: state.currentPageIndex,
           isComplete: state.isComplete,
+          audioDuration: state.audioDuration,
           positionBucket: state.audioPosition.inSeconds ~/ 5,
         ),
       ),
@@ -170,8 +172,16 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
         }
 
         final historyNotifier = ref.read(sessionStoryHistoryProvider.notifier);
-        if (currentState.isComplete) {
+        if (currentState.isComplete || _isAtPlaybackEnd(currentState)) {
           historyNotifier.completeStory(widget.storyId);
+          if (widget.openDirectly && !_hasClosedAfterCompletion) {
+            _hasClosedAfterCompletion = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Navigator.maybePop(context);
+              }
+            });
+          }
           return;
         }
 
@@ -180,6 +190,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
           currentPageIndex: currentState.currentPageIndex,
           pageCount: currentState.pageCount,
           audioPosition: currentState.audioPosition,
+          audioDuration: currentState.audioDuration,
         );
       },
     );
@@ -529,7 +540,20 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       currentPageIndex: state.currentPageIndex,
       pageCount: state.pageCount,
       audioPosition: state.audioPosition,
+      audioDuration: state.audioDuration,
     );
+  }
+
+  bool _isAtPlaybackEnd(StoryPlayerState state) {
+    final duration = state.audioDuration;
+    if (duration <= Duration.zero ||
+        state.audioPosition <= Duration.zero ||
+        state.currentPageIndex < state.pageCount - 1) {
+      return false;
+    }
+
+    final remaining = duration - state.audioPosition;
+    return remaining <= const Duration(milliseconds: 500);
   }
 
   Future<void> _playBackgroundMusic() async {
@@ -1036,7 +1060,7 @@ class _EpisodePlayerControls extends StatelessWidget {
   }
 }
 
-class _EpisodeTimeline extends StatelessWidget {
+class _EpisodeTimeline extends StatefulWidget {
   const _EpisodeTimeline({
     required this.position,
     required this.duration,
@@ -1048,10 +1072,22 @@ class _EpisodeTimeline extends StatelessWidget {
   final ValueChanged<Duration> onSeek;
 
   @override
+  State<_EpisodeTimeline> createState() => _EpisodeTimelineState();
+}
+
+class _EpisodeTimelineState extends State<_EpisodeTimeline> {
+  Duration? _dragPosition;
+
+  @override
   Widget build(BuildContext context) {
+    final displayPosition = _dragPosition ?? widget.position;
+    final duration = widget.duration;
     final progress = duration.inMilliseconds <= 0
         ? 0.0
-        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+        : (displayPosition.inMilliseconds / duration.inMilliseconds).clamp(
+            0.0,
+            1.0,
+          );
 
     return SizedBox(
       height: 16,
@@ -1063,7 +1099,10 @@ class _EpisodeTimeline extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(_formatDuration(position), style: _timelineTextStyle),
+              child: Text(
+                _formatDuration(displayPosition),
+                style: _timelineTextStyle,
+              ),
             ),
           ),
           const SizedBox(width: 9),
@@ -1077,19 +1116,45 @@ class _EpisodeTimeline extends StatelessWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTapDown: (details) {
-                      if (duration <= Duration.zero ||
-                          constraints.maxWidth == 0) {
-                        return;
-                      }
-                      final fraction =
-                          (details.localPosition.dx / constraints.maxWidth)
-                              .clamp(0.0, 1.0);
-                      onSeek(
-                        Duration(
-                          milliseconds: (duration.inMilliseconds * fraction)
-                              .round(),
-                        ),
+                      final target = _positionForDrag(
+                        details.localPosition.dx,
+                        constraints.maxWidth,
                       );
+                      if (target != null) {
+                        setState(() => _dragPosition = target);
+                      }
+                    },
+                    onTapUp: (details) {
+                      final target =
+                          _dragPosition ??
+                          _positionForDrag(
+                            details.localPosition.dx,
+                            constraints.maxWidth,
+                          );
+                      _finishSeek(target);
+                    },
+                    onTapCancel: () => setState(() => _dragPosition = null),
+                    onHorizontalDragStart: (details) {
+                      final target = _positionForDrag(
+                        details.localPosition.dx,
+                        constraints.maxWidth,
+                      );
+                      if (target != null) {
+                        setState(() => _dragPosition = target);
+                      }
+                    },
+                    onHorizontalDragUpdate: (details) {
+                      final target = _positionForDrag(
+                        details.localPosition.dx,
+                        constraints.maxWidth,
+                      );
+                      if (target != null) {
+                        setState(() => _dragPosition = target);
+                      }
+                    },
+                    onHorizontalDragEnd: (_) => _finishSeek(_dragPosition),
+                    onHorizontalDragCancel: () {
+                      setState(() => _dragPosition = null);
                     },
                     child: SizedBox(
                       height: 16,
@@ -1098,7 +1163,7 @@ class _EpisodeTimeline extends StatelessWidget {
                           borderRadius: BorderRadius.circular(200),
                           child: LinearProgressIndicator(
                             minHeight: 6,
-                            value: progress,
+                            value: progress.toDouble(),
                             backgroundColor: AppColors.backgroundGlass,
                             valueColor: const AlwaysStoppedAnimation<Color>(
                               AppColors.textOnPrimary,
@@ -1118,12 +1183,36 @@ class _EpisodeTimeline extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
-              child: Text(_formatDuration(duration), style: _timelineTextStyle),
+              child: Text(
+                _formatDuration(widget.duration),
+                style: _timelineTextStyle,
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Duration? _positionForDrag(double dx, double width) {
+    final duration = widget.duration;
+    if (duration <= Duration.zero || width <= 0) {
+      return null;
+    }
+    final fraction = (dx / width).clamp(0.0, 1.0);
+    return Duration(
+      milliseconds: (duration.inMilliseconds * fraction).round(),
+    );
+  }
+
+  void _finishSeek(Duration? target) {
+    if (target == null) {
+      setState(() => _dragPosition = null);
+      return;
+    }
+
+    widget.onSeek(target);
+    setState(() => _dragPosition = null);
   }
 
   static const _timelineTextStyle = TextStyle(

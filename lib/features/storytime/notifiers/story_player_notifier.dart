@@ -46,6 +46,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
   StreamSubscription<int?>? _currentIndexSubscription;
   bool _disposed = false;
   bool _isPreparingPageAudio = false;
+  bool _isSeeking = false;
   bool _isPlaylistReady = false;
   Future<void>? _playlistLoadFuture;
   Stopwatch? _audioStartStopwatch;
@@ -230,10 +231,14 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
         : rawTarget;
 
     try {
+      _isSeeking = true;
+      state = state.copyWith(audioPosition: target);
       await _audioPlayer.seek(target);
       state = state.copyWith(audioPosition: target);
     } catch (error) {
       _setError('The story could not seek to that position.');
+    } finally {
+      _isSeeking = false;
     }
   }
 
@@ -246,10 +251,14 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
         : position;
 
     try {
+      _isSeeking = true;
+      state = state.copyWith(audioPosition: target);
       await _audioPlayer.seek(target);
       state = state.copyWith(audioPosition: target);
     } catch (error) {
       _setError('The story could not seek to that position.');
+    } finally {
+      _isSeeking = false;
     }
   }
 
@@ -383,7 +392,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
   }
 
   void _handlePosition(Duration position) {
-    if (_disposed || position == state.audioPosition) {
+    if (_disposed || _isSeeking || position == state.audioPosition) {
       return;
     }
     state = state.copyWith(audioPosition: position);

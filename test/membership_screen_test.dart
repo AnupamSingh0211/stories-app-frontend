@@ -4,6 +4,7 @@ import 'package:dharma_app/features/membership/membership_screen.dart';
 import 'package:dharma_app/features/profile/profile_screen.dart';
 import 'package:dharma_app/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -85,6 +86,56 @@ void main() {
     await tester.pump();
 
     expect(find.text('Premium Membership'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('membership status bar matches the top gradient color', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.lightTheme, home: const MembershipScreen()),
+    );
+    await tester.pump();
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    final statusBarColors = tester
+        .widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+          find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+        )
+        .map((overlay) => overlay.value.statusBarColor);
+
+    expect(scaffold.backgroundColor, const Color(0xFF49A7F4));
+    expect(statusBarColors, contains(const Color(0xFF49A7F4)));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('membership header stays pinned while content scrolls', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.lightTheme, home: const MembershipScreen()),
+    );
+    await tester.pump();
+
+    final backButton = find.byKey(const ValueKey('membershipBackButton'));
+    final initialHeaderTop = tester.getTopLeft(backButton).dy;
+    final initialOfferTop = tester.getTopLeft(
+      find.text('Premium Access for 5 Days'),
+    ).dy;
+
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -180));
+    await tester.pump();
+
+    expect(tester.getTopLeft(backButton).dy, initialHeaderTop);
+    expect(
+      tester.getTopLeft(find.text('Premium Access for 5 Days')).dy,
+      lessThan(initialOfferTop),
+    );
     expect(tester.takeException(), isNull);
   });
 

@@ -80,7 +80,29 @@ void main() {
     notifier.completeStory(storyA.id);
 
     expect(notifier.state.continueListening, isNull);
+    expect(notifier.state.progressForStory(storyA.id), isNull);
+    expect(notifier.state.isStoryCompleted(storyA.id), isTrue);
     expect(notifier.state.recents.single.story.id, storyA.id);
+  });
+
+  test('tracks unfinished progress per story', () {
+    notifier.saveProgress(
+      story: storyA,
+      currentPageIndex: 0,
+      pageCount: 1,
+      audioPosition: const Duration(seconds: 15),
+      audioDuration: const Duration(seconds: 60),
+    );
+    notifier.saveProgress(story: storyB, currentPageIndex: 1, pageCount: 4);
+
+    expect(
+      notifier.state.progressForStory(storyA.id)?.progress,
+      closeTo(0.25, 0.001),
+    );
+    expect(
+      notifier.state.progressForStory(storyB.id)?.progress,
+      closeTo(0.5, 0.001),
+    );
   });
 
   test('switching child profile clears session history', () {

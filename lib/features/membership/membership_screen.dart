@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -18,84 +19,100 @@ class MembershipScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MediaQuery.withNoTextScaling(
-      child: Scaffold(
-        backgroundColor: _MembershipColors.bottomBlue,
-        body: SafeArea(
-          left: false,
-          right: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final contentWidth = constraints.maxWidth;
-              final scale = contentWidth / _MembershipLayout.designWidth;
-              final canvasHeight = math.max(
-                constraints.maxHeight / scale,
-                _MembershipLayout.designHeight,
-              );
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: _MembershipSystemUi.style,
+        child: Scaffold(
+          backgroundColor: _MembershipColors.topBlue,
+          body: SafeArea(
+            left: false,
+            right: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final contentWidth = constraints.maxWidth;
+                final scale = contentWidth / _MembershipLayout.designWidth;
+                final canvasHeight = math.max(
+                  constraints.maxHeight / scale,
+                  _MembershipLayout.designHeight,
+                );
 
-              return SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: Center(
-                  child: SizedBox(
-                    width: contentWidth,
-                    height: canvasHeight * scale,
-                    child: FittedBox(
-                      fit: BoxFit.fill,
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: _MembershipLayout.designWidth,
-                        height: canvasHeight,
-                        child: ClipRect(
-                          child: Stack(
-                            clipBehavior: Clip.hardEdge,
-                            children: [
-                              const Positioned.fill(
-                                child: _MembershipBackground(),
-                              ),
-                              const _HeroArtwork(),
-                              const _MembershipHeader(),
-                              const Positioned(
-                                top: _MembershipLayout.offerTop,
-                                left: 0,
-                                right: 0,
-                                child: _OfferDetails(),
-                              ),
-                              const Positioned(
-                                top: _MembershipLayout.benefitsTop,
-                                left: 0,
-                                right: 0,
-                                child: _MembershipBenefits(),
-                              ),
-                              Positioned(
-                                top: canvasHeight - _MembershipLayout.ctaGap,
-                                left: _MembershipLayout.ctaLeft,
-                                child: _MembershipCta(
-                                  onPressed: onUnlock ?? () {},
-                                ),
-                              ),
-                              Positioned(
-                                top: canvasHeight - _MembershipLayout.plansGap,
-                                left: 0,
-                                right: 0,
-                                child: _SeeAllPlansButton(
-                                  onPressed:
-                                      onSeeAllPlans ??
-                                      () => Navigator.of(context).push(
-                                        MaterialPageRoute<void>(
-                                          builder: (_) =>
-                                              const MembershipPlansScreen(),
-                                        ),
+                return Stack(
+                  children: [
+                    SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: Center(
+                        child: SizedBox(
+                          width: contentWidth,
+                          height: canvasHeight * scale,
+                          child: FittedBox(
+                            fit: BoxFit.fill,
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              width: _MembershipLayout.designWidth,
+                              height: canvasHeight,
+                              child: ClipRect(
+                                child: Stack(
+                                  clipBehavior: Clip.hardEdge,
+                                  children: [
+                                    const Positioned.fill(
+                                      child: _MembershipBackground(),
+                                    ),
+                                    const _HeroArtwork(),
+                                    const Positioned(
+                                      top: _MembershipLayout.offerTop,
+                                      left: 0,
+                                      right: 0,
+                                      child: _OfferDetails(),
+                                    ),
+                                    const Positioned(
+                                      top: _MembershipLayout.benefitsTop,
+                                      left: 0,
+                                      right: 0,
+                                      child: _MembershipBenefits(),
+                                    ),
+                                    Positioned(
+                                      top:
+                                          canvasHeight -
+                                          _MembershipLayout.ctaGap,
+                                      left: _MembershipLayout.ctaLeft,
+                                      child: _MembershipCta(
+                                        onPressed: onUnlock ?? () {},
                                       ),
+                                    ),
+                                    Positioned(
+                                      top:
+                                          canvasHeight -
+                                          _MembershipLayout.plansGap,
+                                      left: 0,
+                                      right: 0,
+                                      child: _SeeAllPlansButton(
+                                        onPressed:
+                                            onSeeAllPlans ??
+                                            () => Navigator.of(context).push(
+                                              MaterialPageRoute<void>(
+                                                builder: (_) =>
+                                                    const MembershipPlansScreen(),
+                                              ),
+                                            ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-              );
-            },
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: _MembershipHeader(),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -483,6 +500,16 @@ abstract final class _MembershipColors {
   static const glass = Color(0x2EFFFFFF);
   static const glassBorder = Color(0x66FFFFFF);
   static const textSecondaryOpacity = Color(0xD9FFFFFF);
+}
+
+abstract final class _MembershipSystemUi {
+  static const style = SystemUiOverlayStyle(
+    statusBarColor: _MembershipColors.topBlue,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: _MembershipColors.bottomBlue,
+    systemNavigationBarIconBrightness: Brightness.light,
+    systemNavigationBarDividerColor: Colors.transparent,
+  );
 }
 
 abstract final class _MembershipTextStyles {
