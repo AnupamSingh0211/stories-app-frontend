@@ -78,39 +78,39 @@ class _AppPlayerControlIconSpec {
   static _AppPlayerControlIconSpec fromType(AppPlayerControlIconType type) {
     return switch (type) {
       AppPlayerControlIconType.play => const _AppPlayerControlIconSpec(
-        asset: 'assets/icons/player/play.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Play.svg',
         size: Size.square(32),
       ),
       AppPlayerControlIconType.playSmall => const _AppPlayerControlIconSpec(
-        asset: 'assets/icons/player/play_small.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Play.svg',
         size: Size.square(24),
       ),
       AppPlayerControlIconType.next => const _AppPlayerControlIconSpec(
-        asset: 'assets/icons/player/next.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Forward.svg',
         size: Size.square(16),
       ),
       AppPlayerControlIconType.pause => const _AppPlayerControlIconSpec(
-        asset: 'assets/icons/player/pause.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Pause Circle.svg',
         size: Size.square(24),
       ),
       AppPlayerControlIconType.circlePlay => const _AppPlayerControlIconSpec(
-        asset: 'assets/icons/player/circle_play.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Play.svg',
         size: Size.square(24),
       ),
       AppPlayerControlIconType.replay => const _AppPlayerControlIconSpec(
-        asset: 'assets/icons/player/replay.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Forward 10 Seconds.svg',
         size: Size.square(24),
       ),
       AppPlayerControlIconType.undo => const _AppPlayerControlIconSpec(
-        asset: 'assets/icons/player/undo.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Backward 10 Seconds.svg',
         size: Size.square(24),
       ),
       AppPlayerControlIconType.repeat => const _AppPlayerControlIconSpec(
-        asset: 'assets/icons/player/repeat.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Swap.svg',
         size: Size.square(24),
       ),
       AppPlayerControlIconType.camera => const _AppPlayerControlIconSpec(
-        asset: 'assets/icons/player/camera.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Camera.svg',
         size: Size.square(24),
       ),
     };

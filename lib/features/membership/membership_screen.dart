@@ -23,95 +23,117 @@ class MembershipScreen extends StatelessWidget {
         value: _MembershipSystemUi.style,
         child: Scaffold(
           backgroundColor: _MembershipColors.topBlue,
-          body: SafeArea(
-            left: false,
-            right: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final contentWidth = constraints.maxWidth;
-                final scale = contentWidth / _MembershipLayout.designWidth;
-                final canvasHeight = math.max(
-                  constraints.maxHeight / scale,
-                  _MembershipLayout.designHeight,
-                );
+          body: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _MembershipColors.topBlue,
+                  _MembershipColors.midBlue,
+                  _MembershipColors.bottomBlue,
+                ],
+                stops: [0, 0.54, 1],
+              ),
+            ),
+            child: Stack(
+              children: [
+                SafeArea(
+                  left: false,
+                  right: false,
+                  bottom: false,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final contentWidth = constraints.maxWidth;
+                      final scale =
+                          contentWidth / _MembershipLayout.designWidth;
+                      final canvasHeight = math.max(
+                        constraints.maxHeight / scale,
+                        _MembershipLayout.designHeight,
+                      );
 
-                return Stack(
-                  children: [
-                    SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      child: Center(
-                        child: SizedBox(
-                          width: contentWidth,
-                          height: canvasHeight * scale,
-                          child: FittedBox(
-                            fit: BoxFit.fill,
-                            alignment: Alignment.topCenter,
-                            child: SizedBox(
-                              width: _MembershipLayout.designWidth,
-                              height: canvasHeight,
-                              child: ClipRect(
-                                child: Stack(
-                                  clipBehavior: Clip.hardEdge,
-                                  children: [
-                                    const Positioned.fill(
-                                      child: _MembershipBackground(),
-                                    ),
-                                    const _HeroArtwork(),
-                                    const Positioned(
-                                      top: _MembershipLayout.offerTop,
-                                      left: 0,
-                                      right: 0,
-                                      child: _OfferDetails(),
-                                    ),
-                                    const Positioned(
-                                      top: _MembershipLayout.benefitsTop,
-                                      left: 0,
-                                      right: 0,
-                                      child: _MembershipBenefits(),
-                                    ),
-                                    Positioned(
-                                      top:
-                                          canvasHeight -
-                                          _MembershipLayout.ctaGap,
-                                      left: _MembershipLayout.ctaLeft,
-                                      child: _MembershipCta(
-                                        onPressed: onUnlock ?? () {},
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top:
-                                          canvasHeight -
-                                          _MembershipLayout.plansGap,
-                                      left: 0,
-                                      right: 0,
-                                      child: _SeeAllPlansButton(
-                                        onPressed:
-                                            onSeeAllPlans ??
-                                            () => Navigator.of(context).push(
-                                              MaterialPageRoute<void>(
-                                                builder: (_) =>
-                                                    const MembershipPlansScreen(),
-                                              ),
+                      return Stack(
+                        children: [
+                          SingleChildScrollView(
+                            physics: const ClampingScrollPhysics(),
+                            child: Center(
+                              child: SizedBox(
+                                width: contentWidth,
+                                height: canvasHeight * scale,
+                                child: FittedBox(
+                                  fit: BoxFit.fill,
+                                  alignment: Alignment.topCenter,
+                                  child: SizedBox(
+                                    width: _MembershipLayout.designWidth,
+                                    height: canvasHeight,
+                                    child: ClipRect(
+                                      child: Stack(
+                                        clipBehavior: Clip.hardEdge,
+                                        children: [
+                                          const Positioned.fill(
+                                            child: _MembershipBackground(),
+                                          ),
+                                          const _HeroArtwork(),
+                                          const Positioned(
+                                            top: _MembershipLayout.offerTop,
+                                            left: 0,
+                                            right: 0,
+                                            child: _OfferDetails(),
+                                          ),
+                                          const Positioned(
+                                            top: _MembershipLayout.benefitsTop,
+                                            left: 0,
+                                            right: 0,
+                                            child: _MembershipBenefits(),
+                                          ),
+                                          Positioned(
+                                            top:
+                                                canvasHeight -
+                                                _MembershipLayout.ctaGap,
+                                            left: _MembershipLayout.ctaLeft,
+                                            child: _MembershipCta(
+                                              onPressed: onUnlock ?? () {},
                                             ),
+                                          ),
+                                          Positioned(
+                                            top:
+                                                canvasHeight -
+                                                _MembershipLayout.plansGap,
+                                            left: 0,
+                                            right: 0,
+                                            child: _SeeAllPlansButton(
+                                              onPressed:
+                                                  onSeeAllPlans ??
+                                                  () => Navigator.of(
+                                                    context,
+                                                  ).push(
+                                                    MaterialPageRoute<void>(
+                                                      builder: (_) =>
+                                                          const MembershipPlansScreen(),
+                                                    ),
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                    const Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      child: _MembershipHeader(),
-                    ),
-                  ],
-                );
-              },
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: _MembershipHeader(),
+                ),
+              ],
             ),
           ),
         ),
@@ -147,51 +169,59 @@ class _MembershipHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusBarHeight = MediaQuery.paddingOf(context).top;
+
     return Container(
-      height: _MembershipLayout.headerHeight,
+      height: statusBarHeight + _MembershipLayout.headerHeight,
       color: _MembershipColors.headerOverlay,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Semantics(
-            button: true,
-            label: 'Back',
-            child: InkResponse(
-              key: const ValueKey('membershipBackButton'),
-              onTap: () => Navigator.of(context).maybePop(),
-              radius: 24,
-              child: const SizedBox.square(
-                dimension: 24,
-                child: Icon(
-                  Icons.arrow_back_rounded,
-                  color: AppColors.textOnPrimary,
-                  size: 24,
-                  applyTextScaling: false,
+      padding: EdgeInsets.only(top: statusBarHeight),
+      child: SizedBox(
+        height: _MembershipLayout.headerHeight,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Semantics(
+                button: true,
+                label: 'Back',
+                child: InkResponse(
+                  key: const ValueKey('membershipBackButton'),
+                  onTap: () => Navigator.of(context).maybePop(),
+                  radius: 24,
+                  child: const SizedBox.square(
+                    dimension: 24,
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppColors.textOnPrimary,
+                      size: 24,
+                      applyTextScaling: false,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Premium Membership',
-                maxLines: 1,
-                softWrap: false,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontFamily,
-                  fontSize: 20,
-                  height: 24 / 20,
-                  letterSpacing: -0.25,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textOnPrimary,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Premium Membership',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontFamily,
+                      fontSize: 20,
+                      height: 24 / 20,
+                      letterSpacing: -0.25,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textOnPrimary,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -310,15 +340,15 @@ class _MembershipBenefits extends StatelessWidget {
   static const _benefits = [
     _BenefitData(
       label: 'New\nReleases',
-      iconAsset: 'assets/icons/membership/new_releases.svg',
+      iconAsset: 'assets/icons/new_boopi/qlementine-icons_new-multiple-16.svg',
     ),
     _BenefitData(
       label: 'Offline\nListening',
-      iconAsset: 'assets/icons/membership/offline_listening.svg',
+      iconAsset: 'assets/icons/new_boopi/ri_headphone-fill.svg',
     ),
     _BenefitData(
       label: 'Ad-Free\nAccess',
-      iconAsset: 'assets/icons/membership/Ad-free_access.svg',
+      iconAsset: 'assets/icons/new_boopi/boxicons_block.svg',
     ),
   ];
 
@@ -504,11 +534,13 @@ abstract final class _MembershipColors {
 
 abstract final class _MembershipSystemUi {
   static const style = SystemUiOverlayStyle(
-    statusBarColor: _MembershipColors.topBlue,
+    statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: _MembershipColors.bottomBlue,
+    systemNavigationBarColor: Colors.transparent,
     systemNavigationBarIconBrightness: Brightness.light,
     systemNavigationBarDividerColor: Colors.transparent,
+    systemStatusBarContrastEnforced: false,
+    systemNavigationBarContrastEnforced: false,
   );
 }
 

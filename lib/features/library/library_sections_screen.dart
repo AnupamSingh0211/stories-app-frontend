@@ -20,11 +20,13 @@ import '../storytime/providers/favorite_stories_provider.dart';
 import '../storytime/screens/story_player_screen.dart';
 import '../storytime/widgets/story_image_view.dart';
 
-const _favoritesEmptyAsset = 'assets/icons/favorites_empty.svg';
-const _searchAsset = 'assets/icons/search_rounded.svg';
-const _sparkAsset = 'assets/icons/actions/sparks.svg';
-const _playAsset = 'assets/icons/player/play_small.svg';
-const _downloadAsset = 'assets/icons/download_icon.svg';
+const _favoritesEmptyAsset =
+    'assets/icons/new_boopi/State=Default, Icon=Heart.svg';
+const _searchAsset = 'assets/icons/new_boopi/State=Default, Icon=Search.svg';
+const _sparkAsset = 'assets/icons/new_boopi/State=Default, Icon=Sparkle.svg';
+const _playAsset = 'assets/icons/new_boopi/State=Default, Icon=Play.svg';
+const _downloadAsset =
+    'assets/icons/new_boopi/State=Default, Icon=Download.svg';
 const _storyTextColor = Color(0xFF001033);
 const _emptyTitleColor = Color(0xFF29609B);
 const _tabBorderColor = AppColors.gray400;

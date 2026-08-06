@@ -17,23 +17,23 @@ class MembershipBenefitsStrip extends StatelessWidget {
   static const _benefits = [
     _BenefitData(
       label: 'New\nReleases',
-      iconAsset: 'assets/icons/membership/new_releases.svg',
+      iconAsset: 'assets/icons/new_boopi/qlementine-icons_new-multiple-16.svg',
     ),
     _BenefitData(
       label: 'Unlimited\nStories',
-      iconAsset: 'assets/icons/membership/unlimited_stories.svg',
+      iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Paper.svg',
     ),
     _BenefitData(
       label: 'Premium\nCompanions',
-      iconAsset: 'assets/icons/membership/premium_companions.svg',
+      iconAsset: 'assets/icons/new_boopi/State=Default, Icon=3 User.svg',
     ),
     _BenefitData(
       label: 'Offline\nListening',
-      iconAsset: 'assets/icons/membership/offline_listening.svg',
+      iconAsset: 'assets/icons/new_boopi/ri_headphone-fill.svg',
     ),
     _BenefitData(
       label: 'Ad-Free\nAccess',
-      iconAsset: 'assets/icons/membership/ad_free.svg',
+      iconAsset: 'assets/icons/new_boopi/boxicons_block.svg',
     ),
   ];
 

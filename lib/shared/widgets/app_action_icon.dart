@@ -64,31 +64,31 @@ class _AppActionIconSpec {
   static _AppActionIconSpec fromType(AppActionIconType type) {
     return switch (type) {
       AppActionIconType.globe => const _AppActionIconSpec(
-        asset: 'assets/icons/actions/globe.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Website.svg',
         size: Size(18.9975, 18.9975),
       ),
       AppActionIconType.sparks => const _AppActionIconSpec(
-        asset: 'assets/icons/actions/sparks.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Sparkle.svg',
         size: Size.square(20),
       ),
       AppActionIconType.language => const _AppActionIconSpec(
-        asset: 'assets/icons/actions/language.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Website.svg',
         size: Size.square(20),
       ),
       AppActionIconType.heart => const _AppActionIconSpec(
-        asset: 'assets/icons/actions/heart.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
         size: Size.square(20),
       ),
       AppActionIconType.help => const _AppActionIconSpec(
-        asset: 'assets/icons/actions/help.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Danger Circle.svg',
         size: Size.square(20),
       ),
       AppActionIconType.share => const _AppActionIconSpec(
-        asset: 'assets/icons/actions/share.svg',
+        asset: 'assets/icons/new_boopi/clarity_share-line.svg',
         size: Size.square(20),
       ),
       AppActionIconType.privacy => const _AppActionIconSpec(
-        asset: 'assets/icons/actions/privacy.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Shield Done.svg',
         size: Size.square(20),
       ),
     };
