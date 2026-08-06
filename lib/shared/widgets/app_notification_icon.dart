@@ -68,15 +68,15 @@ class _AppNotificationIconSpec {
   static _AppNotificationIconSpec fromType(AppNotificationIconType type) {
     return switch (type) {
       AppNotificationIconType.off => const _AppNotificationIconSpec(
-        asset: 'assets/icons/notifications/notification_off.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Notification.svg',
         size: Size.square(24),
       ),
       AppNotificationIconType.outline => const _AppNotificationIconSpec(
-        asset: 'assets/icons/notifications/notification_outline.svg',
+        asset: 'assets/icons/new_boopi/State=Default, Icon=Notification.svg',
         size: Size.square(18),
       ),
       AppNotificationIconType.solid => const _AppNotificationIconSpec(
-        asset: 'assets/icons/notifications/notification_solid.svg',
+        asset: 'assets/icons/new_boopi/State=Bold, Icon=Notification.svg',
         size: Size.square(18),
       ),
     };

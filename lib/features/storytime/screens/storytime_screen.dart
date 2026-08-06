@@ -17,10 +17,12 @@ import '../widgets/story_image_view.dart';
 import 'episodes_screen.dart';
 import 'story_player_screen.dart';
 
-const _likeInactiveAsset = 'assets/icons/like_inactive.svg';
-const _likeActiveAsset = 'assets/icons/like_active.svg';
-const _searchAsset = 'assets/icons/search_rounded.svg';
-const _favoritesEmptyAsset = 'assets/icons/favorites_empty.svg';
+const _likeInactiveAsset =
+    'assets/icons/new_boopi/State=Default, Icon=Heart.svg';
+const _likeActiveAsset = 'assets/icons/new_boopi/State=Bold, Icon=Heart.svg';
+const _searchAsset = 'assets/icons/new_boopi/State=Default, Icon=Search.svg';
+const _favoritesEmptyAsset =
+    'assets/icons/new_boopi/State=Default, Icon=Heart.svg';
 const _storyTextColor = Color(0xFF001033);
 const _horizontalPadding = 20.0;
 

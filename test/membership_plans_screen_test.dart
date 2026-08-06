@@ -147,9 +147,18 @@ void main() {
     ).readAsStringSync();
 
     expect(source, contains('membership_mascot_character.png'));
-    expect(source, contains('assets/icons/membership/secure.svg'));
-    expect(source, contains('assets/icons/membership/cancel.svg'));
-    expect(source, contains('assets/icons/membership/family.svg'));
+    expect(
+      source,
+      contains('assets/icons/new_boopi/State=Default, Icon=Shield Done.svg'),
+    );
+    expect(
+      source,
+      contains('assets/icons/new_boopi/State=Default, Icon=Close Square.svg'),
+    );
+    expect(
+      source,
+      contains('assets/icons/new_boopi/State=Default, Icon=3 User.svg'),
+    );
     expect(source, isNot(contains('CachedNetworkImage')));
   });
 }

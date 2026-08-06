@@ -63,93 +63,117 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
         value: _PlansSystemUi.style,
         child: Scaffold(
           backgroundColor: _PlansColors.topBlue,
-          body: SafeArea(
-            left: false,
-            right: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final contentWidth = constraints.maxWidth;
-                final scale = contentWidth / _PlansLayout.designWidth;
-                final canvasHeight = math.max(
-                  constraints.maxHeight / scale,
-                  _PlansLayout.designHeight,
-                );
+          body: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _PlansColors.topBlue,
+                  _PlansColors.midBlue,
+                  _PlansColors.bottomBlue,
+                ],
+                stops: [0, 0.54, 1],
+              ),
+            ),
+            child: Stack(
+              children: [
+                SafeArea(
+                  left: false,
+                  right: false,
+                  bottom: false,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final contentWidth = constraints.maxWidth;
+                      final scale = contentWidth / _PlansLayout.designWidth;
+                      final canvasHeight = math.max(
+                        constraints.maxHeight / scale,
+                        _PlansLayout.designHeight,
+                      );
 
-                return Stack(
-                  children: [
-                    SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      child: Center(
-                        child: SizedBox(
-                          width: contentWidth,
-                          height: canvasHeight * scale,
-                          child: FittedBox(
-                            fit: BoxFit.fill,
-                            alignment: Alignment.topCenter,
-                            child: SizedBox(
-                              width: _PlansLayout.designWidth,
-                              height: canvasHeight,
-                              child: ClipRect(
-                                child: Stack(
-                                  clipBehavior: Clip.hardEdge,
-                                  children: [
-                                    const Positioned.fill(
-                                      child: _PlansBackground(),
-                                    ),
-                                    const _PlansArtwork(),
-                                    const Positioned(
-                                      top: _PlansLayout.heroGroupTop,
-                                      left: 0,
-                                      right: 0,
-                                      child: _PlansHeroCopy(),
-                                    ),
-                                    const Positioned(
-                                      top: _PlansLayout.benefitsTop,
-                                      left: 0,
-                                      right: 0,
-                                      child: _MembershipBenefits(),
-                                    ),
-                                    Positioned(
-                                      top: _PlansLayout.planSelectorTop,
-                                      left: _PlansLayout.planSelectorLeft,
-                                      child: _PlanSelector(
-                                        selectedPlan: _selectedPlan,
-                                        onSelected: _selectPlan,
-                                        onPromoCode:
-                                            widget.onPromoCode ?? () {},
+                      return Stack(
+                        children: [
+                          SingleChildScrollView(
+                            physics: const ClampingScrollPhysics(),
+                            child: Center(
+                              child: SizedBox(
+                                width: contentWidth,
+                                height: canvasHeight * scale,
+                                child: FittedBox(
+                                  fit: BoxFit.fill,
+                                  alignment: Alignment.topCenter,
+                                  child: SizedBox(
+                                    width: _PlansLayout.designWidth,
+                                    height: canvasHeight,
+                                    child: ClipRect(
+                                      child: Stack(
+                                        clipBehavior: Clip.hardEdge,
+                                        children: [
+                                          const Positioned.fill(
+                                            child: _PlansBackground(),
+                                          ),
+                                          const _PlansArtwork(),
+                                          const Positioned(
+                                            top: _PlansLayout.heroGroupTop,
+                                            left: 0,
+                                            right: 0,
+                                            child: _PlansHeroCopy(),
+                                          ),
+                                          const Positioned(
+                                            top: _PlansLayout.benefitsTop,
+                                            left: 0,
+                                            right: 0,
+                                            child: _MembershipBenefits(),
+                                          ),
+                                          Positioned(
+                                            top: _PlansLayout.planSelectorTop,
+                                            left: _PlansLayout.planSelectorLeft,
+                                            child: _PlanSelector(
+                                              selectedPlan: _selectedPlan,
+                                              onSelected: _selectPlan,
+                                              onPromoCode:
+                                                  widget.onPromoCode ?? () {},
+                                            ),
+                                          ),
+                                          Positioned(
+                                            top:
+                                                canvasHeight -
+                                                _PlansLayout.ctaGap,
+                                            left: _PlansLayout.ctaLeft,
+                                            child: _SubscribeButton(
+                                              plan: _selectedPlan,
+                                              onPressed: () =>
+                                                  _continue(context),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            top:
+                                                canvasHeight -
+                                                _PlansLayout.trustGap,
+                                            left: 0,
+                                            right: 0,
+                                            child: const _TrustIndicators(),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    Positioned(
-                                      top: canvasHeight - _PlansLayout.ctaGap,
-                                      left: _PlansLayout.ctaLeft,
-                                      child: _SubscribeButton(
-                                        plan: _selectedPlan,
-                                        onPressed: () => _continue(context),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: canvasHeight - _PlansLayout.trustGap,
-                                      left: 0,
-                                      right: 0,
-                                      child: const _TrustIndicators(),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                    const Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      child: _PlansHeader(),
-                    ),
-                  ],
-                );
-              },
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: _PlansHeader(),
+                ),
+              ],
             ),
           ),
         ),
@@ -185,51 +209,59 @@ class _PlansHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusBarHeight = MediaQuery.paddingOf(context).top;
+
     return Container(
-      height: _PlansLayout.headerHeight,
+      height: statusBarHeight + _PlansLayout.headerHeight,
       color: _PlansColors.headerOverlay,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Semantics(
-            button: true,
-            label: 'Back',
-            child: InkResponse(
-              key: const ValueKey('membershipPlansBackButton'),
-              onTap: () => Navigator.of(context).maybePop(),
-              radius: 24,
-              child: const SizedBox.square(
-                dimension: 24,
-                child: Icon(
-                  Icons.arrow_back_rounded,
-                  color: AppColors.textOnPrimary,
-                  size: 24,
-                  applyTextScaling: false,
+      padding: EdgeInsets.only(top: statusBarHeight),
+      child: SizedBox(
+        height: _PlansLayout.headerHeight,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Semantics(
+                button: true,
+                label: 'Back',
+                child: InkResponse(
+                  key: const ValueKey('membershipPlansBackButton'),
+                  onTap: () => Navigator.of(context).maybePop(),
+                  radius: 24,
+                  child: const SizedBox.square(
+                    dimension: 24,
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppColors.textOnPrimary,
+                      size: 24,
+                      applyTextScaling: false,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Premium Membership',
-                maxLines: 1,
-                softWrap: false,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontFamily,
-                  fontSize: 20,
-                  height: 24 / 20,
-                  letterSpacing: -0.25,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textOnPrimary,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Premium Membership',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontFamily,
+                      fontSize: 20,
+                      height: 24 / 20,
+                      letterSpacing: -0.25,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textOnPrimary,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -340,15 +372,15 @@ class _MembershipBenefits extends StatelessWidget {
   static const _benefits = [
     _BenefitData(
       label: 'New\nReleases',
-      iconAsset: 'assets/icons/membership/new_releases.svg',
+      iconAsset: 'assets/icons/new_boopi/qlementine-icons_new-multiple-16.svg',
     ),
     _BenefitData(
       label: 'Offline\nListening',
-      iconAsset: 'assets/icons/membership/offline_listening.svg',
+      iconAsset: 'assets/icons/new_boopi/ri_headphone-fill.svg',
     ),
     _BenefitData(
       label: 'Ad-Free\nAccess',
-      iconAsset: 'assets/icons/membership/Ad-free_access.svg',
+      iconAsset: 'assets/icons/new_boopi/boxicons_block.svg',
     ),
   ];
 
@@ -704,21 +736,23 @@ class _TrustIndicators extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _TrustIndicator(
-                  iconAsset: 'assets/icons/membership/secure.svg',
+                  iconAsset:
+                      'assets/icons/new_boopi/State=Default, Icon=Shield Done.svg',
                   iconWidth: 10.5,
                   iconHeight: 14,
                   label: 'Secure Payment',
                 ),
                 SizedBox(width: 24),
                 _TrustIndicator(
-                  iconAsset: 'assets/icons/membership/cancel.svg',
+                  iconAsset:
+                      'assets/icons/new_boopi/State=Default, Icon=Close Square.svg',
                   iconWidth: 13.417,
                   iconHeight: 14,
                   label: 'Cancel anytime',
                 ),
                 SizedBox(width: 24),
                 _TrustIndicator(
-                  iconAsset: 'assets/icons/membership/family.svg',
+                  iconAsset: 'assets/icons/new_boopi/State=Default, Icon=3 User.svg',
                   iconWidth: 13.089,
                   iconHeight: 11.941,
                   iconGap: 4.333,
@@ -833,11 +867,13 @@ abstract final class _PlansColors {
 
 abstract final class _PlansSystemUi {
   static const style = SystemUiOverlayStyle(
-    statusBarColor: _PlansColors.topBlue,
+    statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: _PlansColors.bottomBlue,
+    systemNavigationBarColor: Colors.transparent,
     systemNavigationBarIconBrightness: Brightness.light,
     systemNavigationBarDividerColor: Colors.transparent,
+    systemStatusBarContrastEnforced: false,
+    systemNavigationBarContrastEnforced: false,
   );
 }
 

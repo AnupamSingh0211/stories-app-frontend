@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class AppSwitch extends StatelessWidget {
   const AppSwitch({
@@ -28,13 +27,26 @@ class AppSwitch extends StatelessWidget {
         onTap: enabled ? () => onChanged!(!value) : null,
         child: Opacity(
           opacity: enabled ? 1 : 0.48,
-          child: SvgPicture.asset(
-            value
-                ? 'assets/icons/switch/switch_active.svg'
-                : 'assets/icons/switch/switch_inactive.svg',
+          child: Container(
             width: size.width,
             height: size.height,
-            semanticsLabel: semanticLabel,
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: value
+                  ? const Color(0xFF4BA3F4)
+                  : Colors.white.withAlpha(61),
+              borderRadius: BorderRadius.circular(size.height / 2),
+              border: Border.all(color: Colors.white.withAlpha(102)),
+            ),
+            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              width: size.height - 4,
+              height: size.height - 4,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
           ),
         ),
       ),

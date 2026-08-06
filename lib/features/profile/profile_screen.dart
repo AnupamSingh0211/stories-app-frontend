@@ -116,7 +116,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 children: [
                                   _ProfileMenuRow(
                                     iconAsset:
-                                        'assets/icons/actions/star_badge.svg',
+                                        'assets/icons/new_boopi/streamline-sharp_star-badge.svg',
                                     title: 'Subscription',
                                     subtitle: 'For yawns and cuddles.',
                                     onTap: () => Navigator.of(context).push(
@@ -172,7 +172,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     onTap: () => _openHelpAndSupport(context),
                                   ),
                                   _ProfileMenuRow(
-                                    iconAsset: 'assets/icons/actions/share.svg',
+                                    iconAsset:
+                                        'assets/icons/new_boopi/clarity_share-line.svg',
                                     title: 'Share Boopi',
                                     subtitle: 'Spread the bedtime magic.',
                                     onTap: () => _shareBoopi(context),

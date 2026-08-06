@@ -319,7 +319,7 @@ class _PlaybackControls extends StatelessWidget {
               semanticLabel: 'Rewind 10 seconds',
               onPressed: onRewind,
               child: SvgPicture.asset(
-                'assets/icons/player/undo.svg',
+                'assets/icons/new_boopi/State=Default, Icon=Backward 10 Seconds.svg',
                 width: 36,
                 height: 36,
                 colorFilter: const ColorFilter.mode(
@@ -344,7 +344,7 @@ class _PlaybackControls extends StatelessWidget {
               semanticLabel: 'Forward 10 seconds',
               onPressed: onForward,
               child: SvgPicture.asset(
-                'assets/icons/player/replay.svg',
+                'assets/icons/new_boopi/State=Default, Icon=Forward 10 Seconds.svg',
                 width: 36,
                 height: 36,
                 colorFilter: const ColorFilter.mode(

@@ -596,7 +596,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
             child: Row(
               children: [
                 SvgPicture.asset(
-                  'assets/icons/telephone_icon.svg',
+                  'assets/icons/new_boopi/State=Default, Icon=Call.svg',
                   width: 24,
                   height: 24,
                 ),

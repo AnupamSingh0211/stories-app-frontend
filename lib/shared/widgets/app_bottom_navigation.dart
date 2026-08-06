@@ -143,23 +143,23 @@ class AppBottomNavigationIconSet {
 
   static const figma = AppBottomNavigationIconSet(
     home: AppBottomNavigationItem(
-      iconAsset: 'assets/icons/nav/home_inactive.svg',
-      selectedIconAsset: 'assets/icons/nav/home_active.svg',
+      iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Home.svg',
+      selectedIconAsset: 'assets/icons/new_boopi/State=Bold, Icon=Home.svg',
       label: 'Home',
     ),
     stories: AppBottomNavigationItem(
-      iconAsset: 'assets/icons/nav/stories_inactive.svg',
-      selectedIconAsset: 'assets/icons/nav/stories_active.svg',
+      iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Sparkle.svg',
+      selectedIconAsset: 'assets/icons/new_boopi/State=Bold, Icon=Sparkle.svg',
       label: 'Stories',
     ),
     library: AppBottomNavigationItem(
-      iconAsset: 'assets/icons/nav/library_inactive.svg',
-      selectedIconAsset: 'assets/icons/nav/library_active.svg',
+      iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Libaray.svg',
+      selectedIconAsset: 'assets/icons/new_boopi/State=Bold, Icon=Libaray.svg',
       label: 'Library',
     ),
     profile: AppBottomNavigationItem(
-      iconAsset: 'assets/icons/nav/profile_inactive.svg',
-      selectedIconAsset: 'assets/icons/nav/profile_active.svg',
+      iconAsset: 'assets/icons/new_boopi/State=Default, Icon=Profile.svg',
+      selectedIconAsset: 'assets/icons/new_boopi/State=Bold, Icon=Profile.svg',
       label: 'Profile',
     ),
   );

@@ -1343,7 +1343,7 @@ class _StoryFeedHeader extends StatelessWidget {
                       );
                     },
                     child: SvgPicture.asset(
-                      'assets/icons/download_icon.svg',
+                      'assets/icons/new_boopi/State=Default, Icon=Download.svg',
                       width: 24,
                       height: 24,
                       colorFilter: const ColorFilter.mode(
