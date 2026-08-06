@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dharma_app/features/auth/assets_provider.dart';
@@ -28,6 +29,35 @@ void main() {
     expect(find.text('Enter your mobile number'), findsOneWidget);
     expect(find.byKey(const Key('mobile-continue-button')), findsOneWidget);
     expect(find.text('Send OTP'), findsOneWidget);
+  });
+
+  testWidgets('phone field exposes cross-platform phone autofill hints', (
+    tester,
+  ) async {
+    await _pumpWelcomeScreen(tester);
+
+    final editableText = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('mobile-number-field')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(
+      editableText.autofillHints,
+      containsAll([
+        AutofillHints.telephoneNumber,
+        AutofillHints.telephoneNumberDevice,
+      ]),
+    );
+  });
+
+  testWidgets('does not render a separate phone number hint action', (
+    tester,
+  ) async {
+    await _pumpWelcomeScreen(tester);
+
+    expect(find.byKey(const Key('mobile-number-hint-button')), findsNothing);
+    expect(find.text('Use my number'), findsNothing);
   });
 
   testWidgets('phone field focus lifts the welcome layout for the keyboard', (
@@ -127,6 +157,23 @@ void main() {
       find.byKey(const Key('mobile-number-field')),
     );
     expect(field.controller!.text, '1234567890');
+  });
+
+  testWidgets('phone autofill removes Indian country code before limiting', (
+    tester,
+  ) async {
+    await _pumpWelcomeScreen(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('mobile-number-field')),
+      '+91 70606 58766',
+    );
+    await tester.pump();
+
+    final field = tester.widget<TextFormField>(
+      find.byKey(const Key('mobile-number-field')),
+    );
+    expect(field.controller!.text, '7060658766');
   });
 
   testWidgets('exactly 10 digits requests OTP using E.164 and opens OTP step', (

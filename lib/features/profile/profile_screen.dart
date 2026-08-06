@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
@@ -17,7 +21,7 @@ import 'help_and_support_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'story_language_screen.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
     super.key,
     this.fallbackChildName,
@@ -28,7 +32,16 @@ class ProfileScreen extends ConsumerWidget {
   final int? fallbackChildAge;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final ImagePicker _imagePicker = ImagePicker();
+  final Map<String, Uint8List> _selectedAvatarBytes = {};
+  bool _isAutoPlayNextStoryEnabled = true;
+
+  @override
+  Widget build(BuildContext context) {
     final profileState = ref.watch(profileNotifierProvider);
     final childProfiles = profileState.valueOrNull;
     final profile = childProfiles?.selectedChild;
@@ -86,12 +99,16 @@ class ProfileScreen extends ConsumerWidget {
                                   name: _displayValue(
                                     _firstNonEmpty(
                                       profile.childName,
-                                      fallbackChildName,
+                                      widget.fallbackChildName,
                                     ),
                                   ),
                                   age: _ageValue(profile.age),
                                   rawAge: profile.age,
                                   avatarUrl: profile.avatarUrl,
+                                  avatarBytes:
+                                      _selectedAvatarBytes[profile.id],
+                                  onAvatarCameraTap: () =>
+                                      _pickProfileAvatar(profile),
                                 ),
                               const SizedBox(height: 24),
                               _ProfileSection(
@@ -131,11 +148,15 @@ class ProfileScreen extends ConsumerWidget {
                                     subtitle: 'They just loved this. \u2764\uFE0F',
                                     onTap: () => _openLibrary(context),
                                   ),
-                                  const _ProfileMenuRow(
+                                  _ProfileMenuRow(
                                     iconAsset:
                                         'assets/icons/new_boopi/State=Default, Icon=Play.svg',
                                     title: 'Auto-play next story',
-                                    trailing: _ProfileSwitch(value: true),
+                                    trailing: _ProfileSwitch(
+                                      value: _isAutoPlayNextStoryEnabled,
+                                      onChanged: _toggleAutoPlayNextStory,
+                                    ),
+                                    onTap: _toggleAutoPlayNextStory,
                                   ),
                                 ],
                               ),
@@ -150,10 +171,11 @@ class ProfileScreen extends ConsumerWidget {
                                     subtitle: "We're here to help.",
                                     onTap: () => _openHelpAndSupport(context),
                                   ),
-                                  const _ProfileMenuRow(
+                                  _ProfileMenuRow(
                                     iconAsset: 'assets/icons/actions/share.svg',
                                     title: 'Share Boopi',
                                     subtitle: 'Spread the bedtime magic.',
+                                    onTap: () => _shareBoopi(context),
                                   ),
                                   _ProfileMenuRow(
                                     iconAsset:
@@ -198,7 +220,6 @@ class ProfileScreen extends ConsumerWidget {
                       case 1:
                         break;
                       case 2:
-                        _openLibrary(context);
                         break;
                     }
                   },
@@ -271,11 +292,11 @@ class ProfileScreen extends ConsumerWidget {
       MaterialPageRoute<void>(
         builder: (context) => HomeScreen(
           childName: _displayValue(
-            _firstNonEmpty(profile?.childName, fallbackChildName),
+            _firstNonEmpty(profile?.childName, widget.fallbackChildName),
           ),
           childAge: profile?.age != null && profile!.age > 0
               ? profile.age
-              : fallbackChildAge ?? 2,
+              : widget.fallbackChildAge ?? 2,
         ),
       ),
     );
@@ -311,6 +332,92 @@ class ProfileScreen extends ConsumerWidget {
         builder: (context) => const HelpAndSupportScreen(),
       ),
     );
+  }
+
+  void _toggleAutoPlayNextStory() {
+    setState(() {
+      _isAutoPlayNextStoryEnabled = !_isAutoPlayNextStoryEnabled;
+    });
+  }
+
+  Future<void> _shareBoopi(BuildContext context) async {
+    const message =
+        'Check out Boopi, a magical bedtime stories app for kids.';
+
+    try {
+      final box = context.findRenderObject() as RenderBox?;
+      await Share.share(
+        message,
+        subject: 'Boopi',
+        sharePositionOrigin: box == null
+            ? null
+            : box.localToGlobal(Offset.zero) & box.size,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open sharing options.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    }
+  }
+
+  Future<void> _pickProfileAvatar(ChildProfileModel profile) async {
+    final selectedImage = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+
+    if (selectedImage == null) {
+      return;
+    }
+
+    final bytes = await selectedImage.readAsBytes();
+    if (!mounted) {
+      return;
+    }
+
+    if (bytes.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Unable to load the selected photo.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      return;
+    }
+
+    setState(() {
+      _selectedAvatarBytes[profile.id] = bytes;
+    });
+
+    try {
+      await ref
+          .read(profileNotifierProvider.notifier)
+          .updateSelectedChildAvatar(selectedImage.path);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Photo selected, but profile update failed.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    }
   }
 }
 
@@ -498,12 +605,16 @@ class _ChildProfileCard extends StatelessWidget {
     required this.age,
     required this.rawAge,
     this.avatarUrl,
+    this.avatarBytes,
+    this.onAvatarCameraTap,
   });
 
   final String name;
   final String age;
   final int? rawAge;
   final String? avatarUrl;
+  final Uint8List? avatarBytes;
+  final VoidCallback? onAvatarCameraTap;
 
   @override
   Widget build(BuildContext context) {
@@ -516,7 +627,11 @@ class _ChildProfileCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Avatar(avatarUrl: avatarUrl),
+              _Avatar(
+                avatarUrl: avatarUrl,
+                avatarBytes: avatarBytes,
+                onCameraTap: onAvatarCameraTap,
+              ),
               const SizedBox(width: 20),
               Expanded(
                 child: Padding(
@@ -560,13 +675,16 @@ class _ChildProfileCard extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({this.avatarUrl});
+  const _Avatar({this.avatarUrl, this.avatarBytes, this.onCameraTap});
 
   final String? avatarUrl;
+  final Uint8List? avatarBytes;
+  final VoidCallback? onCameraTap;
 
   @override
   Widget build(BuildContext context) {
     final hasAvatar = avatarUrl != null && avatarUrl!.trim().isNotEmpty;
+    final hasSelectedAvatar = avatarBytes != null && avatarBytes!.isNotEmpty;
 
     return SizedBox(
       width: 80,
@@ -582,7 +700,9 @@ class _Avatar extends StatelessWidget {
               border: Border.all(color: AppColors.glassBorder, width: 2.779),
             ),
             child: ClipOval(
-              child: hasAvatar
+              child: hasSelectedAvatar
+                  ? Image.memory(avatarBytes!, fit: BoxFit.cover)
+                  : hasAvatar
                   ? CachedNetworkImage(
                       imageUrl: avatarUrl!,
                       fit: BoxFit.cover,
@@ -595,13 +715,22 @@ class _Avatar extends StatelessWidget {
           Positioned(
             right: -1,
             bottom: -1,
-            child: SvgPicture.asset(
-              'assets/icons/new_boopi/majesticons_camera.svg',
-              width: 24,
-              height: 24,
-              colorFilter: const ColorFilter.mode(
-                AppColors.textOnPrimary,
-                BlendMode.srcIn,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onCameraTap,
+              child: SizedBox.square(
+                dimension: 32,
+                child: Center(
+                  child: SvgPicture.asset(
+                    'assets/icons/new_boopi/majesticons_camera.svg',
+                    width: 24,
+                    height: 24,
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.textOnPrimary,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -816,13 +945,14 @@ class _MenuIcon extends StatelessWidget {
 }
 
 class _ProfileSwitch extends StatelessWidget {
-  const _ProfileSwitch({required this.value});
+  const _ProfileSwitch({required this.value, this.onChanged});
 
   final bool value;
+  final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final switchControl = Container(
       width: 44,
       height: 24,
       padding: const EdgeInsets.all(2),
@@ -840,6 +970,16 @@ class _ProfileSwitch extends StatelessWidget {
           shape: BoxShape.circle,
         ),
       ),
+    );
+
+    if (onChanged == null) {
+      return switchControl;
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onChanged,
+      child: switchControl,
     );
   }
 }

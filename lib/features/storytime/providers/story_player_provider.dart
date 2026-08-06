@@ -20,7 +20,10 @@ final cmsEpisodeStoriesProvider = FutureProvider<List<StoryModel>>((ref) {
 
 final storyPlayerProvider = StateNotifierProvider.autoDispose
     .family<StoryPlayerNotifier, StoryPlayerState, String>((ref, storyId) {
-      final continueEntry = ref.read(continueListeningProvider);
+      final history = ref.read(sessionStoryHistoryProvider);
+      final continueEntry =
+          history.progressForStory(storyId) ??
+          ref.read(continueListeningProvider);
       final initialPageIndex = continueEntry?.story.id == storyId
           ? continueEntry!.currentPageIndex
           : 0;

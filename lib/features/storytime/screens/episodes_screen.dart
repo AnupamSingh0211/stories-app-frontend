@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../models/story_model.dart';
+import '../providers/continue_listening_provider.dart';
 import '../providers/story_player_provider.dart';
 import '../repositories/story_repository.dart';
 import '../widgets/story_image_view.dart';
@@ -40,7 +41,11 @@ class EpisodesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bannerUrl = _assetUrl('app-assets', _bannerPath);
     final cmsStoriesState = ref.watch(cmsEpisodeStoriesProvider);
-    final episodes = _episodeItems(cmsStoriesState.valueOrNull ?? const []);
+    final history = ref.watch(sessionStoryHistoryProvider);
+    final episodes = _episodeItems(
+      cmsStoriesState.valueOrNull ?? const [],
+      history,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.blue500,
@@ -125,14 +130,18 @@ class EpisodesScreen extends ConsumerWidget {
     );
   }
 
-  List<_EpisodeItem> _episodeItems(List<StoryModel> cmsStories) {
+  List<_EpisodeItem> _episodeItems(
+    List<StoryModel> cmsStories,
+    SessionStoryHistoryState history,
+  ) {
     final legacyItems = _episodes
         .map(
           (episode) => _EpisodeItem.legacy(
             index: episode.index,
             title: episode.title,
             durationMinutes: episode.durationMinutes,
-            state: episode.state,
+            progress: history.progressForStory(episode.id),
+            isCompleted: history.isStoryCompleted(episode.id),
             imageUrl: _assetUrl(
               'story-assets',
               '$_storyAssetFolder/page-${episode.imageNumber.toString().padLeft(3, '0')}.webp',
@@ -147,7 +156,12 @@ class EpisodesScreen extends ConsumerWidget {
         continue;
       }
       legacyItems.add(
-        _EpisodeItem.cmsStory(index: legacyItems.length + 1, story: story),
+        _EpisodeItem.cmsStory(
+          index: legacyItems.length + 1,
+          story: story,
+          progress: history.progressForStory(story.id),
+          isCompleted: history.isStoryCompleted(story.id),
+        ),
       );
     }
 
@@ -495,10 +509,13 @@ class _EpisodeText extends StatelessWidget {
                 ],
                 if (episode.state == _EpisodeState.continuing) ...[
                   SizedBox(width: 10 * scale),
-                  _EpisodeProgress(scale: scale),
+                  _EpisodeProgress(
+                    scale: scale,
+                    progress: episode.progressValue,
+                  ),
                   SizedBox(width: 4 * scale),
                   Text(
-                    '1 min left',
+                    episode.remainingLabel,
                     style: AppTypography.captionRegular.copyWith(
                       color: AppColors.textOnPrimary,
                       fontSize: 10 * scale,
@@ -516,9 +533,10 @@ class _EpisodeText extends StatelessWidget {
 }
 
 class _EpisodeProgress extends StatelessWidget {
-  const _EpisodeProgress({required this.scale});
+  const _EpisodeProgress({required this.scale, required this.progress});
 
   final double scale;
+  final double progress;
 
   @override
   Widget build(BuildContext context) {
@@ -539,7 +557,7 @@ class _EpisodeProgress extends StatelessWidget {
             left: 0,
             top: 0,
             bottom: 0,
-            width: 39 * scale,
+            width: 59 * progress.clamp(0.0, 1.0) * scale,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: AppColors.textOnPrimary,
@@ -611,37 +629,29 @@ enum _EpisodeState { completed, continuing, left }
 class _Episode {
   const _Episode({
     required this.index,
+    required this.id,
     required this.title,
     required this.durationMinutes,
     required this.imageNumber,
-    required this.state,
     this.imageUrl = '',
   });
 
   final int index;
+  final String id;
   final String title;
   final int durationMinutes;
   final int imageNumber;
-  final _EpisodeState state;
   final String imageUrl;
 
   String get durationLabel => '$durationMinutes min';
 
-  String get stageLabel {
-    return switch (state) {
-      _EpisodeState.completed => 'completed episode',
-      _EpisodeState.continuing => 'continuing episode',
-      _EpisodeState.left => 'left episode',
-    };
-  }
-
   _Episode copyWith({String? imageUrl}) {
     return _Episode(
       index: index,
+      id: id,
       title: title,
       durationMinutes: durationMinutes,
       imageNumber: imageNumber,
-      state: state,
       imageUrl: imageUrl ?? this.imageUrl,
     );
   }
@@ -650,9 +660,11 @@ class _Episode {
 class _EpisodeItem {
   const _EpisodeItem({
     required this.index,
+    required this.id,
     required this.title,
     required this.durationMinutes,
-    required this.state,
+    required this.progress,
+    required this.isCompleted,
     required this.imageUrl,
     this.story,
   });
@@ -661,14 +673,17 @@ class _EpisodeItem {
     required int index,
     required String title,
     required int durationMinutes,
-    required _EpisodeState state,
+    required ContinueListeningEntry? progress,
+    required bool isCompleted,
     required String imageUrl,
   }) {
     return _EpisodeItem(
       index: index,
+      id: 'kanha-episode-$index',
       title: title,
       durationMinutes: durationMinutes,
-      state: state,
+      progress: progress,
+      isCompleted: isCompleted,
       imageUrl: imageUrl,
     );
   }
@@ -676,25 +691,55 @@ class _EpisodeItem {
   factory _EpisodeItem.cmsStory({
     required int index,
     required StoryModel story,
+    required ContinueListeningEntry? progress,
+    required bool isCompleted,
   }) {
     return _EpisodeItem(
       index: index,
+      id: story.id,
       title: story.title,
       durationMinutes: story.durationMinutes,
-      state: _EpisodeState.left,
+      progress: progress,
+      isCompleted: isCompleted,
       imageUrl: story.thumbnailUrl,
       story: story,
     );
   }
 
   final int index;
+  final String id;
   final String title;
   final int durationMinutes;
-  final _EpisodeState state;
+  final ContinueListeningEntry? progress;
+  final bool isCompleted;
   final String imageUrl;
   final StoryModel? story;
 
   String get durationLabel => '$durationMinutes min';
+
+  _EpisodeState get state {
+    if (isCompleted) {
+      return _EpisodeState.completed;
+    }
+    final entry = progress;
+    if (entry != null && entry.progress > 0 && entry.progress < 1) {
+      return _EpisodeState.continuing;
+    }
+    return _EpisodeState.left;
+  }
+
+  double get progressValue => progress?.progress ?? 0;
+
+  String get remainingLabel {
+    final entry = progress;
+    final total = entry?.audioDuration ?? Duration(minutes: durationMinutes);
+    if (total <= Duration.zero) {
+      return '';
+    }
+    final remaining = total - (entry?.audioPosition ?? Duration.zero);
+    final minutes = (remaining.inSeconds / Duration.secondsPerMinute).ceil();
+    return '${minutes.clamp(1, durationMinutes)} min left';
+  }
 
   String get stageLabel {
     return switch (state) {
@@ -708,51 +753,51 @@ class _EpisodeItem {
 const _episodes = [
   _Episode(
     index: 1,
+    id: 'kanha-episode-1',
     title: 'Makhan Ki Talaash',
     durationMinutes: 3,
     imageNumber: 1,
-    state: _EpisodeState.completed,
   ),
   _Episode(
     index: 2,
+    id: 'kanha-episode-2',
     title: 'Makhan Chor Kanha',
     durationMinutes: 3,
     imageNumber: 2,
-    state: _EpisodeState.continuing,
   ),
   _Episode(
     index: 3,
+    id: 'kanha-episode-3',
     title: 'Meri Pyari Bachhiya',
     durationMinutes: 7,
     imageNumber: 3,
-    state: _EpisodeState.left,
   ),
   _Episode(
     index: 4,
+    id: 'kanha-episode-4',
     title: 'Bansuri Ki Dhun',
     durationMinutes: 5,
     imageNumber: 4,
-    state: _EpisodeState.left,
   ),
   _Episode(
     index: 5,
+    id: 'kanha-episode-5',
     title: 'Titliyon Ke Peeche',
     durationMinutes: 6,
     imageNumber: 5,
-    state: _EpisodeState.left,
   ),
   _Episode(
     index: 6,
+    id: 'kanha-episode-6',
     title: 'Barish Wali Masti',
     durationMinutes: 4,
     imageNumber: 6,
-    state: _EpisodeState.left,
   ),
   _Episode(
     index: 7,
+    id: 'kanha-episode-7',
     title: 'Vrindavan Ke Dost',
     durationMinutes: 3,
     imageNumber: 7,
-    state: _EpisodeState.left,
   ),
 ];

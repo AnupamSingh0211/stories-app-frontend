@@ -34,6 +34,7 @@ class ContinueListeningEntry {
     required this.currentPageIndex,
     required this.pageCount,
     this.audioPosition = Duration.zero,
+    this.audioDuration = Duration.zero,
     required this.updatedAt,
   });
 
@@ -41,6 +42,7 @@ class ContinueListeningEntry {
   final int currentPageIndex;
   final int pageCount;
   final Duration audioPosition;
+  final Duration audioDuration;
   final DateTime updatedAt;
 
   double get progress {
@@ -48,15 +50,28 @@ class ContinueListeningEntry {
       return 0;
     }
 
-    return ((currentPageIndex + 1) / pageCount).clamp(0, 1).toDouble();
+    final rawPageProgress = audioDuration > Duration.zero
+        ? audioPosition.inMilliseconds / audioDuration.inMilliseconds
+        : 1.0;
+    final pageProgress = rawPageProgress.clamp(0.0, 1.0).toDouble();
+    return ((currentPageIndex + pageProgress) / pageCount)
+        .clamp(0, 1)
+        .toDouble();
   }
 }
 
 class StoryHistorySnapshot {
-  const StoryHistorySnapshot({this.recents = const [], this.continueListening});
+  const StoryHistorySnapshot({
+    this.recents = const [],
+    this.continueListening,
+    this.progressByStoryId = const {},
+    this.completedStoryIds = const {},
+  });
 
   final List<RecentStoryEntry> recents;
   final ContinueListeningEntry? continueListening;
+  final Map<String, ContinueListeningEntry> progressByStoryId;
+  final Set<String> completedStoryIds;
 }
 
 abstract interface class StoryHistoryRepository {
@@ -89,6 +104,8 @@ class SessionStoryHistoryState {
     this.scope,
     this.recents = const [],
     this.continueListening,
+    this.progressByStoryId = const {},
+    this.completedStoryIds = const {},
     this.isLoading = false,
     this.errorMessage,
   });
@@ -96,18 +113,24 @@ class SessionStoryHistoryState {
   final StoryHistoryScope? scope;
   final List<RecentStoryEntry> recents;
   final ContinueListeningEntry? continueListening;
+  final Map<String, ContinueListeningEntry> progressByStoryId;
+  final Set<String> completedStoryIds;
   final bool isLoading;
   final String? errorMessage;
 
   StoryHistorySnapshot get snapshot => StoryHistorySnapshot(
     recents: recents,
     continueListening: continueListening,
+    progressByStoryId: progressByStoryId,
+    completedStoryIds: completedStoryIds,
   );
 
   SessionStoryHistoryState copyWith({
     StoryHistoryScope? scope,
     List<RecentStoryEntry>? recents,
     ContinueListeningEntry? continueListening,
+    Map<String, ContinueListeningEntry>? progressByStoryId,
+    Set<String>? completedStoryIds,
     bool clearContinueListening = false,
     bool? isLoading,
     String? errorMessage,
@@ -119,9 +142,19 @@ class SessionStoryHistoryState {
       continueListening: clearContinueListening
           ? null
           : continueListening ?? this.continueListening,
+      progressByStoryId: progressByStoryId ?? this.progressByStoryId,
+      completedStoryIds: completedStoryIds ?? this.completedStoryIds,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
+  }
+
+  ContinueListeningEntry? progressForStory(String storyId) {
+    return progressByStoryId[storyId];
+  }
+
+  bool isStoryCompleted(String storyId) {
+    return completedStoryIds.contains(storyId);
   }
 }
 
@@ -152,6 +185,8 @@ class SessionStoryHistoryNotifier
         scope: scope,
         recents: List.unmodifiable(snapshot.recents),
         continueListening: snapshot.continueListening,
+        progressByStoryId: Map.unmodifiable(snapshot.progressByStoryId),
+        completedStoryIds: Set.unmodifiable(snapshot.completedStoryIds),
       );
     } catch (_) {
       state = SessionStoryHistoryState(
@@ -182,6 +217,7 @@ class SessionStoryHistoryNotifier
     required int currentPageIndex,
     required int pageCount,
     Duration audioPosition = Duration.zero,
+    Duration audioDuration = Duration.zero,
     DateTime? updatedAt,
   }) {
     if (state.scope == null || pageCount <= 0) {
@@ -191,27 +227,38 @@ class SessionStoryHistoryNotifier
     final timestamp = updatedAt ?? DateTime.now();
     recordStory(story, playedAt: timestamp);
     final clampedIndex = currentPageIndex.clamp(0, pageCount - 1).toInt();
+    final entry = ContinueListeningEntry(
+      story: story,
+      currentPageIndex: clampedIndex,
+      pageCount: pageCount,
+      audioPosition: audioPosition.isNegative ? Duration.zero : audioPosition,
+      audioDuration: audioDuration.isNegative ? Duration.zero : audioDuration,
+      updatedAt: timestamp,
+    );
+    final progressByStoryId = {
+      ...state.progressByStoryId,
+      story.id: entry,
+    };
+    final completedStoryIds = {...state.completedStoryIds}..remove(story.id);
     _commit(
       state.copyWith(
-        continueListening: ContinueListeningEntry(
-          story: story,
-          currentPageIndex: clampedIndex,
-          pageCount: pageCount,
-          audioPosition: audioPosition.isNegative
-              ? Duration.zero
-              : audioPosition,
-          updatedAt: timestamp,
-        ),
+        continueListening: entry,
+        progressByStoryId: Map.unmodifiable(progressByStoryId),
+        completedStoryIds: Set.unmodifiable(completedStoryIds),
       ),
     );
   }
 
   void completeStory(String storyId) {
-    if (state.continueListening?.story.id != storyId) {
-      return;
-    }
-
-    _commit(state.copyWith(clearContinueListening: true));
+    final progressByStoryId = {...state.progressByStoryId}..remove(storyId);
+    final completedStoryIds = {...state.completedStoryIds, storyId};
+    _commit(
+      state.copyWith(
+        clearContinueListening: state.continueListening?.story.id == storyId,
+        progressByStoryId: Map.unmodifiable(progressByStoryId),
+        completedStoryIds: Set.unmodifiable(completedStoryIds),
+      ),
+    );
   }
 
   void clearSession() {
@@ -248,6 +295,7 @@ class ContinueListeningNotifier extends StateNotifier<ContinueListeningEntry?> {
     required int currentPageIndex,
     required int pageCount,
     Duration audioPosition = Duration.zero,
+    Duration audioDuration = Duration.zero,
     DateTime? updatedAt,
   }) {
     if (pageCount <= 0) {
@@ -259,6 +307,7 @@ class ContinueListeningNotifier extends StateNotifier<ContinueListeningEntry?> {
       currentPageIndex: currentPageIndex.clamp(0, pageCount - 1).toInt(),
       pageCount: pageCount,
       audioPosition: audioPosition,
+      audioDuration: audioDuration,
       updatedAt: updatedAt ?? DateTime.now(),
     );
   }

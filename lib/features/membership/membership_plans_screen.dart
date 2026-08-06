@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -58,83 +59,98 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
   @override
   Widget build(BuildContext context) {
     return MediaQuery.withNoTextScaling(
-      child: Scaffold(
-        backgroundColor: _PlansColors.bottomBlue,
-        body: SafeArea(
-          left: false,
-          right: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final contentWidth = constraints.maxWidth;
-              final scale = contentWidth / _PlansLayout.designWidth;
-              final canvasHeight = math.max(
-                constraints.maxHeight / scale,
-                _PlansLayout.designHeight,
-              );
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: _PlansSystemUi.style,
+        child: Scaffold(
+          backgroundColor: _PlansColors.topBlue,
+          body: SafeArea(
+            left: false,
+            right: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final contentWidth = constraints.maxWidth;
+                final scale = contentWidth / _PlansLayout.designWidth;
+                final canvasHeight = math.max(
+                  constraints.maxHeight / scale,
+                  _PlansLayout.designHeight,
+                );
 
-              return SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: Center(
-                  child: SizedBox(
-                    width: contentWidth,
-                    height: canvasHeight * scale,
-                    child: FittedBox(
-                      fit: BoxFit.fill,
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: _PlansLayout.designWidth,
-                        height: canvasHeight,
-                        child: ClipRect(
-                          child: Stack(
-                            clipBehavior: Clip.hardEdge,
-                            children: [
-                              const Positioned.fill(child: _PlansBackground()),
-                              const _PlansArtwork(),
-                              const _PlansHeader(),
-                              const Positioned(
-                                top: _PlansLayout.heroGroupTop,
-                                left: 0,
-                                right: 0,
-                                child: _PlansHeroCopy(),
-                              ),
-                              const Positioned(
-                                top: _PlansLayout.benefitsTop,
-                                left: 0,
-                                right: 0,
-                                child: _MembershipBenefits(),
-                              ),
-                              Positioned(
-                                top: _PlansLayout.planSelectorTop,
-                                left: _PlansLayout.planSelectorLeft,
-                                child: _PlanSelector(
-                                  selectedPlan: _selectedPlan,
-                                  onSelected: _selectPlan,
-                                  onPromoCode: widget.onPromoCode ?? () {},
+                return Stack(
+                  children: [
+                    SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: Center(
+                        child: SizedBox(
+                          width: contentWidth,
+                          height: canvasHeight * scale,
+                          child: FittedBox(
+                            fit: BoxFit.fill,
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              width: _PlansLayout.designWidth,
+                              height: canvasHeight,
+                              child: ClipRect(
+                                child: Stack(
+                                  clipBehavior: Clip.hardEdge,
+                                  children: [
+                                    const Positioned.fill(
+                                      child: _PlansBackground(),
+                                    ),
+                                    const _PlansArtwork(),
+                                    const Positioned(
+                                      top: _PlansLayout.heroGroupTop,
+                                      left: 0,
+                                      right: 0,
+                                      child: _PlansHeroCopy(),
+                                    ),
+                                    const Positioned(
+                                      top: _PlansLayout.benefitsTop,
+                                      left: 0,
+                                      right: 0,
+                                      child: _MembershipBenefits(),
+                                    ),
+                                    Positioned(
+                                      top: _PlansLayout.planSelectorTop,
+                                      left: _PlansLayout.planSelectorLeft,
+                                      child: _PlanSelector(
+                                        selectedPlan: _selectedPlan,
+                                        onSelected: _selectPlan,
+                                        onPromoCode:
+                                            widget.onPromoCode ?? () {},
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: canvasHeight - _PlansLayout.ctaGap,
+                                      left: _PlansLayout.ctaLeft,
+                                      child: _SubscribeButton(
+                                        plan: _selectedPlan,
+                                        onPressed: () => _continue(context),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: canvasHeight - _PlansLayout.trustGap,
+                                      left: 0,
+                                      right: 0,
+                                      child: const _TrustIndicators(),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Positioned(
-                                top: canvasHeight - _PlansLayout.ctaGap,
-                                left: _PlansLayout.ctaLeft,
-                                child: _SubscribeButton(
-                                  plan: _selectedPlan,
-                                  onPressed: () => _continue(context),
-                                ),
-                              ),
-                              Positioned(
-                                top: canvasHeight - _PlansLayout.trustGap,
-                                left: 0,
-                                right: 0,
-                                child: const _TrustIndicators(),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-              );
-            },
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: _PlansHeader(),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -813,6 +829,16 @@ abstract final class _PlansColors {
   static const glassBorder = Color(0x66FFFFFF);
   static const selectedBorder = Color(0xFF99E1FA);
   static const textSecondaryOpacity = Color(0xD9FFFFFF);
+}
+
+abstract final class _PlansSystemUi {
+  static const style = SystemUiOverlayStyle(
+    statusBarColor: _PlansColors.topBlue,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: _PlansColors.bottomBlue,
+    systemNavigationBarIconBrightness: Brightness.light,
+    systemNavigationBarDividerColor: Colors.transparent,
+  );
 }
 
 abstract final class _PlansTextStyles {

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
@@ -27,66 +28,78 @@ class _MembershipVerificationScreenState
   @override
   Widget build(BuildContext context) {
     return MediaQuery.withNoTextScaling(
-      child: Scaffold(
-        backgroundColor: _VerificationColors.bottomBlue,
-        body: SafeArea(
-          left: false,
-          right: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final contentWidth = constraints.maxWidth;
-              final scale = contentWidth / _VerificationLayout.designWidth;
-              final canvasHeight = math.max(
-                constraints.maxHeight / scale,
-                _VerificationLayout.designHeight,
-              );
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: _VerificationSystemUi.style,
+        child: Scaffold(
+          backgroundColor: _VerificationColors.topBlue,
+          body: SafeArea(
+            left: false,
+            right: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final contentWidth = constraints.maxWidth;
+                final scale = contentWidth / _VerificationLayout.designWidth;
+                final canvasHeight = math.max(
+                  constraints.maxHeight / scale,
+                  _VerificationLayout.designHeight,
+                );
 
-              return SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: Center(
-                  child: SizedBox(
-                    width: contentWidth,
-                    height: canvasHeight * scale,
-                    child: FittedBox(
-                      fit: BoxFit.fill,
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: _VerificationLayout.designWidth,
-                        height: canvasHeight,
-                        child: ClipRect(
-                          child: Stack(
-                            clipBehavior: Clip.hardEdge,
-                            children: [
-                              const Positioned.fill(
-                                child: _VerificationBackground(),
-                              ),
-                              const _VerificationArtwork(),
-                              const Positioned(
-                                top: _VerificationLayout.heroGroupTop,
-                                left: 0,
-                                right: 0,
-                                child: _VerificationHeroCopy(),
-                              ),
-                              Positioned(
-                                top: _VerificationLayout.panelTop,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                child: _VerificationPanel(
-                                  digits: _digits,
-                                  onDigitPressed: _enterDigit,
+                return Stack(
+                  children: [
+                    SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: Center(
+                        child: SizedBox(
+                          width: contentWidth,
+                          height: canvasHeight * scale,
+                          child: FittedBox(
+                            fit: BoxFit.fill,
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              width: _VerificationLayout.designWidth,
+                              height: canvasHeight,
+                              child: ClipRect(
+                                child: Stack(
+                                  clipBehavior: Clip.hardEdge,
+                                  children: [
+                                    const Positioned.fill(
+                                      child: _VerificationBackground(),
+                                    ),
+                                    const _VerificationArtwork(),
+                                    const Positioned(
+                                      top: _VerificationLayout.heroGroupTop,
+                                      left: 0,
+                                      right: 0,
+                                      child: _VerificationHeroCopy(),
+                                    ),
+                                    Positioned(
+                                      top: _VerificationLayout.panelTop,
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      child: _VerificationPanel(
+                                        digits: _digits,
+                                        onDigitPressed: _enterDigit,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const _VerificationHeader(),
-                            ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-              );
-            },
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: _VerificationHeader(),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -584,6 +597,16 @@ abstract final class _VerificationColors {
   static const controlShineStart = Color(0x26FFFFFF);
   static const controlShineEnd = Color(0x00FFFFFF);
   static const textSecondaryOpacity = Color(0xD9FFFFFF);
+}
+
+abstract final class _VerificationSystemUi {
+  static const style = SystemUiOverlayStyle(
+    statusBarColor: _VerificationColors.topBlue,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: _VerificationColors.bottomBlue,
+    systemNavigationBarIconBrightness: Brightness.light,
+    systemNavigationBarDividerColor: Colors.transparent,
+  );
 }
 
 abstract final class _VerificationTextStyles {

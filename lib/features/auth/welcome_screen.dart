@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smart_auth/smart_auth.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
@@ -46,6 +48,18 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     blurRadius: 8,
     offset: Offset(0, 2),
   );
+  static final TextInputFormatter _mobileNumberFormatter =
+      TextInputFormatter.withFunction((oldValue, newValue) {
+        final localNumber = IndianPhoneNumber.tryParseLocal(newValue.text);
+        if (localNumber == null) {
+          return newValue;
+        }
+
+        return TextEditingValue(
+          text: localNumber,
+          selection: TextSelection.collapsed(offset: localNumber.length),
+        );
+      });
 
   final _formKey = GlobalKey<FormState>();
   final _mobileNumberController = TextEditingController();
@@ -59,6 +73,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   bool _isMobileNumberFocused = false;
   bool _isOtpFocused = false;
   bool _showInvalidOtp = false;
+  bool _hasRequestedPhoneNumberHint = false;
+  bool _isListeningForOtp = false;
   _WelcomeAuthStep _authStep = _WelcomeAuthStep.mobileNumber;
   String _otpValue = '';
   String _sentMobileNumber = '';
@@ -82,6 +98,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     _mobileNumberFocusNode.dispose();
     _mobileNumberController.dispose();
     _resendTimer?.cancel();
+    unawaited(_stopListeningForOtpFromSms());
     super.dispose();
   }
 
@@ -107,6 +124,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
   bool get _isMobileNumberValid =>
       IndianPhoneNumber.isValidLocal(_mobileNumberController.text);
+
+  bool get _shouldShowPhoneNumberHint =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  bool get _canUsePhoneNumberHint =>
+      _shouldShowPhoneNumberHint && !_isBusy;
 
   bool get _shouldShowMobileNumberError {
     final mobileNumber = _mobileNumberController.text;
@@ -137,6 +160,41 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     );
   }
 
+  Future<void> _pickPhoneNumberFromDevice() async {
+    if (!_canUsePhoneNumberHint ||
+        _authStep != _WelcomeAuthStep.mobileNumber ||
+        _hasRequestedPhoneNumberHint ||
+        _mobileNumberController.text.isNotEmpty) {
+      return;
+    }
+
+    _hasRequestedPhoneNumberHint = true;
+    try {
+      final result = await SmartAuth.instance.requestPhoneNumberHint();
+      if (!mounted || !result.hasData) {
+        return;
+      }
+
+      final localNumber = IndianPhoneNumber.tryParseLocal(result.data ?? '');
+      if (localNumber == null) {
+        return;
+      }
+
+      setState(() {
+        _mobileNumberController.text = localNumber;
+        _hasAttemptedValidation = false;
+      });
+      _formKey.currentState?.validate();
+    } catch (_) {
+      // Optional Android helper only; manual entry remains the fallback.
+    }
+  }
+
+  void _handleMobileNumberTap() {
+    _focusAndShowKeyboard(_mobileNumberFocusNode);
+    unawaited(_pickPhoneNumberFromDevice());
+  }
+
   Future<void> _requestOtp({
     required String localNumber,
     required String e164Number,
@@ -161,6 +219,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           _authStep = _WelcomeAuthStep.otp;
         }
       });
+      unawaited(_listenForOtpFromSms());
       _startResendCooldown();
       _mobileNumberFocusNode.unfocus();
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -176,6 +235,48 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
         setState(() => _isRequestingOtp = false);
       }
     }
+  }
+
+  Future<void> _listenForOtpFromSms() async {
+    if (kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android ||
+        _isListeningForOtp) {
+      return;
+    }
+
+    _isListeningForOtp = true;
+    try {
+      final result = await SmartAuth.instance.getSmsWithUserConsentApi(
+        matcher: r'\d{6}',
+      );
+      if (!mounted || !result.hasData) {
+        return;
+      }
+
+      final code = result.data?.code;
+      if (code == null || code.length != 6) {
+        return;
+      }
+
+      setState(() {
+        _otpValue = code;
+        _showInvalidOtp = false;
+      });
+      _clearMessage();
+    } catch (_) {
+      // OTP can still be typed manually or filled through platform autofill.
+    } finally {
+      _isListeningForOtp = false;
+    }
+  }
+
+  Future<void> _stopListeningForOtpFromSms() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+
+    _isListeningForOtp = false;
+    await SmartAuth.instance.removeUserConsentApiListener();
   }
 
   Future<void> _submitOtp() async {
@@ -220,6 +321,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       return;
     }
 
+    unawaited(_stopListeningForOtpFromSms());
     await _requestOtp(
       localNumber: _sentMobileNumber,
       e164Number: _sentE164MobileNumber,
@@ -298,6 +400,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       _resendSecondsRemaining = 0;
     });
     _resendTimer?.cancel();
+    unawaited(_stopListeningForOtpFromSms());
     _clearMessage();
     _otpFocusNode.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -483,7 +586,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
         const SizedBox(height: 12),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => _focusAndShowKeyboard(_mobileNumberFocusNode),
+          onTap: _handleMobileNumberTap,
           child: _GlassControl(
             height: 56,
             borderRadius: _controlBorderRadius,
@@ -513,10 +616,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.done,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
-                    onTap: () => _focusAndShowKeyboard(_mobileNumberFocusNode),
+                    onTap: _handleMobileNumberTap,
                     onChanged: _handleMobileNumberChanged,
-                    autofillHints: const [AutofillHints.telephoneNumber],
+                    autofillHints: const [
+                      AutofillHints.telephoneNumber,
+                      AutofillHints.telephoneNumberDevice,
+                    ],
                     inputFormatters: [
+                      _mobileNumberFormatter,
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(10),
                     ],

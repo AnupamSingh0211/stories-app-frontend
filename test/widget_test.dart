@@ -412,9 +412,7 @@ void main() {
 
     await tester.tap(find.byType(TextField));
     await tester.pump();
-    final focusedSearchField = tester.widget<TextField>(
-      find.byType(TextField),
-    );
+    final focusedSearchField = tester.widget<TextField>(find.byType(TextField));
     expect(focusedSearchField.focusNode?.hasFocus, isTrue);
 
     await tester.tap(find.bySemanticsLabel('Open favorites'));
@@ -631,6 +629,57 @@ void main() {
     expect(find.text('Svayudh'), findsOneWidget);
   });
 
+  testWidgets('profile setup accepts trimmed international child names', (
+    WidgetTester tester,
+  ) async {
+    final notifier = _OnboardingProfileNotifier();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(() => notifier),
+          appAssetsProvider.overrideWithValue(_testAssets),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const _ProfileSetupLauncher(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open setup'));
+    await tester.pumpAndSettle();
+    await _completeProfileSetupForm(tester, name: '  Élodie O’Connor-Singh  ');
+    await tester.pumpAndSettle();
+
+    expect(notifier.addChildCalls, 1);
+    expect(notifier.lastAddedName, 'Élodie O’Connor-Singh');
+    expect(find.text('Created Élodie O’Connor-Singh (3)'), findsOneWidget);
+  });
+
+  testWidgets('profile setup rejects short and malformed child names', (
+    WidgetTester tester,
+  ) async {
+    final notifier = _OnboardingProfileNotifier();
+
+    await _pumpProfileSetup(tester, notifier: notifier);
+    await _completeProfileSetupForm(tester, name: 'A');
+    await tester.pumpAndSettle();
+
+    expect(notifier.addChildCalls, 0);
+    expect(find.byType(ProfileSetupScreen), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField), 'John--Smith');
+    await tester.pump();
+    await tester.ensureVisible(find.text('Start Storytime'));
+    await tester.tap(find.text('Start Storytime'));
+    await tester.pumpAndSettle();
+
+    expect(notifier.addChildCalls, 0);
+    expect(find.byType(ProfileSetupScreen), findsOneWidget);
+  });
+
   testWidgets('profile setup selections update selected state', (
     WidgetTester tester,
   ) async {
@@ -679,14 +728,14 @@ void main() {
       ),
     );
 
-    final ageOneRect = tester.getRect(find.byKey(const ValueKey('ageChip1')));
-    final ageFiveRect = tester.getRect(find.byKey(const ValueKey('ageChip5')));
-    final ageSixRect = tester.getRect(find.byKey(const ValueKey('ageChip6')));
+    final ageThreeRect = tester.getRect(find.byKey(const ValueKey('ageChip3')));
+    final ageSevenRect = tester.getRect(find.byKey(const ValueKey('ageChip7')));
+    final ageEightRect = tester.getRect(find.byKey(const ValueKey('ageChip8')));
 
-    expect(ageOneRect.size, const Size(52, 52));
-    expect(ageFiveRect.right, lessThanOrEqualTo(390));
-    expect(ageSixRect.left, lessThan(390));
-    expect(ageSixRect.right, greaterThan(390));
+    expect(ageThreeRect.size, const Size(52, 52));
+    expect(ageSevenRect.right, lessThanOrEqualTo(390));
+    expect(ageEightRect.left, lessThan(390));
+    expect(ageEightRect.right, greaterThan(390));
   });
 
   testWidgets('start storytime is ignored until the form is complete', (
@@ -972,6 +1021,7 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
   final ChildProfileModel? savedChild;
   final Object? error;
   int addChildCalls = 0;
+  String? lastAddedName;
   String? updatedCompanionId;
 
   @override
@@ -986,6 +1036,7 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
     String locale = defaultProfileLocale,
   }) async {
     addChildCalls++;
+    lastAddedName = name;
     if (error case final error?) {
       state = AsyncError(error, StackTrace.current);
       throw error;

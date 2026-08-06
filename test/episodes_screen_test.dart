@@ -1,4 +1,5 @@
 import 'package:dharma_app/features/storytime/models/story_model.dart';
+import 'package:dharma_app/features/storytime/providers/continue_listening_provider.dart';
 import 'package:dharma_app/features/storytime/providers/story_player_provider.dart';
 import 'package:dharma_app/features/storytime/screens/episodes_screen.dart';
 import 'package:dharma_app/features/storytime/widgets/story_image_view.dart';
@@ -11,10 +12,15 @@ void main() {
     return 'https://example.test/$bucket/$path';
   }
 
-  Widget episodesApp({List<StoryModel> cmsStories = const []}) {
+  Widget episodesApp({
+    List<StoryModel> cmsStories = const [],
+    SessionStoryHistoryNotifier? historyNotifier,
+  }) {
     return ProviderScope(
       overrides: [
         cmsEpisodeStoriesProvider.overrideWith((ref) async => cmsStories),
+        if (historyNotifier != null)
+          sessionStoryHistoryProvider.overrideWith((ref) => historyNotifier),
       ],
       child: MaterialApp(home: EpisodesScreen(assetUrlBuilder: assetUrl)),
     );
@@ -42,8 +48,8 @@ void main() {
     expect(find.text('Titliyon Ke Peeche'), findsOneWidget);
     expect(find.text('Barish Wali Masti'), findsOneWidget);
     expect(find.text('Vrindavan Ke Dost'), findsOneWidget);
-    expect(find.text('Watched'), findsOneWidget);
-    expect(find.text('1 min left'), findsOneWidget);
+    expect(find.text('Watched'), findsNothing);
+    expect(find.textContaining('min left'), findsNothing);
 
     final heroRect = tester.getRect(
       find.byKey(const ValueKey('episodesHeroBanner')),
@@ -184,5 +190,63 @@ void main() {
       imageViews.map((view) => view.imageUrl),
       contains(vasudevStory.thumbnailUrl),
     );
+  });
+
+  testWidgets('renders progress and completion on the matching CMS episode', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 868);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const vasudevStory = StoryModel(
+      id: 'c6c27045-8376-48ec-be6a-022470532a57',
+      title: 'Vasudev ka vachan',
+      thumbnailUrl: 'https://example.test/story-assets/vasudev.jpg',
+      category: 'Story',
+      durationMinutes: 1,
+      coverUrl: 'https://example.test/story-assets/vasudev-cover.jpg',
+    );
+    const scope = StoryHistoryScope(userId: 'user-1', childProfileId: 'kid-1');
+    final historyNotifier =
+        SessionStoryHistoryNotifier(InMemoryStoryHistoryRepository())
+          ..activateScope(scope)
+          ..saveProgress(
+            story: vasudevStory,
+            currentPageIndex: 0,
+            pageCount: 1,
+            audioPosition: const Duration(seconds: 20),
+            audioDuration: const Duration(seconds: 60),
+          );
+    addTearDown(historyNotifier.dispose);
+
+    await tester.pumpWidget(
+      episodesApp(
+        cmsStories: const [vasudevStory],
+        historyNotifier: historyNotifier,
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('episode-stage-continuing-8')),
+      findsOneWidget,
+    );
+    expect(find.text('Vasudev ka vachan'), findsOneWidget);
+    expect(find.text('1 min left'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('episode-stage-continuing-2')),
+      findsNothing,
+    );
+
+    historyNotifier.completeStory(vasudevStory.id);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('episode-stage-completed-8')),
+      findsOneWidget,
+    );
+    expect(find.text('Watched'), findsOneWidget);
   });
 }
