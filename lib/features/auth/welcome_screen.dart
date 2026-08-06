@@ -128,8 +128,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   bool get _shouldShowPhoneNumberHint =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  bool get _canUsePhoneNumberHint =>
-      _shouldShowPhoneNumberHint && !_isBusy;
+  bool get _canUsePhoneNumberHint => _shouldShowPhoneNumberHint && !_isBusy;
 
   bool get _shouldShowMobileNumberError {
     final mobileNumber = _mobileNumberController.text;
@@ -668,32 +667,29 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        GestureDetector(
+        _GlassControl(
           key: const Key('mobile-continue-button'),
+          height: 52,
+          borderRadius: _controlBorderRadius,
+          shadow: _buttonShadow,
+          padding: const EdgeInsets.all(16),
           onTap: _isMobileNumberValid && !_isBusy
               ? _continueWithMobileNumber
               : null,
-          behavior: HitTestBehavior.opaque,
-          child: _GlassControl(
-            height: 52,
-            borderRadius: _controlBorderRadius,
-            shadow: _buttonShadow,
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              _isRequestingOtp ? 'Sending...' : 'Send OTP',
-              style: TextStyle(
-                fontFamily: AppTypography.fontFamily,
-                fontSize: 16,
-                height: 20 / 16,
-                fontWeight: FontWeight.w700,
-                color: _isMobileNumberValid
-                    ? Colors.white
-                    : AppColors.textDisabled,
-                fontFeatures: const [
-                  FontFeature.disable('liga'),
-                  FontFeature.disable('clig'),
-                ],
-              ),
+          child: Text(
+            _isRequestingOtp ? 'Sending...' : 'Send OTP',
+            style: TextStyle(
+              fontFamily: AppTypography.fontFamily,
+              fontSize: 16,
+              height: 20 / 16,
+              fontWeight: FontWeight.w700,
+              color: _isMobileNumberValid
+                  ? Colors.white
+                  : AppColors.textDisabled,
+              fontFeatures: const [
+                FontFeature.disable('liga'),
+                FontFeature.disable('clig'),
+              ],
             ),
           ),
         ),
@@ -859,12 +855,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
 class _GlassControl extends StatelessWidget {
   const _GlassControl({
+    super.key,
     required this.height,
     required this.borderRadius,
     required this.shadow,
     required this.child,
     this.padding,
     this.showErrorBorder = false,
+    this.onTap,
   });
 
   final double height;
@@ -873,26 +871,40 @@ class _GlassControl extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final bool showErrorBorder;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(borderRadius);
+    final shape = RoundedRectangleBorder(
+      borderRadius: radius,
+      side: showErrorBorder
+          ? const BorderSide(color: Color(0xFFFF7765))
+          : const BorderSide(color: AppColors.borderLight, width: 1),
+    );
 
     return Container(
       height: height,
-      alignment: Alignment.center,
-      padding: padding,
-      decoration: ShapeDecoration(
-        color: AppColors.backgroundGlass,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: showErrorBorder
-              ? const BorderSide(color: Color(0xFFFF7765))
-              : const BorderSide(color: AppColors.borderLight, width: 1),
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: [shadow]),
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: ShapeDecoration(
+            color: AppColors.backgroundGlass,
+            shape: shape,
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: Padding(
+              padding: padding ?? EdgeInsets.zero,
+              child: Center(child: child),
+            ),
+          ),
         ),
-        shadows: [shadow],
       ),
-      child: child,
     );
   }
 }

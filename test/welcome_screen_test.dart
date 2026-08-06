@@ -31,6 +31,28 @@ void main() {
     expect(find.text('Send OTP'), findsOneWidget);
   });
 
+  testWidgets('send OTP button uses Material ink tap feedback', (tester) async {
+    await _pumpWelcomeScreen(tester);
+
+    final button = find.byKey(const Key('mobile-continue-button'));
+    final inkWell = find.descendant(of: button, matching: find.byType(InkWell));
+
+    expect(inkWell, findsOneWidget);
+    expect(
+      find.descendant(of: button, matching: find.byType(Material)),
+      findsOneWidget,
+    );
+    expect(tester.widget<InkWell>(inkWell).onTap, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('mobile-number-field')),
+      '1234567890',
+    );
+    await tester.pump();
+
+    expect(tester.widget<InkWell>(inkWell).onTap, isNotNull);
+  });
+
   testWidgets('phone field exposes cross-platform phone autofill hints', (
     tester,
   ) async {
