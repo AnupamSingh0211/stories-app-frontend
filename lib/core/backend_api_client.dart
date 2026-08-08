@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,6 +64,8 @@ abstract interface class BackendSessionReader {
   String? get currentAccessToken;
 }
 
+typedef BackendUnauthorizedHandler = FutureOr<void> Function();
+
 class SupabaseBackendSessionReader implements BackendSessionReader {
   const SupabaseBackendSessionReader();
 
@@ -70,6 +73,9 @@ class SupabaseBackendSessionReader implements BackendSessionReader {
   String? get currentAccessToken {
     if (kUseAuthBypass) {
       return 'mock.dev.token';
+    }
+    if (DevOtpAuthConfig.enabled) {
+      return DevOtpSessionStore.currentAccessToken;
     }
     return Supabase.instance.client.auth.currentSession?.accessToken;
   }
@@ -91,7 +97,25 @@ class MissingAuthenticatedSessionException extends BackendApiException {
   const MissingAuthenticatedSessionException()
     : super(
         'An authenticated session is required before calling this backend endpoint.',
+        statusCode: 401,
       );
+}
+
+const _clientOwnershipKeys = {
+  'user_id',
+  'userId',
+  'parent_id',
+  'parentId',
+  'profile_owner_id',
+  'profileOwnerId',
+};
+
+Map<String, dynamic> stripClientOwnershipFields(Map<String, dynamic> body) {
+  final sanitized = Map<String, dynamic>.from(body);
+  for (final key in _clientOwnershipKeys) {
+    sanitized.remove(key);
+  }
+  return sanitized;
 }
 
 class BackendApiClient {
@@ -99,13 +123,16 @@ class BackendApiClient {
     required String baseUrl,
     required BackendSessionReader sessionReader,
     BackendTransport? transport,
+    BackendUnauthorizedHandler? onUnauthorized,
   }) : _baseUrl = baseUrl,
        _sessionReader = sessionReader,
-       _transport = transport ?? HttpBackendTransport();
+       _transport = transport ?? HttpBackendTransport(),
+       _onUnauthorized = onUnauthorized;
 
   final String _baseUrl;
   final BackendSessionReader _sessionReader;
   final BackendTransport _transport;
+  final BackendUnauthorizedHandler? _onUnauthorized;
 
   Future<Map<String, dynamic>> probeAuthenticatedIdentity() async {
     return getObject('/api/v1/auth/me', authenticated: true);
@@ -196,6 +223,7 @@ class BackendApiClient {
     if (authenticated) {
       final accessToken = _sessionReader.currentAccessToken?.trim();
       if (accessToken == null || accessToken.isEmpty) {
+        await _handleUnauthorized();
         throw const MissingAuthenticatedSessionException();
       }
       headers['Authorization'] = 'Bearer $accessToken';
@@ -218,6 +246,7 @@ class BackendApiClient {
 
     final decoded = _decodeResponseBody(response.body);
     if (response.statusCode == 401 || response.statusCode == 403) {
+      await _handleUnauthorized();
       throw BackendApiException(
         _messageFromResponse(decoded) ??
             'Your session is no longer authorized for this request.',
@@ -238,6 +267,14 @@ class BackendApiClient {
     }
 
     return decoded;
+  }
+
+  Future<void> _handleUnauthorized() async {
+    try {
+      await _onUnauthorized?.call();
+    } catch (_) {
+      // Preserve the original auth failure as the surfaced API error.
+    }
   }
 
   dynamic _decodeResponseBody(String body) {
@@ -277,5 +314,9 @@ final backendApiClientProvider = Provider<BackendApiClient>((ref) {
   return BackendApiClient(
     baseUrl: BackendConfig.baseUrl,
     sessionReader: const SupabaseBackendSessionReader(),
+    onUnauthorized: () async {
+      await ref.read(appAuthServiceProvider).signOut();
+      ref.invalidate(authSessionProvider);
+    },
   );
 });

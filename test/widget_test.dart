@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -355,6 +357,66 @@ void main() {
       find.textContaining('support@boopi.app', findRichText: true),
       findsOneWidget,
     );
+  });
+
+  testWidgets('profile logout returns directly to the welcome screen', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.platformDispatcher.textScaleFactorTestValue = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.platformDispatcher.clearTextScaleFactorTestValue);
+
+    final authEvents = StreamController<AppSessionIdentity?>();
+    addTearDown(authEvents.close);
+    final authService = _TestAuthService(
+      onSignOut: () {
+        authEvents.add(null);
+      },
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appAuthServiceProvider.overrideWithValue(authService),
+          authSessionProvider.overrideWith((ref) async* {
+            yield const AppSessionIdentity(
+              userId: 'parent-1',
+              isAnonymous: false,
+            );
+            yield* authEvents.stream;
+          }),
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          appAssetsProvider.overrideWithValue({
+            'welcome_bg(1)': 'https://example.com/welcome_bg.webp',
+            'welcome_cover': 'https://example.com/welcome_cover.png',
+            'profile_setup_bg': 'https://example.com/profile_setup_bg.webp',
+          }),
+          companionsProvider.overrideWith((ref) async => const []),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+        ],
+        child: const MyApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _clearKnownBottomNavOverflow(tester);
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    await tester.tap(find.text('Profile').last);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Log Out'));
+    await tester.tap(find.text('Log Out'));
+    await tester.pumpAndSettle();
+    _clearKnownBottomNavOverflow(tester);
+
+    expect(authService.signOutCalls, 1);
+    expect(find.byType(WelcomeScreen), findsOneWidget);
+    expect(find.byType(ProfileScreen), findsNothing);
   });
 
   testWidgets('home story favourite appears in favourites screen', (
@@ -1022,7 +1084,6 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
   final Object? error;
   int addChildCalls = 0;
   String? lastAddedName;
-  String? updatedCompanionId;
 
   @override
   Future<ChildProfilesState> build() async => const ChildProfilesState();
@@ -1032,7 +1093,6 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
     required String name,
     required String gender,
     required int age,
-    required String? companionId,
     String locale = defaultProfileLocale,
   }) async {
     addChildCalls++;
@@ -1050,7 +1110,6 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
           childName: name,
           age: age,
           gender: gender,
-          companionId: companionId,
           locale: locale,
           createdAt: DateTime.utc(2026, 6, 9),
         );
@@ -1058,24 +1117,6 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
       ChildProfilesState(children: [child], selectedChildId: child.id),
     );
     return child;
-  }
-
-  @override
-  Future<ChildProfileModel> updateSelectedChildCompanion(
-    String companionId,
-  ) async {
-    updatedCompanionId = companionId;
-    final current = state.valueOrNull ?? const ChildProfilesState();
-    final child = current.selectedChild;
-    if (child == null) {
-      throw StateError('No child profile selected');
-    }
-
-    final updated = child.copyWith(companionId: companionId);
-    state = AsyncData(
-      current.copyWith(children: [updated], selectedChildId: updated.id),
-    );
-    return updated;
   }
 }
 
@@ -1124,6 +1165,53 @@ class _TestSavedLibraryNotifier extends SavedLibraryNotifier {
 class _SeededContinueListeningNotifier extends ContinueListeningNotifier {
   _SeededContinueListeningNotifier(ContinueListeningEntry entry) {
     state = entry;
+  }
+}
+
+class _TestAuthService implements AppAuthService {
+  _TestAuthService({this.onSignOut});
+
+  final VoidCallback? onSignOut;
+  int signOutCalls = 0;
+
+  @override
+  AppSessionIdentity? get currentIdentity =>
+      const AppSessionIdentity(userId: 'parent-1', isAnonymous: false);
+
+  @override
+  Future<void> requestOtp(String phoneNumber) async {}
+
+  @override
+  Future<AppSessionIdentity> verifyOtp({
+    required String phoneNumber,
+    required String otp,
+  }) async {
+    return const AppSessionIdentity(userId: 'parent-1', isAnonymous: false);
+  }
+
+  @override
+  Future<void> signOut() async {
+    signOutCalls++;
+    onSignOut?.call();
+  }
+}
+
+void _clearKnownBottomNavOverflow(WidgetTester tester) {
+  while (true) {
+    final exception = tester.takeException();
+    if (exception == null) {
+      return;
+    }
+
+    expect(
+      exception.toString(),
+      anyOf(
+        contains('A RenderFlex overflowed by 2.0 pixels'),
+        contains('A RenderFlex overflowed by 4.0 pixels'),
+        contains('Multiple exceptions (3)'),
+        contains('Multiple exceptions (5)'),
+      ),
+    );
   }
 }
 

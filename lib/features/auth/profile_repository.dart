@@ -63,7 +63,7 @@ class BackendProfileDataSource extends ProfileDataSource {
     return _apiClient.postObject(
       '/api/v1/profiles',
       authenticated: true,
-      body: profile,
+      body: _profileApiBody(profile),
     );
   }
 
@@ -75,8 +75,15 @@ class BackendProfileDataSource extends ProfileDataSource {
     return _apiClient.patchObject(
       '/api/v1/profiles/$childId',
       authenticated: true,
-      body: profile,
+      body: _profileApiBody(profile),
     );
+  }
+
+  Map<String, dynamic> _profileApiBody(Map<String, dynamic> profile) {
+    final body = stripClientOwnershipFields(profile);
+    body.remove('companion_id');
+    body.remove('avatar_url');
+    return body;
   }
 }
 
@@ -156,8 +163,6 @@ class ChildProfileModel {
     required this.age,
     required this.gender,
     required this.createdAt,
-    this.companionId,
-    this.avatarUrl,
     this.locale = defaultProfileLocale,
   });
 
@@ -169,8 +174,6 @@ class ChildProfileModel {
       childName: row['child_name'] as String? ?? '',
       age: row['age'] as int? ?? 2,
       gender: row['gender'] as String? ?? 'boy',
-      companionId: row['companion_id'] as String?,
-      avatarUrl: row['avatar_url'] as String?,
       locale: normalizeProfileLocale(row['locale'] as String?),
       createdAt:
           DateTime.tryParse(row['created_at']?.toString() ?? '') ??
@@ -183,8 +186,6 @@ class ChildProfileModel {
   final String childName;
   final int age;
   final String gender;
-  final String? companionId;
-  final String? avatarUrl;
   final String locale;
   final DateTime createdAt;
 
@@ -194,8 +195,6 @@ class ChildProfileModel {
     String? childName,
     int? age,
     String? gender,
-    String? companionId,
-    String? avatarUrl,
     String? locale,
     DateTime? createdAt,
   }) {
@@ -205,8 +204,6 @@ class ChildProfileModel {
       childName: childName ?? this.childName,
       age: age ?? this.age,
       gender: gender ?? this.gender,
-      companionId: companionId ?? this.companionId,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
       locale: locale ?? this.locale,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -229,9 +226,7 @@ class ProfileRepository {
     required String name,
     required String gender,
     required int age,
-    required String? companionId,
     String locale = defaultProfileLocale,
-    String? avatarUrl,
   }) async {
     if (kDebugMode) {
       debugPrint('ProfileRepository: creating child profile via backend');
@@ -240,8 +235,6 @@ class ProfileRepository {
       'child_name': name,
       'gender': gender,
       'age': age,
-      'companion_id': companionId,
-      'avatar_url': avatarUrl,
       'locale': normalizeProfileLocale(locale),
     });
 
@@ -252,17 +245,6 @@ class ProfileRepository {
       debugPrint('ProfileRepository: inserted child profile ${child.id}');
     }
     return child;
-  }
-
-  Future<ChildProfileModel> updateChildCompanion({
-    required ChildProfileModel child,
-    required String companionId,
-  }) async {
-    final row = await _dataSource.updateChildProfile(child.id, {
-      'companion_id': companionId,
-    });
-
-    return ChildProfileModel.fromMap(row);
   }
 
   Future<ChildProfileModel> updateChildLocale({
@@ -276,13 +258,23 @@ class ProfileRepository {
     return ChildProfileModel.fromMap(row);
   }
 
-  Future<ChildProfileModel> updateChildAvatar({
+  Future<ChildProfileModel> updateChildProfile({
     required ChildProfileModel child,
-    required String avatarUrl,
+    String? name,
+    String? gender,
+    int? age,
+    String? locale,
   }) async {
-    final row = await _dataSource.updateChildProfile(child.id, {
-      'avatar_url': avatarUrl,
-    });
+    final updates = <String, dynamic>{};
+    if (name != null) updates['child_name'] = name;
+    if (gender != null) updates['gender'] = gender;
+    if (age != null) updates['age'] = age;
+    if (locale != null) updates['locale'] = normalizeProfileLocale(locale);
+    if (updates.isEmpty) {
+      return child;
+    }
+
+    final row = await _dataSource.updateChildProfile(child.id, updates);
 
     return ChildProfileModel.fromMap(row);
   }

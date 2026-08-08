@@ -12,6 +12,8 @@ import 'storytime_content_memory_cache.dart';
 class StoryRepository {
   const StoryRepository();
 
+  // Transitional: story, favorites, saved-library, and storage reads still use
+  // Supabase here until Headings 6-8 migrate each domain to backend-shaped APIs.
   static final Set<String> _favoriteStoryIds = {};
   static final Set<String> _savedStoryIds = {};
 

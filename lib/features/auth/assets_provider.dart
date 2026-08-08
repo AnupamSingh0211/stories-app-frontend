@@ -5,6 +5,8 @@ part 'assets_provider.g.dart';
 
 @Riverpod(keepAlive: true)
 Map<String, String> appAssets(AppAssetsRef ref) {
+  // Transitional: public asset URL construction stays on Supabase Storage until
+  // the backend exposes an app-assets manifest endpoint.
   final storage = Supabase.instance.client.storage.from('app-assets');
 
   return {

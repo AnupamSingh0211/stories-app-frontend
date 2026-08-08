@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_auth/smart_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
@@ -226,9 +227,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           _focusAndShowKeyboard(_otpFocusNode);
         }
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      _showMessage('Could not send OTP. Please try again.');
+      _showMessage(_otpRequestErrorMessage(error));
     } finally {
       if (mounted) {
         setState(() => _isRequestingOtp = false);
@@ -357,6 +358,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   void _clearMessage() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  }
+
+  String _otpRequestErrorMessage(Object error) {
+    if (error is AuthException && error.message.trim().isNotEmpty) {
+      return error.message;
+    }
+
+    return 'Could not send OTP. Please try again.';
   }
 
   void _handleMobileNumberChanged(String value) {
