@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/theme/app_typography.dart';
-import 'companion_notifier.dart';
 import 'profile_notifier.dart';
 
 const _ageOptions = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -120,7 +119,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             name: _nameController.text.trim(),
             gender: _selectedGender!,
             age: _selectedAge!,
-            companionId: ref.read(companionNotifierProvider)?.id,
             locale: _selectedLocale!,
           );
 
@@ -604,27 +602,22 @@ class _AgeChip extends StatelessWidget {
 
 class _GlassSurface extends StatelessWidget {
   const _GlassSurface({
-    super.key,
     required this.child,
     required this.height,
-    this.width,
     this.selected = false,
-    this.radius = 24,
     this.horizontalPadding = 20,
   });
 
   final Widget child;
   final double height;
-  final double? width;
   final bool selected;
-  final double radius;
   final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
-      width: width ?? double.infinity,
+      width: double.infinity,
       height: height,
       padding: EdgeInsets.symmetric(
         horizontal: horizontalPadding,
@@ -633,7 +626,7 @@ class _GlassSurface extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: selected ? _selectedColor : _glassColor,
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: selected ? _lightBorderColor : _lightBorderColor,
           width: selected ? 1 : 0.8,

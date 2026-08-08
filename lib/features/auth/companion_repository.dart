@@ -65,6 +65,8 @@ class CompanionRepository {
   const CompanionRepository();
 
   Future<List<CompanionModel>> fetchCompanions() async {
+    // Transitional: companion content still reads from Supabase until the
+    // backend companion API is shaped for the Flutter onboarding UI.
     final client = SupabaseClientProvider.client;
     final storage = client.storage.from('app-assets');
 
@@ -106,7 +108,10 @@ class CompanionRepository {
                 'long_description',
                 'description',
               ]).ifEmpty(fallback.longDescription),
-              imageUrl: _imageUrl(storage, imagePath.ifEmpty(fallback.imagePath)),
+              imageUrl: _imageUrl(
+                storage,
+                imagePath.ifEmpty(fallback.imagePath),
+              ),
             );
           })
           .toList(growable: false);

@@ -111,8 +111,10 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
         ref.read(appAssetsProvider)['mascot_character_favorite'] ??
         _favoriteMascotFallbackUrl;
     unawaited(
-      precacheImage(CachedNetworkImageProvider(favoriteMascotUrl), context)
-          .catchError((_) {}),
+      precacheImage(
+        CachedNetworkImageProvider(favoriteMascotUrl),
+        context,
+      ).catchError((_) {}),
     );
   }
 
@@ -138,7 +140,7 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
       );
     }
 
-    final companionUrl = _companionImageUrl(ref, selectedChild?.companionId);
+    final companionUrl = _companionImageUrl(ref);
     final history = ref.watch(sessionStoryHistoryProvider);
 
     return Scaffold(
@@ -438,10 +440,7 @@ class _FavouriteStoryImage extends StatelessWidget {
             Positioned(
               top: 8 * scale,
               right: 8 * scale,
-              child: _FavouriteHeartButton(
-                scale: scale,
-                onTap: onFavoriteTap,
-              ),
+              child: _FavouriteHeartButton(scale: scale, onTap: onFavoriteTap),
             ),
             Positioned(
               right: 8 * scale,
@@ -603,10 +602,8 @@ class _NoFavouritesScreen extends StatelessWidget {
   void _openHome(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (context) => HomeScreen(
-          childName: childName,
-          childAge: childAge,
-        ),
+        builder: (context) =>
+            HomeScreen(childName: childName, childAge: childAge),
       ),
       (route) => false,
     );
@@ -800,17 +797,10 @@ String _greeting() {
   return 'Good Evening';
 }
 
-String? _companionImageUrl(WidgetRef ref, String? companionId) {
+String? _companionImageUrl(WidgetRef ref) {
   final selectedCompanion = ref.watch(companionNotifierProvider);
-  final companions = ref.watch(companionsProvider).valueOrNull;
-  if (companionId == null) {
-    return selectedCompanion?.imageUrl;
-  }
-
-  return companions
-      ?.where((item) => item.id == companionId)
-      .firstOrNull
-      ?.imageUrl;
+  return selectedCompanion?.imageUrl ??
+      ref.watch(companionsProvider).valueOrNull?.firstOrNull?.imageUrl;
 }
 
 void _openProfile(BuildContext context, String? childName, int? childAge) {

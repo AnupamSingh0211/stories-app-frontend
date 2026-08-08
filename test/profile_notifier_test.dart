@@ -1,11 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:dharma_app/core/backend_api_client.dart';
 import 'package:dharma_app/features/auth/auth_provider.dart';
 import 'package:dharma_app/features/auth/profile_notifier.dart';
 import 'package:dharma_app/features/auth/profile_repository.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   test('returning parent loads and selects only their children', () async {
     final repository = _FakeProfileRepository(childCount: 2);
     final container = ProviderContainer(
@@ -71,12 +77,7 @@ void main() {
 
         final created = await container
             .read(profileNotifierProvider.notifier)
-            .addChild(
-              name: 'Kabir',
-              gender: 'boy',
-              age: 3,
-              companionId: 'krishna',
-            );
+            .addChild(name: 'Kabir', gender: 'boy', age: 3);
 
         final state = container.read(profileNotifierProvider).requireValue;
         expect(state.children.length, initialCount + 1);
@@ -94,7 +95,7 @@ void main() {
     await expectLater(
       container
           .read(profileNotifierProvider.notifier)
-          .addChild(name: 'Kabir', gender: 'boy', age: 3, companionId: null),
+          .addChild(name: 'Kabir', gender: 'boy', age: 3),
       throwsA(isA<ChildProfileLimitException>()),
     );
 
@@ -117,7 +118,7 @@ void main() {
     await expectLater(
       container
           .read(profileNotifierProvider.notifier)
-          .addChild(name: 'Kabir', gender: 'boy', age: 3, companionId: null),
+          .addChild(name: 'Kabir', gender: 'boy', age: 3),
       throwsA(isA<StateError>()),
     );
 
@@ -126,22 +127,93 @@ void main() {
     expect(state.requireValue.children, isEmpty);
   });
 
-  test('updates selected child companion in state and repository', () async {
+  test('stores selected child id under the authenticated user key', () async {
     final repository = _FakeProfileRepository(childCount: 1);
     final container = _authenticatedContainer(repository);
     addTearDown(container.dispose);
     await container.read(profileNotifierProvider.future);
 
-    final updated = await container
-        .read(profileNotifierProvider.notifier)
-        .updateSelectedChildCompanion('krishna');
-
-    final state = container.read(profileNotifierProvider).requireValue;
-    expect(updated.companionId, 'krishna');
-    expect(state.selectedChild?.companionId, 'krishna');
-    expect(repository.updatedChildId, 'child-1');
-    expect(repository.updatedCompanionId, 'krishna');
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString(SelectedChildPreferences.keyForUser('parent-1')),
+      'child-1',
+    );
   });
+
+  test('two different users do not share selected child id', () async {
+    final firstRepository = _FakeProfileRepository(childCount: 2);
+    final firstContainer = _authenticatedContainer(firstRepository);
+    addTearDown(firstContainer.dispose);
+    await firstContainer.read(profileNotifierProvider.future);
+    firstContainer
+        .read(profileNotifierProvider.notifier)
+        .selectChild('child-2');
+
+    final secondRepository = _FakeProfileRepository(childCount: 1);
+    final secondContainer = ProviderContainer(
+      overrides: [
+        activeSessionProvider.overrideWithValue(
+          const AppSessionIdentity(userId: 'parent-2', isAnonymous: false),
+        ),
+        profileRepositoryProvider.overrideWithValue(secondRepository),
+      ],
+    );
+    addTearDown(secondContainer.dispose);
+    final secondState = await secondContainer.read(
+      profileNotifierProvider.future,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString(SelectedChildPreferences.keyForUser('parent-1')),
+      'child-2',
+    );
+    expect(
+      prefs.getString(SelectedChildPreferences.keyForUser('parent-2')),
+      'child-1',
+    );
+    expect(secondState.selectedChild?.id, 'child-1');
+  });
+
+  test(
+    'missing stored selected child falls back to first backend child',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        SelectedChildPreferences.keyForUser('parent-1'): 'missing-child',
+      });
+      final repository = _FakeProfileRepository(childCount: 2);
+      final container = _authenticatedContainer(repository);
+      addTearDown(container.dispose);
+
+      final state = await container.read(profileNotifierProvider.future);
+
+      expect(state.selectedChild?.id, 'child-1');
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString(SelectedChildPreferences.keyForUser('parent-1')),
+        'child-1',
+      );
+    },
+  );
+
+  test(
+    'signed-out state does not read or write selected child preferences',
+    () async {
+      final repository = _FakeProfileRepository(childCount: 2);
+      final container = ProviderContainer(
+        overrides: [
+          activeSessionProvider.overrideWithValue(null),
+          profileRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(profileNotifierProvider.future);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getKeys(), isEmpty);
+    },
+  );
 
   test('updates selected child locale in state and repository', () async {
     final repository = _FakeProfileRepository(childCount: 1);
@@ -171,12 +243,16 @@ void main() {
           name: 'Aarav',
           gender: 'boy',
           age: 2,
-          companionId: null,
         );
 
         expect(dataSource.insertedProfile?['child_name'], 'Aarav');
         expect(dataSource.insertedProfile?.containsKey('parent_id'), isFalse);
         expect(dataSource.insertedProfile?.containsKey('user_id'), isFalse);
+        expect(
+          dataSource.insertedProfile?.containsKey('companion_id'),
+          isFalse,
+        );
+        expect(dataSource.insertedProfile?.containsKey('avatar_url'), isFalse);
         expect(dataSource.insertedProfile?['locale'], defaultProfileLocale);
         expect(child.parentId, 'user-1');
         expect(child.locale, defaultProfileLocale);
@@ -193,7 +269,6 @@ void main() {
           name: 'Aarav',
           gender: 'boy',
           age: 2,
-          companionId: null,
           locale: 'hi-IN',
         );
 
@@ -201,7 +276,7 @@ void main() {
       },
     );
 
-    test('updates child companion by child id only', () async {
+    test('updates child profile fields by child id only', () async {
       final dataSource = _FakeProfileDataSource();
       final repository = ProfileRepository(dataSource: dataSource);
       final child = ChildProfileModel(
@@ -213,14 +288,20 @@ void main() {
         createdAt: DateTime.utc(2026, 6, 9),
       );
 
-      final updated = await repository.updateChildCompanion(
+      final updated = await repository.updateChildProfile(
         child: child,
-        companionId: 'krishna',
+        name: 'Meera',
+        gender: 'girl',
+        age: 4,
       );
 
       expect(dataSource.updatedChildId, 'child-1');
-      expect(dataSource.updatedProfile?['companion_id'], 'krishna');
-      expect(updated.companionId, 'krishna');
+      expect(dataSource.updatedProfile?['child_name'], 'Meera');
+      expect(dataSource.updatedProfile?['gender'], 'girl');
+      expect(dataSource.updatedProfile?['age'], 4);
+      expect(dataSource.updatedProfile?.containsKey('companion_id'), isFalse);
+      expect(dataSource.updatedProfile?.containsKey('avatar_url'), isFalse);
+      expect(updated.childName, 'Meera');
     });
 
     test('updates child locale by child id only', () async {
@@ -252,6 +333,47 @@ void main() {
       await repository.fetchChildProfiles();
 
       expect(dataSource.fetchCalls, 1);
+    });
+
+    test('backend profile data source strips client ownership fields', () async {
+      final transport = _FakeBackendTransport(
+        response: const BackendTransportResponse(
+          statusCode: 200,
+          body:
+              '{"success":true,"data":{"id":"child-1","user_id":"user-1","child_name":"Aarav","age":2,"gender":"boy","created_at":"2026-06-09T00:00:00Z"}}',
+          headers: {'content-type': 'application/json'},
+        ),
+      );
+      final dataSource = BackendProfileDataSource(
+        apiClient: BackendApiClient(
+          baseUrl: 'http://localhost:5000',
+          sessionReader: const _BackendSessionReader('access-token'),
+          transport: transport,
+        ),
+      );
+
+      await dataSource.insertChildProfile({
+        'user_id': 'attacker',
+        'userId': 'attacker',
+        'parent_id': 'attacker',
+        'child_name': 'Aarav',
+        'age': 2,
+        'gender': 'boy',
+        'companion_id': 'krishna',
+        'avatar_url': 'local-avatar-path',
+      });
+
+      expect(
+        transport.requests.single.headers['Authorization'],
+        'Bearer access-token',
+      );
+      expect(transport.requests.single.body, isNot(contains('attacker')));
+      expect(transport.requests.single.body, contains('"child_name":"Aarav"'));
+      expect(transport.requests.single.body, isNot(contains('user_id')));
+      expect(transport.requests.single.body, isNot(contains('userId')));
+      expect(transport.requests.single.body, isNot(contains('parent_id')));
+      expect(transport.requests.single.body, isNot(contains('companion_id')));
+      expect(transport.requests.single.body, isNot(contains('avatar_url')));
     });
 
     test('falls back to en-IN for missing or unsupported row locale', () {
@@ -315,7 +437,6 @@ class _FakeProfileRepository extends ProfileRepository {
   final List<ChildProfileModel> children;
   final Object? createError;
   String? updatedChildId;
-  String? updatedCompanionId;
   String? updatedLocale;
   int createCalls = 0;
   int fetchCalls = 0;
@@ -331,9 +452,7 @@ class _FakeProfileRepository extends ProfileRepository {
     required String name,
     required String gender,
     required int age,
-    required String? companionId,
     String locale = defaultProfileLocale,
-    String? avatarUrl,
   }) async {
     createCalls++;
     if (createError case final error?) {
@@ -346,8 +465,6 @@ class _FakeProfileRepository extends ProfileRepository {
       childName: name,
       age: age,
       gender: gender,
-      companionId: companionId,
-      avatarUrl: avatarUrl,
       locale: locale,
       createdAt: DateTime.utc(2026, 6, 9, 1),
     );
@@ -356,13 +473,14 @@ class _FakeProfileRepository extends ProfileRepository {
   }
 
   @override
-  Future<ChildProfileModel> updateChildCompanion({
+  @override
+  Future<ChildProfileModel> updateChildLocale({
     required ChildProfileModel child,
-    required String companionId,
+    required String locale,
   }) async {
     updatedChildId = child.id;
-    updatedCompanionId = companionId;
-    final updated = child.copyWith(companionId: companionId);
+    updatedLocale = locale;
+    final updated = child.copyWith(locale: locale);
     final index = children.indexWhere((item) => item.id == child.id);
     if (index == -1) {
       children.insert(0, updated);
@@ -373,13 +491,20 @@ class _FakeProfileRepository extends ProfileRepository {
   }
 
   @override
-  Future<ChildProfileModel> updateChildLocale({
+  Future<ChildProfileModel> updateChildProfile({
     required ChildProfileModel child,
-    required String locale,
+    String? name,
+    String? gender,
+    int? age,
+    String? locale,
   }) async {
     updatedChildId = child.id;
-    updatedLocale = locale;
-    final updated = child.copyWith(locale: locale);
+    final updated = child.copyWith(
+      childName: name,
+      gender: gender,
+      age: age,
+      locale: locale,
+    );
     final index = children.indexWhere((item) => item.id == child.id);
     if (index == -1) {
       children.insert(0, updated);
@@ -434,5 +559,25 @@ class _FakeProfileDataSource extends ProfileDataSource {
       ...profile,
       'created_at': '2026-06-09T00:00:00Z',
     };
+  }
+}
+
+class _BackendSessionReader implements BackendSessionReader {
+  const _BackendSessionReader(this.currentAccessToken);
+
+  @override
+  final String? currentAccessToken;
+}
+
+class _FakeBackendTransport implements BackendTransport {
+  _FakeBackendTransport({required this.response});
+
+  final BackendTransportResponse response;
+  final List<BackendTransportRequest> requests = [];
+
+  @override
+  Future<BackendTransportResponse> send(BackendTransportRequest request) async {
+    requests.add(request);
+    return response;
   }
 }

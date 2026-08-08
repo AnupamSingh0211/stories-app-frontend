@@ -1,13 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/backend_api_client.dart';
 import 'auth_provider.dart';
 import 'profile_repository.dart';
 
 part 'profile_notifier.g.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
-  return ProfileRepository(dataSource: const LocalProfileDataSource());
+  return ProfileRepository(
+    dataSource: BackendProfileDataSource(
+      apiClient: ref.watch(backendApiClientProvider),
+    ),
+  );
 });
 
 class ChildProfilesState {
@@ -40,6 +48,27 @@ class ChildProfilesState {
   }
 }
 
+class SelectedChildPreferences {
+  const SelectedChildPreferences._();
+
+  static String keyForUser(String userId) => 'user.$userId.selected_child_id';
+
+  static Future<String?> read(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(keyForUser(userId));
+  }
+
+  static Future<void> save(String userId, String childId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(keyForUser(userId), childId);
+  }
+
+  static Future<void> clear(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(keyForUser(userId));
+  }
+}
+
 @Riverpod(keepAlive: true)
 class ProfileNotifier extends _$ProfileNotifier {
   ProfileRepository get _repository => ref.read(profileRepositoryProvider);
@@ -60,9 +89,10 @@ class ProfileNotifier extends _$ProfileNotifier {
       debugPrint('ProfileNotifier: loading profiles for authenticated user');
     }
     final children = await _repository.fetchChildProfiles();
+    final selectedChildId = await _resolveSelectedChildId(userId, children);
     return ChildProfilesState(
       children: children,
-      selectedChildId: children.firstOrNull?.id,
+      selectedChildId: selectedChildId,
     );
   }
 
@@ -70,7 +100,6 @@ class ProfileNotifier extends _$ProfileNotifier {
     required String name,
     required String gender,
     required int age,
-    required String? companionId,
     String locale = defaultProfileLocale,
   }) async {
     final previous = state.valueOrNull ?? const ChildProfilesState();
@@ -83,7 +112,6 @@ class ProfileNotifier extends _$ProfileNotifier {
         name: name,
         gender: gender,
         age: age,
-        companionId: companionId,
         locale: locale,
       ),
     );
@@ -96,6 +124,10 @@ class ProfileNotifier extends _$ProfileNotifier {
     final child = result.requireValue;
     if (kDebugMode) {
       debugPrint('ProfileNotifier: profile ${child.id} added to state');
+    }
+    final userId = ref.read(activeSessionProvider)?.userId;
+    if (userId != null) {
+      unawaited(SelectedChildPreferences.save(userId, child.id));
     }
     state = AsyncData(
       ChildProfilesState(
@@ -116,32 +148,11 @@ class ProfileNotifier extends _$ProfileNotifier {
       return;
     }
 
-    state = AsyncData(current.copyWith(selectedChildId: childId));
-  }
-
-  Future<ChildProfileModel> updateSelectedChildCompanion(
-    String companionId,
-  ) async {
-    final previous = state.valueOrNull;
-    final selectedChild = previous?.selectedChild;
-    if (previous == null || selectedChild == null) {
-      throw StateError('No child profile selected');
+    final userId = ref.read(activeSessionProvider)?.userId;
+    if (userId != null) {
+      unawaited(SelectedChildPreferences.save(userId, childId));
     }
-
-    final updated = await _repository.updateChildCompanion(
-      child: selectedChild,
-      companionId: companionId,
-    );
-    state = AsyncData(
-      previous.copyWith(
-        children: [
-          updated,
-          ...previous.children.where((child) => child.id != updated.id),
-        ],
-        selectedChildId: updated.id,
-      ),
-    );
-    return updated;
+    state = AsyncData(current.copyWith(selectedChildId: childId));
   }
 
   Future<ChildProfileModel> updateSelectedChildLocale(String locale) async {
@@ -167,16 +178,24 @@ class ProfileNotifier extends _$ProfileNotifier {
     return updated;
   }
 
-  Future<ChildProfileModel> updateSelectedChildAvatar(String avatarUrl) async {
+  Future<ChildProfileModel> updateSelectedChildProfile({
+    String? name,
+    String? gender,
+    int? age,
+    String? locale,
+  }) async {
     final previous = state.valueOrNull;
     final selectedChild = previous?.selectedChild;
     if (previous == null || selectedChild == null) {
       throw StateError('No child profile selected');
     }
 
-    final updated = await _repository.updateChildAvatar(
+    final updated = await _repository.updateChildProfile(
       child: selectedChild,
-      avatarUrl: avatarUrl,
+      name: name,
+      gender: gender,
+      age: age,
+      locale: locale,
     );
     state = AsyncData(
       previous.copyWith(
@@ -191,7 +210,6 @@ class ProfileNotifier extends _$ProfileNotifier {
   }
 
   Future<void> refresh() async {
-    final selectedId = state.valueOrNull?.selectedChildId;
     final session = ref.read(activeSessionProvider);
     if (session == null) {
       state = const AsyncData(ChildProfilesState());
@@ -201,6 +219,10 @@ class ProfileNotifier extends _$ProfileNotifier {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final children = await _repository.fetchChildProfiles();
+      final selectedId = await _resolveSelectedChildId(
+        session.userId,
+        children,
+      );
       final selectionExists = children.any((child) => child.id == selectedId);
       return ChildProfilesState(
         children: children,
@@ -209,5 +231,24 @@ class ProfileNotifier extends _$ProfileNotifier {
             : children.firstOrNull?.id,
       );
     });
+  }
+
+  Future<String?> _resolveSelectedChildId(
+    String userId,
+    List<ChildProfileModel> children,
+  ) async {
+    if (children.isEmpty) {
+      await SelectedChildPreferences.clear(userId);
+      return null;
+    }
+
+    final storedId = await SelectedChildPreferences.read(userId);
+    if (storedId != null && children.any((child) => child.id == storedId)) {
+      return storedId;
+    }
+
+    final fallbackId = children.first.id;
+    await SelectedChildPreferences.save(userId, fallbackId);
+    return fallbackId;
   }
 }

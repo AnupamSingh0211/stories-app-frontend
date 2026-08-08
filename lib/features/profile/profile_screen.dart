@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -11,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/glassy_bottom_nav_bar.dart';
+import '../auth/auth_provider.dart';
 import '../auth/profile_notifier.dart';
 import '../auth/profile_repository.dart';
 import '../auth/profile_setup_screen.dart';
@@ -104,9 +104,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   ),
                                   age: _ageValue(profile.age),
                                   rawAge: profile.age,
-                                  avatarUrl: profile.avatarUrl,
-                                  avatarBytes:
-                                      _selectedAvatarBytes[profile.id],
+                                  avatarBytes: _selectedAvatarBytes[profile.id],
                                   onAvatarCameraTap: () =>
                                       _pickProfileAvatar(profile),
                                 ),
@@ -138,14 +136,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     iconAsset:
                                         'assets/icons/new_boopi/State=Default, Icon=Notification.svg',
                                     title: 'Notification',
-                                    subtitle: "To nudge you when it's story time.",
+                                    subtitle:
+                                        "To nudge you when it's story time.",
                                     trailing: _ProfileSwitch(value: false),
                                   ),
                                   _ProfileMenuRow(
                                     iconAsset:
                                         'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
                                     title: 'Favourites',
-                                    subtitle: 'They just loved this. \u2764\uFE0F',
+                                    subtitle:
+                                        'They just loved this. \u2764\uFE0F',
                                     onTap: () => _openLibrary(context),
                                   ),
                                   _ProfileMenuRow(
@@ -189,11 +189,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ],
                               ),
                               const SizedBox(height: 24),
-                              _LogoutButton(
-                                onTap: () async {
-                                  await Supabase.instance.client.auth.signOut();
-                                },
-                              ),
+                              _LogoutButton(onTap: _logout),
                             ],
                           ),
                         ),
@@ -282,6 +278,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Future<void> _logout() async {
+    await ref.read(appAuthServiceProvider).signOut();
+    ref.invalidate(authSessionProvider);
+    ref.invalidate(profileNotifierProvider);
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   void _openHome(BuildContext context, ChildProfileModel? profile) {
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
@@ -342,8 +350,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _shareBoopi(BuildContext context) async {
-    const message =
-        'Check out Boopi, a magical bedtime stories app for kids.';
+    const message = 'Check out Boopi, a magical bedtime stories app for kids.';
 
     try {
       final box = context.findRenderObject() as RenderBox?;
@@ -355,7 +362,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             : box.localToGlobal(Offset.zero) & box.size,
       );
     } catch (_) {
-      if (!mounted) {
+      if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context)
@@ -401,24 +408,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() {
       _selectedAvatarBytes[profile.id] = bytes;
     });
-
-    try {
-      await ref
-          .read(profileNotifierProvider.notifier)
-          .updateSelectedChildAvatar(selectedImage.path);
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('Photo selected, but profile update failed.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-    }
   }
 }
 
@@ -605,7 +594,6 @@ class _ChildProfileCard extends StatelessWidget {
     required this.name,
     required this.age,
     required this.rawAge,
-    this.avatarUrl,
     this.avatarBytes,
     this.onAvatarCameraTap,
   });
@@ -613,7 +601,6 @@ class _ChildProfileCard extends StatelessWidget {
   final String name;
   final String age;
   final int? rawAge;
-  final String? avatarUrl;
   final Uint8List? avatarBytes;
   final VoidCallback? onAvatarCameraTap;
 
@@ -628,11 +615,7 @@ class _ChildProfileCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Avatar(
-                avatarUrl: avatarUrl,
-                avatarBytes: avatarBytes,
-                onCameraTap: onAvatarCameraTap,
-              ),
+              _Avatar(avatarBytes: avatarBytes, onCameraTap: onAvatarCameraTap),
               const SizedBox(width: 20),
               Expanded(
                 child: Padding(
@@ -676,15 +659,13 @@ class _ChildProfileCard extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({this.avatarUrl, this.avatarBytes, this.onCameraTap});
+  const _Avatar({this.avatarBytes, this.onCameraTap});
 
-  final String? avatarUrl;
   final Uint8List? avatarBytes;
   final VoidCallback? onCameraTap;
 
   @override
   Widget build(BuildContext context) {
-    final hasAvatar = avatarUrl != null && avatarUrl!.trim().isNotEmpty;
     final hasSelectedAvatar = avatarBytes != null && avatarBytes!.isNotEmpty;
 
     return SizedBox(
@@ -703,13 +684,6 @@ class _Avatar extends StatelessWidget {
             child: ClipOval(
               child: hasSelectedAvatar
                   ? Image.memory(avatarBytes!, fit: BoxFit.cover)
-                  : hasAvatar
-                  ? CachedNetworkImage(
-                      imageUrl: avatarUrl!,
-                      fit: BoxFit.cover,
-                      errorWidget: (context, url, error) =>
-                          const _AvatarFallback(),
-                    )
                   : const _AvatarFallback(),
             ),
           ),

@@ -65,7 +65,7 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
     final profileState = ref.watch(profileNotifierProvider).valueOrNull;
     final selectedChild = profileState?.selectedChild;
     final childName = selectedChild?.childName ?? 'Svayudh';
-    final avatarUrl = _companionImageUrl(ref, selectedChild?.companionId);
+    final avatarUrl = _companionImageUrl(ref);
 
     return Scaffold(
       backgroundColor: AppColors.blue25,
@@ -169,17 +169,10 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
   }
 }
 
-String? _companionImageUrl(WidgetRef ref, String? companionId) {
+String? _companionImageUrl(WidgetRef ref) {
   final selectedCompanion = ref.watch(companionNotifierProvider);
-  final companions = ref.watch(companionsProvider).valueOrNull;
-  if (companionId == null) {
-    return selectedCompanion?.imageUrl;
-  }
-
-  return companions
-      ?.where((item) => item.id == companionId)
-      .firstOrNull
-      ?.imageUrl;
+  return selectedCompanion?.imageUrl ??
+      ref.watch(companionsProvider).valueOrNull?.firstOrNull?.imageUrl;
 }
 
 class _StoriesHomeContent extends StatelessWidget {

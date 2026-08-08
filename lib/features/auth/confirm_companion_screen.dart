@@ -8,7 +8,6 @@ import '../../shared/widgets/pill_button.dart';
 import 'companion_flow.dart';
 import 'companion_model.dart';
 import 'companion_notifier.dart';
-import 'profile_notifier.dart';
 
 class ConfirmCompanionScreen extends ConsumerWidget {
   const ConfirmCompanionScreen({
@@ -77,21 +76,6 @@ class ConfirmCompanionScreen extends ConsumerWidget {
                               ref
                                   .read(companionNotifierProvider.notifier)
                                   .selectCompanion(companion);
-                              try {
-                                await ref
-                                    .read(profileNotifierProvider.notifier)
-                                    .updateSelectedChildCompanion(companion.id);
-                              } catch (error) {
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Could not save companion: $error',
-                                    ),
-                                  ),
-                                );
-                                return;
-                              }
 
                               if (!context.mounted) return;
                               final onComplete = this.onComplete;
