@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import 'profile_notifier.dart';
 
 const _ageOptions = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -152,19 +153,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         body: SizedBox.expand(
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF6BC5F7),
-                  Color(0xFF268BEA),
-                  Color(0xFF0D367F),
-                ],
-                stops: [0, 0.48, 1],
-              ),
-            ),
+          child: AppScreenBackground(
             child: SafeArea(
               bottom: false,
               child: LayoutBuilder(

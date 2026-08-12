@@ -139,6 +139,7 @@ class SupabaseAppAuthService implements AppAuthService {
   const SupabaseAppAuthService(this.ref);
 
   final Ref ref;
+  static const _authTimeout = Duration(seconds: 20);
 
   GoTrueClient get _auth => Supabase.instance.client.auth;
 
@@ -160,7 +161,7 @@ class SupabaseAppAuthService implements AppAuthService {
       await _auth.signOut();
     }
 
-    await _auth.signInWithOtp(phone: phoneNumber);
+    await _auth.signInWithOtp(phone: phoneNumber).timeout(_authTimeout);
   }
 
   @override
@@ -177,11 +178,9 @@ class SupabaseAppAuthService implements AppAuthService {
       return identity;
     }
 
-    final response = await _auth.verifyOTP(
-      type: OtpType.sms,
-      phone: phoneNumber,
-      token: otp,
-    );
+    final response = await _auth
+        .verifyOTP(type: OtpType.sms, phone: phoneNumber, token: otp)
+        .timeout(_authTimeout);
     final identity = _identityFor(response.session);
     if (identity == null) {
       throw const AuthException(
@@ -209,11 +208,16 @@ class SupabaseAppAuthService implements AppAuthService {
 }
 
 class DevBackendOtpAuthService implements AppAuthService {
-  DevBackendOtpAuthService(this.ref, {http.Client? client})
-    : _client = client ?? http.Client();
+  DevBackendOtpAuthService(
+    this.ref, {
+    http.Client? client,
+    Duration requestTimeout = const Duration(seconds: 12),
+  }) : _requestTimeout = requestTimeout,
+       _client = client ?? http.Client();
 
   final Ref ref;
   final http.Client _client;
+  final Duration _requestTimeout;
 
   Uri _uri(String path) => Uri.parse('${BackendConfig.baseUrl}$path');
 
@@ -237,13 +241,19 @@ class DevBackendOtpAuthService implements AppAuthService {
   }) async {
     final http.Response response;
     try {
-      response = await _client.post(
-        _uri('/api/v1/auth/dev/verify-otp'),
-        headers: const {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'phoneNumber': phoneNumber, 'otp': otp}),
+      response = await _client
+          .post(
+            _uri('/api/v1/auth/dev/verify-otp'),
+            headers: const {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'phoneNumber': phoneNumber, 'otp': otp}),
+          )
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw const AuthException(
+        'Authentication backend timed out. Check BACKEND_BASE_URL and that the backend is reachable from this device.',
       );
     } catch (_) {
       throw const AuthException(

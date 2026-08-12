@@ -2,8 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../shared/theme/app_gradients.dart';
 import '../../shared/theme/app_shadows.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import '../../shared/widgets/pill_button.dart';
 import 'companion_flow.dart';
 import 'companion_model.dart';
@@ -21,10 +21,7 @@ class ChooseCompanionScreen extends ConsumerWidget {
 
     return Scaffold(
       body: RepaintBoundary(
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: AppGradients.authBackground,
-          ),
+        child: AppScreenBackground(
           child: SafeArea(
             child: companions.when(
               data: (items) =>

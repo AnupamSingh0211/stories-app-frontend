@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_screen_background.dart';
 
 const _figmaWidth = 390.0;
 
@@ -12,14 +13,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
-            ),
-          ),
+        body: AppScreenBackground(
           child: SafeArea(
             bottom: false,
             child: LayoutBuilder(

@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_bottom_navigation.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import '../auth/assets_provider.dart';
 import '../auth/companion_notifier.dart';
 import '../auth/companions_provider.dart';
@@ -17,6 +18,7 @@ import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/continue_listening_provider.dart';
 import '../storytime/providers/favorite_stories_provider.dart';
+import '../storytime/screens/episodes_screen.dart';
 import '../storytime/screens/story_player_screen.dart';
 import '../storytime/widgets/story_image_view.dart';
 
@@ -129,8 +131,12 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
 
     if (_selectedSection == LibrarySection.favourites) {
       final favoriteStories = ref.watch(favoriteStoriesProvider);
-      if (favoriteStories.isNotEmpty) {
-        return _FavouritesScreen(stories: favoriteStories);
+      final favoriteEpisodes = ref.watch(favoriteEpisodesProvider);
+      if (favoriteStories.isNotEmpty || favoriteEpisodes.isNotEmpty) {
+        return _FavouritesScreen(
+          stories: favoriteStories,
+          episodes: favoriteEpisodes,
+        );
       }
 
       return _NoFavouritesScreen(
@@ -144,115 +150,110 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
     final history = ref.watch(sessionStoryHistoryProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.blue25,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                children: [
-                  _LibraryTopAppBar(
-                    childName: childName,
-                    avatarUrl: companionUrl,
-                    searchVisible: _showSearch,
-                    onProfileTap: () =>
-                        _openProfile(context, childName, selectedChild?.age),
-                    onSearchTap: () {
-                      setState(() => _showSearch = !_showSearch);
-                    },
-                    onFavoritesTap: () {
-                      setState(() {
-                        _selectedSection = LibrarySection.favourites;
-                      });
-                    },
-                  ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: _showSearch
-                        ? const Padding(
-                            key: ValueKey('search'),
-                            padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
-                            child: _LibrarySearchBar(),
-                          )
-                        : const SizedBox.shrink(key: ValueKey('empty')),
-                  ),
-                  _LibrarySectionTabs(
-                    selectedSection: _selectedSection,
-                    onSelected: (section) {
-                      setState(() => _selectedSection = section);
-                    },
-                  ),
-                  Expanded(
-                    child: _LibrarySectionContent(
-                      section: _selectedSection,
-                      companionImageUrl: companionUrl,
-                      history: history,
+      body: AppScreenBackground(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    _LibraryTopAppBar(
+                      childName: childName,
+                      avatarUrl: companionUrl,
+                      searchVisible: _showSearch,
+                      onProfileTap: () =>
+                          _openProfile(context, childName, selectedChild?.age),
+                      onSearchTap: () {
+                        setState(() => _showSearch = !_showSearch);
+                      },
+                      onFavoritesTap: () {
+                        setState(() {
+                          _selectedSection = LibrarySection.favourites;
+                        });
+                      },
                     ),
-                  ),
-                ],
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: _showSearch
+                          ? const Padding(
+                              key: ValueKey('search'),
+                              padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+                              child: _LibrarySearchBar(),
+                            )
+                          : const SizedBox.shrink(key: ValueKey('empty')),
+                    ),
+                    _LibrarySectionTabs(
+                      selectedSection: _selectedSection,
+                      onSelected: (section) {
+                        setState(() => _selectedSection = section);
+                      },
+                    ),
+                    Expanded(
+                      child: _LibrarySectionContent(
+                        section: _selectedSection,
+                        companionImageUrl: companionUrl,
+                        history: history,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: AppPrimaryBottomNavigation(
-              selectedIndex: 2,
-              onItemSelected: (index) {
-                switch (index) {
-                  case 0:
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute<void>(
-                        builder: (context) => HomeScreen(
-                          childName: childName,
-                          childAge: selectedChild?.age,
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AppPrimaryBottomNavigation(
+                selectedIndex: 2,
+                onItemSelected: (index) {
+                  switch (index) {
+                    case 0:
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute<void>(
+                          builder: (context) => HomeScreen(
+                            childName: childName,
+                            childAge: selectedChild?.age,
+                          ),
                         ),
-                      ),
-                      (route) => false,
-                    );
-                    break;
-                  case 1:
-                  case 2:
-                    break;
-                  case 3:
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (context) => ProfileScreen(
-                          fallbackChildName: childName,
-                          fallbackChildAge: selectedChild?.age,
+                        (route) => false,
+                      );
+                      break;
+                    case 1:
+                    case 2:
+                      break;
+                    case 3:
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute<void>(
+                          builder: (context) => ProfileScreen(
+                            fallbackChildName: childName,
+                            fallbackChildAge: selectedChild?.age,
+                          ),
                         ),
-                      ),
-                    );
-                    break;
-                }
-              },
+                      );
+                      break;
+                  }
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _FavouritesScreen extends ConsumerWidget {
-  const _FavouritesScreen({required this.stories});
+  const _FavouritesScreen({required this.stories, required this.episodes});
 
   final List<StoryModel> stories;
+  final List<StoryModel> episodes;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
-            ),
-          ),
+        body: AppScreenBackground(
           child: SizedBox.expand(
             child: SafeArea(
               bottom: false,
@@ -262,6 +263,7 @@ class _FavouritesScreen extends ConsumerWidget {
                   final scale = rawScale < 0.88 ? 0.88 : rawScale;
                   final sideInset = 16.0 * scale;
                   final itemGap = 16.0 * scale;
+                  final sectionGap = 24.0 * scale;
 
                   return Stack(
                     children: [
@@ -275,29 +277,92 @@ class _FavouritesScreen extends ConsumerWidget {
                             sideInset,
                             0,
                           ),
-                          child: GridView.builder(
+                          child: CustomScrollView(
                             physics: const ClampingScrollPhysics(),
-                            padding: EdgeInsets.only(bottom: 24 * scale),
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: itemGap,
-                                  mainAxisSpacing: itemGap,
-                                  mainAxisExtent: 253 * scale,
+                            slivers: [
+                              if (stories.isNotEmpty) ...[
+                                SliverToBoxAdapter(
+                                  child: _FavouritesSectionHeader(
+                                    title: 'Your Favourites Stories',
+                                    scale: scale,
+                                  ),
                                 ),
-                            itemCount: stories.length,
-                            itemBuilder: (context, index) {
-                              final story = stories[index];
-                              return _FavouriteStoryCard(
-                                story: story,
-                                scale: scale,
-                                onFavoriteTap: () {
-                                  ref
-                                      .read(favoriteStoriesProvider.notifier)
-                                      .removeStory(story.id);
-                                },
-                              );
-                            },
+                                SliverToBoxAdapter(
+                                  child: SizedBox(height: 12 * scale),
+                                ),
+                                SliverGrid(
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: itemGap,
+                                        mainAxisSpacing: itemGap,
+                                        mainAxisExtent: 253 * scale,
+                                      ),
+                                  delegate: SliverChildBuilderDelegate((
+                                    context,
+                                    index,
+                                  ) {
+                                    final story = stories[index];
+                                    return _FavouriteStoryCard(
+                                      story: story,
+                                      scale: scale,
+                                      onFavoriteTap: () {
+                                        ref
+                                            .read(
+                                              favoriteStoriesProvider.notifier,
+                                            )
+                                            .removeStory(story.id);
+                                      },
+                                    );
+                                  }, childCount: stories.length),
+                                ),
+                              ],
+                              if (stories.isNotEmpty && episodes.isNotEmpty)
+                                SliverToBoxAdapter(
+                                  child: SizedBox(height: sectionGap),
+                                ),
+                              if (episodes.isNotEmpty) ...[
+                                SliverToBoxAdapter(
+                                  child: _FavouritesSectionHeader(
+                                    title: 'Your Favourites Episodes',
+                                    scale: scale,
+                                  ),
+                                ),
+                                SliverToBoxAdapter(
+                                  child: SizedBox(height: 12 * scale),
+                                ),
+                                SliverGrid(
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: itemGap,
+                                        mainAxisSpacing: itemGap,
+                                        mainAxisExtent: 253 * scale,
+                                      ),
+                                  delegate: SliverChildBuilderDelegate((
+                                    context,
+                                    index,
+                                  ) {
+                                    final episode = episodes[index];
+                                    return _FavouriteStoryCard(
+                                      story: episode,
+                                      scale: scale,
+                                      opensDirectly: true,
+                                      onFavoriteTap: () {
+                                        ref
+                                            .read(
+                                              favoriteEpisodesProvider.notifier,
+                                            )
+                                            .removeEpisode(episode.id);
+                                      },
+                                    );
+                                  }, childCount: episodes.length),
+                                ),
+                              ],
+                              SliverToBoxAdapter(
+                                child: SizedBox(height: 24 * scale),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -308,6 +373,39 @@ class _FavouritesScreen extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FavouritesSectionHeader extends StatelessWidget {
+  const _FavouritesSectionHeader({required this.title, required this.scale});
+
+  final String title;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 20 * scale,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _FavouritesTextStyles.sectionTitle.copyWith(
+                fontSize: 16 * scale,
+              ),
+            ),
+          ),
+          SizedBox(width: 12 * scale),
+          Text(
+            'See all',
+            style: _FavouritesTextStyles.seeAll.copyWith(fontSize: 14 * scale),
+          ),
+        ],
       ),
     );
   }
@@ -351,25 +449,19 @@ class _FavouriteStoryCard extends StatelessWidget {
     required this.story,
     required this.scale,
     required this.onFavoriteTap,
+    this.opensDirectly = false,
   });
 
   final StoryModel story;
   final double scale;
   final VoidCallback onFavoriteTap;
+  final bool opensDirectly;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => StoryPlayerScreen(
-            storyId: story.id,
-            title: story.title,
-            story: story,
-          ),
-        ),
-      ),
+      onTap: () => _openFavouriteItem(context),
       child: Container(
         padding: EdgeInsets.all(12 * scale),
         decoration: BoxDecoration(
@@ -405,6 +497,27 @@ class _FavouriteStoryCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openFavouriteItem(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          if (!opensDirectly) {
+            return const EpisodesScreen();
+          }
+
+          return StoryPlayerScreen(
+            storyId: story.id,
+            title: story.title,
+            story: story,
+            openDirectly: true,
+            playerImageUrl:
+                story.coverUrl ?? story.imageUrl ?? story.thumbnailUrl,
+          );
+        },
       ),
     );
   }
@@ -512,8 +625,23 @@ abstract final class _FavouritesTextStyles {
     fontFamily: AppTypography.fontFamily,
     fontSize: 20,
     height: 24 / 20,
-    letterSpacing: -0.25,
     fontWeight: FontWeight.w600,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const sectionTitle = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 16,
+    height: 20 / 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textOnPrimary,
+  );
+
+  static const seeAll = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w400,
     color: AppColors.textOnPrimary,
   );
 
@@ -550,14 +678,7 @@ class _NoFavouritesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
-            ),
-          ),
+        body: AppScreenBackground(
           child: SizedBox.expand(
             child: SafeArea(
               bottom: false,

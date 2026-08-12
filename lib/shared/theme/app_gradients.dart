@@ -3,44 +3,48 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 abstract final class AppGradients {
+  static const screenBackgroundBegin = Alignment(-0.7, -1.0023);
+  static const screenBackgroundEnd = Alignment(2.319, -0.1336);
+  static const screenBackgroundStops = [0.0618, 0.4562, 0.9382];
+  static const screenBackgroundColors = [
+    AppColors.backgroundGradientStart,
+    AppColors.backgroundGradientMiddle,
+    AppColors.backgroundGradientEnd,
+  ];
+
+  static const screenBackground = LinearGradient(
+    begin: screenBackgroundBegin,
+    end: screenBackgroundEnd,
+    stops: screenBackgroundStops,
+    colors: screenBackgroundColors,
+  );
+
   static const background = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      AppColors.surfaceOverlay,
-      AppColors.surfaceBase,
-      AppColors.surfaceDark,
-    ],
+    begin: screenBackgroundBegin,
+    end: screenBackgroundEnd,
+    stops: screenBackgroundStops,
+    colors: screenBackgroundColors,
   );
 
   static const storytimeBackground = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      AppColors.surfaceCardDeep,
-      AppColors.surfaceBase,
-      AppColors.surfaceDeep,
-    ],
+    begin: screenBackgroundBegin,
+    end: screenBackgroundEnd,
+    stops: screenBackgroundStops,
+    colors: screenBackgroundColors,
   );
 
   static const authBackground = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      AppColors.authSurface,
-      AppColors.surfaceBase,
-      AppColors.authSurfaceDark,
-    ],
+    begin: screenBackgroundBegin,
+    end: screenBackgroundEnd,
+    stops: screenBackgroundStops,
+    colors: screenBackgroundColors,
   );
 
   static const authPurpleBackground = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      AppColors.authSurfacePurple,
-      AppColors.surfaceBase,
-      AppColors.authSurfaceDark,
-    ],
+    begin: screenBackgroundBegin,
+    end: screenBackgroundEnd,
+    stops: screenBackgroundStops,
+    colors: screenBackgroundColors,
   );
 
   static const heroCard = LinearGradient(

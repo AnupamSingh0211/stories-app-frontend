@@ -41,9 +41,9 @@ class GlassyBottomNavBar extends StatelessWidget {
                           0,
                           'Home',
                           defaultIconPath:
-                              'assets/icons/new_boopi/State=Default, Icon=Home.svg',
+                              'assets/icons/new_boopi/home_component.svg',
                           activeIconPath:
-                              'assets/icons/new_boopi/State=Bold, Icon=Home.svg',
+                              'assets/icons/new_boopi/home_component.svg',
                         ),
                       ),
                     ),
@@ -53,9 +53,9 @@ class GlassyBottomNavBar extends StatelessWidget {
                           1,
                           'Popular',
                           defaultIconPath:
-                              'assets/icons/new_boopi/State=Default, Icon=Sparkle.svg',
+                              'assets/icons/new_boopi/popular_component.svg',
                           activeIconPath:
-                              'assets/icons/new_boopi/State=Bold, Icon=Sparkle.svg',
+                              'assets/icons/new_boopi/popular_component.svg',
                         ),
                       ),
                     ),
@@ -67,7 +67,7 @@ class GlassyBottomNavBar extends StatelessWidget {
                           defaultIconPath:
                               'assets/icons/new_boopi/State=Default, Icon=Libaray.svg',
                           activeIconPath:
-                              'assets/icons/new_boopi/State=Bold, Icon=Libaray.svg',
+                              'assets/icons/new_boopi/soonfill_component.svg',
                         ),
                       ),
                     ),
@@ -87,10 +87,8 @@ class GlassyBottomNavBar extends StatelessWidget {
               child: _buildNavItem(
                 3,
                 'Profile',
-                defaultIconPath:
-                    'assets/icons/new_boopi/State=Default, Icon=Profile.svg',
-                activeIconPath:
-                    'assets/icons/new_boopi/State=Bold, Icon=Profile.svg',
+                defaultIconPath: 'assets/icons/new_boopi/person_component.svg',
+                activeIconPath: 'assets/icons/new_boopi/person_component.svg',
                 compact: true,
               ),
             ),
@@ -110,6 +108,7 @@ class GlassyBottomNavBar extends StatelessWidget {
     final isActive = currentIndex == index;
     final showActiveBackground = isActive && !compact;
     final iconPath = isActive ? activeIconPath : defaultIconPath;
+    final preserveIconColors = iconPath.endsWith('soonfill_component.svg');
 
     return GestureDetector(
       onTap: () => onTap(index),
@@ -139,10 +138,9 @@ class GlassyBottomNavBar extends StatelessWidget {
               dimension: 24,
               child: SvgPicture.asset(
                 iconPath,
-                colorFilter: const ColorFilter.mode(
-                  Colors.white,
-                  BlendMode.srcIn,
-                ),
+                colorFilter: preserveIconColors
+                    ? null
+                    : const ColorFilter.mode(Colors.white, BlendMode.srcIn),
                 width: 24,
                 height: 24,
               ),

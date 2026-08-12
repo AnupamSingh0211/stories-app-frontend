@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_screen_background.dart';
 import '../../auth/companion_notifier.dart';
 import '../../auth/companions_provider.dart';
 import '../../auth/profile_notifier.dart';
@@ -68,102 +69,104 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
     final avatarUrl = _companionImageUrl(ref);
 
     return Scaffold(
-      backgroundColor: AppColors.blue25,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: SafeArea(
-              bottom: false,
-              child: contentState.when(
-                data: (content) => CustomScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: _StoriesHeader(
-                        childName: childName,
-                        avatarUrl: avatarUrl,
-                        searchVisible: _showSearch,
-                        onProfileTap: () => _openProfile(
-                          context,
-                          childName,
-                          selectedChild?.age,
-                        ),
-                        onSearchTap: () {
-                          setState(() => _showSearch = !_showSearch);
-                        },
-                        onFavoritesTap: _openFavorites,
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        child: _showSearch
-                            ? const Padding(
-                                key: ValueKey('search'),
-                                padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
-                                child: _SearchBar(),
-                              )
-                            : const SizedBox.shrink(key: ValueKey('empty')),
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: _StoriesHomeContent(
-                        content: content,
-                        pageController: _pageController,
-                        activePage: _activePage,
-                        onPageChanged: (page) {
-                          final count = content.featuredBanners.length;
-                          if (count == 0) return;
-                          setState(() => _activePage = page % count);
-                        },
-                      ),
-                    ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 92)),
-                  ],
-                ),
-                loading: () => const _StoriesLoading(),
-                error: (error, stackTrace) => CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: _StoriesHeader(
-                        childName: childName,
-                        avatarUrl: avatarUrl,
-                        searchVisible: _showSearch,
-                        onProfileTap: () => _openProfile(
-                          context,
-                          childName,
-                          selectedChild?.age,
-                        ),
-                        onSearchTap: () {
-                          setState(() => _showSearch = !_showSearch);
-                        },
-                        onFavoritesTap: _openFavorites,
-                      ),
-                    ),
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: _EmptyMessage(
-                          message: 'Stories could not be loaded.',
+      backgroundColor: Colors.transparent,
+      body: AppScreenBackground(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SafeArea(
+                bottom: false,
+                child: contentState.when(
+                  data: (content) => CustomScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _StoriesHeader(
+                          childName: childName,
+                          avatarUrl: avatarUrl,
+                          searchVisible: _showSearch,
+                          onProfileTap: () => _openProfile(
+                            context,
+                            childName,
+                            selectedChild?.age,
+                          ),
+                          onSearchTap: () {
+                            setState(() => _showSearch = !_showSearch);
+                          },
+                          onFavoritesTap: _openFavorites,
                         ),
                       ),
-                    ),
-                  ],
+                      SliverToBoxAdapter(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          child: _showSearch
+                              ? const Padding(
+                                  key: ValueKey('search'),
+                                  padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+                                  child: _SearchBar(),
+                                )
+                              : const SizedBox.shrink(key: ValueKey('empty')),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: _StoriesHomeContent(
+                          content: content,
+                          pageController: _pageController,
+                          activePage: _activePage,
+                          onPageChanged: (page) {
+                            final count = content.featuredBanners.length;
+                            if (count == 0) return;
+                            setState(() => _activePage = page % count);
+                          },
+                        ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 92)),
+                    ],
+                  ),
+                  loading: () => const _StoriesLoading(),
+                  error: (error, stackTrace) => CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _StoriesHeader(
+                          childName: childName,
+                          avatarUrl: avatarUrl,
+                          searchVisible: _showSearch,
+                          onProfileTap: () => _openProfile(
+                            context,
+                            childName,
+                            selectedChild?.age,
+                          ),
+                          onSearchTap: () {
+                            setState(() => _showSearch = !_showSearch);
+                          },
+                          onFavoritesTap: _openFavorites,
+                        ),
+                      ),
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: _EmptyMessage(
+                            message: 'Stories could not be loaded.',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _StoriesBottomNavigation(
-              selectedIndex: 2,
-              childName: childName,
-              childAge: selectedChild?.age,
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _StoriesBottomNavigation(
+                selectedIndex: 2,
+                childName: childName,
+                childAge: selectedChild?.age,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -908,53 +911,56 @@ class _StoryGridScreen extends ConsumerWidget {
         ?.selectedChild;
 
     return Scaffold(
-      backgroundColor: AppColors.blue25,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: SafeArea(
-              bottom: false,
-              child: CustomScrollView(
-                physics: const ClampingScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(child: _BackHeader(title: title)),
-                  if (empty)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: SizedBox.shrink(),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 92),
-                      sliver: SliverGrid(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) => _StoryCard(story: stories[index]),
-                          childCount: stories.length,
+      backgroundColor: Colors.transparent,
+      body: AppScreenBackground(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SafeArea(
+                bottom: false,
+                child: CustomScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(child: _BackHeader(title: title)),
+                    if (empty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: SizedBox.shrink(),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 92),
+                        sliver: SliverGrid(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) =>
+                                _StoryCard(story: stories[index]),
+                            childCount: stories.length,
+                          ),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 25,
+                                crossAxisSpacing: 24,
+                                childAspectRatio: 163 / 249,
+                              ),
                         ),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 25,
-                              crossAxisSpacing: 24,
-                              childAspectRatio: 163 / 249,
-                            ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _StoriesBottomNavigation(
-              selectedIndex: 2,
-              childName: selectedChild?.childName,
-              childAge: selectedChild?.age,
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _StoriesBottomNavigation(
+                selectedIndex: 2,
+                childName: selectedChild?.childName,
+                childAge: selectedChild?.age,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

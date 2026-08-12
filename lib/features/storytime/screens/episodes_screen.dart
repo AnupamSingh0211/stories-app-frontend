@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
+import '../../../shared/widgets/app_screen_background.dart';
 import '../models/story_model.dart';
 import '../providers/continue_listening_provider.dart';
 import '../providers/story_player_provider.dart';
@@ -48,16 +49,7 @@ class EpisodesScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      backgroundColor: AppColors.blue500,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF69BCF6), Color(0xFF2D86EA), Color(0xFF0F3F88)],
-            stops: [0, 0.52, 1],
-          ),
-        ),
+      body: AppScreenBackground(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final scale = (constraints.maxWidth / _baseWidth).toDouble();

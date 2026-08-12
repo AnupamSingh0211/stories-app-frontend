@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/theme/app_colors.dart';
-import '../../shared/theme/app_gradients.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import '../../shared/widgets/pill_button.dart';
 import 'companion_flow.dart';
 import 'companion_model.dart';
@@ -26,10 +26,7 @@ class ConfirmCompanionScreen extends ConsumerWidget {
 
     return Scaffold(
       body: RepaintBoundary(
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: AppGradients.authPurpleBackground,
-          ),
+        child: AppScreenBackground(
           child: SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {

@@ -12,6 +12,7 @@ import '../../../shared/theme/app_border_radius.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_shadows.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_screen_background.dart';
 import '../../auth/profile_notifier.dart';
 import '../../auth/profile_repository.dart';
 import '../../home/home_screen.dart';
@@ -22,6 +23,7 @@ import '../models/story_model.dart';
 import '../models/story_page.dart';
 import '../notifiers/story_player_state.dart';
 import '../providers/continue_listening_provider.dart';
+import '../providers/favorite_stories_provider.dart';
 import '../providers/story_player_provider.dart';
 import '../repositories/story_repository.dart';
 import '../widgets/story_controls.dart';
@@ -42,12 +44,6 @@ const _episodeHeaderImageGap = 13.0;
 const _episodePlayerGap = 22.0;
 const _episodeControlsHeight = 76.0;
 const _episodeHeaderHeight = 56.0;
-const _episodePlayerBackgroundGradient = LinearGradient(
-  begin: Alignment.topRight,
-  end: Alignment.bottomLeft,
-  colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
-  stops: [0.0618, 0.4562, 0.9382],
-);
 const _episodeSystemUiStyle = SystemUiOverlayStyle(
   statusBarColor: Colors.transparent,
   statusBarIconBrightness: Brightness.light,
@@ -253,26 +249,64 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
     if (widget.openDirectly) {
       return _EpisodeStoryPlayerScaffold(
         storyId: widget.storyId,
+        episode: _directEpisodeFavoriteItem(),
         imageUrl: widget.playerImageUrl ?? _defaultEpisodePlayerImageUrl(),
         onBack: _exitStory,
-        onToggleFavorite: ref.read(provider.notifier).toggleFavorite,
       );
     }
 
     return Scaffold(
-      backgroundColor: AppColors.blue25,
-      body: Column(
-        children: [
-          _StoryFeedHeader(
-            isFavorite: playerState.isFavorite,
-            onBack: _exitStory,
-            onToggleFavorite: ref.read(provider.notifier).toggleFavorite,
-          ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final gap = constraints.maxHeight * (20 / 704);
-                if (_storyPageFlipEnabled) {
+      backgroundColor: Colors.transparent,
+      body: AppScreenBackground(
+        child: Column(
+          children: [
+            _StoryFeedHeader(
+              isFavorite: playerState.isFavorite,
+              onBack: _exitStory,
+              onToggleFavorite: ref.read(provider.notifier).toggleFavorite,
+            ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final gap = constraints.maxHeight * (20 / 704);
+                  if (_storyPageFlipEnabled) {
+                    return PageView.builder(
+                      key: const ValueKey('story-vertical-feed'),
+                      controller: _feedController,
+                      scrollDirection: Axis.vertical,
+                      padEnds: false,
+                      pageSnapping: true,
+                      physics: _feedIndex == 0
+                          ? const NeverScrollableScrollPhysics()
+                          : const PageScrollPhysics(
+                              parent: ClampingScrollPhysics(),
+                            ),
+                      itemCount: playerState.pages.isEmpty ? 1 : 2,
+                      onPageChanged: _onFeedPageChanged,
+                      itemBuilder: (context, feedIndex) {
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: gap),
+                          child: feedIndex == 0
+                              ? _StoryDetailPreface(
+                                  key: const ValueKey('story-detail-preface'),
+                                  story: widget.story,
+                                  fallbackTitle: widget.title,
+                                  onStart: _startStory,
+                                )
+                              : _StoryPageFlipView(
+                                  key: _pageFlipViewKey,
+                                  storyId: widget.storyId,
+                                  storyTitle:
+                                      widget.story?.title ?? widget.title,
+                                  pages: playerState.pages,
+                                  currentPageIndex:
+                                      playerState.currentPageIndex,
+                                  onPageFlipped: _activateFlippedPage,
+                                ),
+                        );
+                      },
+                    );
+                  }
                   return PageView.builder(
                     key: const ValueKey('story-vertical-feed'),
                     controller: _feedController,
@@ -284,7 +318,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
                         : const PageScrollPhysics(
                             parent: ClampingScrollPhysics(),
                           ),
-                    itemCount: playerState.pages.isEmpty ? 1 : 2,
+                    itemCount: playerState.pages.length + 1,
                     onPageChanged: _onFeedPageChanged,
                     itemBuilder: (context, feedIndex) {
                       return Padding(
@@ -296,54 +330,20 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
                                 fallbackTitle: widget.title,
                                 onStart: _startStory,
                               )
-                            : _StoryPageFlipView(
-                                key: _pageFlipViewKey,
+                            : StoryPlayerContent(
+                                key: ValueKey('story-page-${feedIndex - 1}'),
                                 storyId: widget.storyId,
                                 storyTitle: widget.story?.title ?? widget.title,
-                                pages: playerState.pages,
-                                currentPageIndex: playerState.currentPageIndex,
-                                onPageFlipped: _activateFlippedPage,
+                                page: playerState.pages[feedIndex - 1],
                               ),
                       );
                     },
                   );
-                }
-                return PageView.builder(
-                  key: const ValueKey('story-vertical-feed'),
-                  controller: _feedController,
-                  scrollDirection: Axis.vertical,
-                  padEnds: false,
-                  pageSnapping: true,
-                  physics: _feedIndex == 0
-                      ? const NeverScrollableScrollPhysics()
-                      : const PageScrollPhysics(
-                          parent: ClampingScrollPhysics(),
-                        ),
-                  itemCount: playerState.pages.length + 1,
-                  onPageChanged: _onFeedPageChanged,
-                  itemBuilder: (context, feedIndex) {
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: gap),
-                      child: feedIndex == 0
-                          ? _StoryDetailPreface(
-                              key: const ValueKey('story-detail-preface'),
-                              story: widget.story,
-                              fallbackTitle: widget.title,
-                              onStart: _startStory,
-                            )
-                          : StoryPlayerContent(
-                              key: ValueKey('story-page-${feedIndex - 1}'),
-                              storyId: widget.storyId,
-                              storyTitle: widget.story?.title ?? widget.title,
-                              page: playerState.pages[feedIndex - 1],
-                            ),
-                    );
-                  },
-                );
-              },
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: DecoratedBox(
         decoration: const BoxDecoration(
@@ -521,6 +521,25 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       durationMinutes: 0,
       imageUrl: imageUrl,
       coverUrl: imageUrl,
+    );
+  }
+
+  StoryModel _directEpisodeFavoriteItem() {
+    final imageUrl =
+        widget.playerImageUrl ??
+        widget.story?.coverUrl ??
+        widget.story?.imageUrl ??
+        widget.story?.thumbnailUrl ??
+        _defaultEpisodePlayerImageUrl();
+    return StoryModel(
+      id: widget.storyId,
+      title: widget.story?.title ?? widget.title,
+      thumbnailUrl: imageUrl,
+      category: widget.story?.category ?? 'Episode',
+      durationMinutes: widget.story?.durationMinutes ?? 0,
+      imageUrl: imageUrl,
+      coverUrl: imageUrl,
+      narrator: widget.story?.narrator,
     );
   }
 
@@ -777,15 +796,15 @@ bool _sameStoryPages(List<StoryPage> left, List<StoryPage> right) {
 class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
   const _EpisodeStoryPlayerScaffold({
     required this.storyId,
+    required this.episode,
     required this.imageUrl,
     required this.onBack,
-    required this.onToggleFavorite,
   });
 
   final String storyId;
+  final StoryModel episode;
   final String imageUrl;
   final VoidCallback onBack;
-  final VoidCallback onToggleFavorite;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -794,11 +813,15 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
       provider.select(
         (state) => (
           isPlaying: state.isPlaying,
-          isFavorite: state.isFavorite,
           audioPosition: state.audioPosition,
           audioDuration: state.audioDuration,
           isEnabled: state.pages.isNotEmpty && state.errorMessage == null,
         ),
+      ),
+    );
+    final isFavorite = ref.watch(
+      favoriteEpisodesProvider.select(
+        (episodes) => episodes.any((item) => item.id == episode.id),
       ),
     );
     final notifier = ref.read(provider.notifier);
@@ -808,12 +831,7 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
       child: Scaffold(
         extendBody: true,
         backgroundColor: Colors.transparent,
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: _episodePlayerBackgroundGradient,
-          ),
+        body: AppScreenBackground(
           child: LayoutBuilder(
             builder: (context, constraints) {
               final playerWidth =
@@ -849,9 +867,13 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
                       width: playerWidth,
                       height: _episodeHeaderHeight,
                       child: _EpisodePlayerHeader(
-                        isFavorite: state.isFavorite,
+                        isFavorite: isFavorite,
                         onBack: onBack,
-                        onToggleFavorite: onToggleFavorite,
+                        onToggleFavorite: () {
+                          ref
+                              .read(favoriteEpisodesProvider.notifier)
+                              .toggleEpisode(episode);
+                        },
                       ),
                     ),
                     const SizedBox(height: _episodeHeaderImageGap),
@@ -934,7 +956,9 @@ class _EpisodePlayerHeader extends StatelessWidget {
                       ? 'Remove from favorites'
                       : 'Add to favorites',
                   onPressed: onToggleFavorite,
-                  asset: 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
+                  asset: isFavorite
+                      ? 'assets/icons/new_boopi/State=Bold, Icon=Heart.svg'
+                      : 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
                 ),
               ],
             ),
@@ -1200,9 +1224,7 @@ class _EpisodeTimelineState extends State<_EpisodeTimeline> {
       return null;
     }
     final fraction = (dx / width).clamp(0.0, 1.0);
-    return Duration(
-      milliseconds: (duration.inMilliseconds * fraction).round(),
-    );
+    return Duration(milliseconds: (duration.inMilliseconds * fraction).round());
   }
 
   void _finishSeek(Duration? target) {

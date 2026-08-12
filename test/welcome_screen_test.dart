@@ -500,7 +500,8 @@ void main() {
     await tester.pump();
 
     expect(authService.verifyOtpCalls, 1);
-    expect(find.text('Verifying...'), findsOneWidget);
+    expect(find.text('Submit'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
     verifyCompleter.complete(
       const AppSessionIdentity(userId: 'phone-user-1', isAnonymous: false),

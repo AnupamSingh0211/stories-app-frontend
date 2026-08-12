@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/app_screen_background.dart';
 import '../auth/profile_notifier.dart';
 import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
@@ -9,12 +10,6 @@ import '../storytime/repositories/story_repository.dart';
 import '../storytime/screens/story_player_screen.dart';
 import '../storytime/screens/storytime_screen.dart';
 import '../storytime/widgets/story_image_view.dart';
-
-const _libraryBackgroundGradient = LinearGradient(
-  begin: Alignment.topCenter,
-  end: Alignment.bottomCenter,
-  colors: [Color(0xFF11184A), Color(0xFF0C1230), Color(0xFF080D1D)],
-);
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -41,8 +36,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         ?.selectedChild;
 
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: _libraryBackgroundGradient),
+      body: AppScreenBackground(
         child: Stack(
           children: [
             const _LibraryGlow(),

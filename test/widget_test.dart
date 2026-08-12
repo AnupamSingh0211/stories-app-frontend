@@ -21,10 +21,12 @@ import 'package:dharma_app/features/profile/privacy_policy_screen.dart';
 import 'package:dharma_app/features/profile/profile_screen.dart';
 import 'package:dharma_app/features/storytime/models/story_model.dart';
 import 'package:dharma_app/features/storytime/providers/continue_listening_provider.dart';
+import 'package:dharma_app/features/storytime/providers/favorite_stories_provider.dart';
 import 'package:dharma_app/features/storytime/providers/saved_library_provider.dart';
 import 'package:dharma_app/features/storytime/providers/story_player_provider.dart';
 import 'package:dharma_app/features/storytime/repositories/story_repository.dart';
 import 'package:dharma_app/features/storytime/screens/episodes_screen.dart';
+import 'package:dharma_app/features/storytime/screens/story_player_screen.dart';
 import 'package:dharma_app/features/storytime/screens/storytime_screen.dart';
 import 'package:dharma_app/main.dart';
 import 'package:dharma_app/shared/theme/app_theme.dart';
@@ -449,6 +451,115 @@ void main() {
     expect(find.text('Shararati Krishna ke karname'), findsWidgets);
     expect(find.bySemanticsLabel('Remove from favorites'), findsWidgets);
     expect(find.text('No Favourites Yet'), findsNothing);
+  });
+
+  testWidgets('episode favourite appears in favourites episodes section', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          favoriteEpisodesProvider.overrideWith(
+            (ref) => _TestFavoriteEpisodesNotifier([
+              const StoryModel(
+                id: 'episode-1',
+                title: 'Veer Bal Arjun',
+                thumbnailUrl: 'https://example.com/episode.png',
+                category: 'Episode',
+                durationMinutes: 8,
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const LibrarySectionsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your Favourites Episodes'), findsOneWidget);
+    expect(find.text('See all'), findsOneWidget);
+    expect(find.text('Veer Bal Arjun'), findsOneWidget);
+    expect(find.text('No Favourites Yet'), findsNothing);
+  });
+
+  testWidgets('story favourite can be removed from favourites screen', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          favoriteStoriesProvider.overrideWith(
+            (ref) => _TestFavoriteStoriesNotifier([
+              const StoryModel(
+                id: 'story-1',
+                title: 'Shararati Krishna ke karname',
+                thumbnailUrl: 'https://example.com/story.png',
+                category: 'Story',
+                durationMinutes: 3,
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const LibrarySectionsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Shararati Krishna ke karname'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Remove from favorites'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Shararati Krishna ke karname'), findsNothing);
+    expect(find.text('No Favourites Yet'), findsOneWidget);
+  });
+
+  testWidgets('favourite story card opens episodes screen', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          favoriteStoriesProvider.overrideWith(
+            (ref) => _TestFavoriteStoriesNotifier([
+              const StoryModel(
+                id: 'story-1',
+                title: 'Shararati Krishna ke karname',
+                thumbnailUrl: 'https://example.com/story.png',
+                category: 'Story',
+                durationMinutes: 3,
+              ),
+            ]),
+          ),
+          cmsEpisodeStoriesProvider.overrideWith((ref) async => const []),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const LibrarySectionsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Shararati Krishna ke karname'));
+    await tester.tap(find.text('Shararati Krishna ke karname'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EpisodesScreen), findsOneWidget);
+    expect(find.byType(StoryPlayerScreen), findsNothing);
   });
 
   testWidgets('home search does not keep focus after opening favourites', (
@@ -1160,6 +1271,19 @@ class _TestSavedLibraryNotifier extends SavedLibraryNotifier {
 
   @override
   Future<void> loadLibrary() async {}
+}
+
+class _TestFavoriteStoriesNotifier extends FavoriteStoriesNotifier {
+  _TestFavoriteStoriesNotifier(List<StoryModel> stories)
+    : super(const StoryRepository()) {
+    state = stories;
+  }
+}
+
+class _TestFavoriteEpisodesNotifier extends FavoriteEpisodesNotifier {
+  _TestFavoriteEpisodesNotifier(List<StoryModel> episodes) {
+    state = episodes;
+  }
 }
 
 class _SeededContinueListeningNotifier extends ContinueListeningNotifier {

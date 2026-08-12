@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import 'membership_side_banner.dart';
 
 class MembershipVerificationScreen extends StatefulWidget {
@@ -31,74 +32,76 @@ class _MembershipVerificationScreenState
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _VerificationSystemUi.style,
         child: Scaffold(
-          backgroundColor: _VerificationColors.topBlue,
-          body: SafeArea(
-            left: false,
-            right: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final contentWidth = constraints.maxWidth;
-                final scale = contentWidth / _VerificationLayout.designWidth;
-                final canvasHeight = math.max(
-                  constraints.maxHeight / scale,
-                  _VerificationLayout.designHeight,
-                );
+          backgroundColor: Colors.transparent,
+          body: AppScreenBackground(
+            child: SafeArea(
+              left: false,
+              right: false,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final contentWidth = constraints.maxWidth;
+                  final scale = contentWidth / _VerificationLayout.designWidth;
+                  final canvasHeight = math.max(
+                    constraints.maxHeight / scale,
+                    _VerificationLayout.designHeight,
+                  );
 
-                return Stack(
-                  children: [
-                    SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      child: Center(
-                        child: SizedBox(
-                          width: contentWidth,
-                          height: canvasHeight * scale,
-                          child: FittedBox(
-                            fit: BoxFit.fill,
-                            alignment: Alignment.topCenter,
-                            child: SizedBox(
-                              width: _VerificationLayout.designWidth,
-                              height: canvasHeight,
-                              child: ClipRect(
-                                child: Stack(
-                                  clipBehavior: Clip.hardEdge,
-                                  children: [
-                                    const Positioned.fill(
-                                      child: _VerificationBackground(),
-                                    ),
-                                    const _VerificationArtwork(),
-                                    const Positioned(
-                                      top: _VerificationLayout.heroGroupTop,
-                                      left: 0,
-                                      right: 0,
-                                      child: _VerificationHeroCopy(),
-                                    ),
-                                    Positioned(
-                                      top: _VerificationLayout.panelTop,
-                                      left: 0,
-                                      right: 0,
-                                      bottom: 0,
-                                      child: _VerificationPanel(
-                                        digits: _digits,
-                                        onDigitPressed: _enterDigit,
+                  return Stack(
+                    children: [
+                      SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        child: Center(
+                          child: SizedBox(
+                            width: contentWidth,
+                            height: canvasHeight * scale,
+                            child: FittedBox(
+                              fit: BoxFit.fill,
+                              alignment: Alignment.topCenter,
+                              child: SizedBox(
+                                width: _VerificationLayout.designWidth,
+                                height: canvasHeight,
+                                child: ClipRect(
+                                  child: Stack(
+                                    clipBehavior: Clip.hardEdge,
+                                    children: [
+                                      const Positioned.fill(
+                                        child: _VerificationBackground(),
                                       ),
-                                    ),
-                                  ],
+                                      const _VerificationArtwork(),
+                                      const Positioned(
+                                        top: _VerificationLayout.heroGroupTop,
+                                        left: 0,
+                                        right: 0,
+                                        child: _VerificationHeroCopy(),
+                                      ),
+                                      Positioned(
+                                        top: _VerificationLayout.panelTop,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        child: _VerificationPanel(
+                                          digits: _digits,
+                                          onDigitPressed: _enterDigit,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      child: _VerificationHeader(),
-                    ),
-                  ],
-                );
-              },
+                      const Positioned(
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        child: _VerificationHeader(),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -112,20 +115,7 @@ class _VerificationBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _VerificationColors.topBlue,
-            _VerificationColors.midBlue,
-            _VerificationColors.bottomBlue,
-          ],
-          stops: [0, 0.54, 1],
-        ),
-      ),
-    );
+    return const SizedBox.expand();
   }
 }
 
@@ -585,10 +575,9 @@ abstract final class _VerificationLayout {
 }
 
 abstract final class _VerificationColors {
-  static const topBlue = Color(0xFF49A7F4);
-  static const midBlue = Color(0xFF2D86EA);
-  static const bottomBlue = Color(0xFF0F4E9B);
-  static const headerOverlay = Color(0xFF49A7F4);
+  static const topBlue = AppColors.backgroundGradientStart;
+  static const bottomBlue = AppColors.backgroundGradientEnd;
+  static const headerOverlay = AppColors.backgroundGradientStart;
   static const glass = Color(0x2EFFFFFF);
   static const glassBorder = Color(0x66FFFFFF);
   static const glassEdge = Color(0x8AFFFFFF);
