@@ -158,5 +158,39 @@ BACKEND_BASE_URL=http://dev-api.example.test
         ),
       );
     });
+
+    test('verifyOtp times out instead of staying pending forever', () async {
+      dotenv.testLoad(
+        fileInput: '''
+APP_ENV=development
+DEV_AUTH_OTP_ENABLED=true
+BACKEND_BASE_URL=http://dev-api.example.test
+''',
+      );
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final authServiceProvider = Provider(
+        (ref) => DevBackendOtpAuthService(
+          ref,
+          requestTimeout: const Duration(milliseconds: 1),
+          client: MockClient((request) async {
+            await Future<void>.delayed(const Duration(seconds: 1));
+            return http.Response('{}', 200);
+          }),
+        ),
+      );
+      final authService = container.read(authServiceProvider);
+
+      await expectLater(
+        authService.verifyOtp(phoneNumber: '+911234567890', otp: '123456'),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.message,
+            'message',
+            contains('timed out'),
+          ),
+        ),
+      );
+    });
   });
 }

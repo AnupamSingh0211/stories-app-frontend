@@ -46,6 +46,9 @@ abstract final class AppColors {
   static const gray25 = surfacePrimary;
 
   // Figma semantic palette: Background.
+  static const backgroundGradientStart = Color(0xFF192551);
+  static const backgroundGradientMiddle = Color(0xFF2B305B);
+  static const backgroundGradientEnd = Color(0xFF3D487B);
   static const backgroundPrimary = Color(0xFF2D86EA);
   static const backgroundSecondary = Color(0xFF1D6BD6);
   static const backgroundElevated = Color(0xFF47A4F2);
@@ -202,7 +205,7 @@ abstract final class AppColors {
   static const surfaceDark = backgroundSecondary;
   static const surfaceDeep = blue950;
   static const surfaceCard = surfaceCardBackground;
-  static const surfaceCardDeep = backgroundPrimary;
+  static const surfaceCardDeep = backgroundGradientMiddle;
   static const surfaceOverlay = backgroundOverlay;
   static const surfaceNavigation = surfaceNavigationBackground;
   static const surfaceImageFallback = backgroundHero;
@@ -216,7 +219,7 @@ abstract final class AppColors {
   static const accentPrimaryLight = blue400;
   static const accentPrimarySoft = blue100;
   static const accentPrimaryDim = interactivePrimaryPressed;
-  static const accentSecondary = backgroundHero;
+  static const accentSecondary = backgroundGradientEnd;
   static const accentSecondaryDeep = blue800;
   static const accentLavender = blue300;
 
@@ -243,9 +246,9 @@ abstract final class AppColors {
   static const playerBorder = borderDefault;
   static const playerShadow = glassShadow;
 
-  static const authSurface = backgroundPrimary;
-  static const authSurfacePurple = backgroundSecondary;
-  static const authSurfaceDark = blue950;
+  static const authSurface = backgroundGradientStart;
+  static const authSurfacePurple = backgroundGradientMiddle;
+  static const authSurfaceDark = backgroundGradientEnd;
   static const companionBadgeSurface = backgroundOverlay;
   static const companionGold = warning300;
   static const companionGoldLight = warning100;

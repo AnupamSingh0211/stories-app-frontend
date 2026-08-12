@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import 'membership_side_banner.dart';
 import 'membership_verification_screen.dart';
 
@@ -62,20 +63,8 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _PlansSystemUi.style,
         child: Scaffold(
-          backgroundColor: _PlansColors.topBlue,
-          body: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _PlansColors.topBlue,
-                  _PlansColors.midBlue,
-                  _PlansColors.bottomBlue,
-                ],
-                stops: [0, 0.54, 1],
-              ),
-            ),
+          backgroundColor: Colors.transparent,
+          body: AppScreenBackground(
             child: Stack(
               children: [
                 SafeArea(
@@ -187,20 +176,7 @@ class _PlansBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _PlansColors.topBlue,
-            _PlansColors.midBlue,
-            _PlansColors.bottomBlue,
-          ],
-          stops: [0, 0.54, 1],
-        ),
-      ),
-    );
+    return const SizedBox.expand();
   }
 }
 
@@ -545,7 +521,9 @@ class _PlanOptionCard extends StatelessWidget {
             color: _PlansColors.glass,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? _PlansColors.selectedBorder : _PlansColors.glassBorder,
+              color: selected
+                  ? _PlansColors.selectedBorder
+                  : _PlansColors.glassBorder,
             ),
             boxShadow: const [
               BoxShadow(
@@ -568,9 +546,15 @@ class _PlanOptionCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _PlanTextLine(text: label, style: _PlansTextStyles.planLabel),
+                      _PlanTextLine(
+                        text: label,
+                        style: _PlansTextStyles.planLabel,
+                      ),
                       const SizedBox(height: 4),
-                      _PlanTextLine(text: price, style: _PlansTextStyles.planPrice),
+                      _PlanTextLine(
+                        text: price,
+                        style: _PlansTextStyles.planPrice,
+                      ),
                     ],
                   ),
                   _PlanRadio(selected: selected),
@@ -597,12 +581,7 @@ class _PlanTextLine extends StatelessWidget {
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
-        child: Text(
-          text,
-          maxLines: 1,
-          softWrap: false,
-          style: style,
-        ),
+        child: Text(text, maxLines: 1, softWrap: false, style: style),
       ),
     );
   }
@@ -708,9 +687,7 @@ class _SubscribeButton extends StatelessWidget {
           child: InkWell(
             onTap: onPressed,
             borderRadius: BorderRadius.circular(24),
-            child: Center(
-              child: Text(_label, style: _PlansTextStyles.cta),
-            ),
+            child: Center(child: Text(_label, style: _PlansTextStyles.cta)),
           ),
         ),
       ),
@@ -752,7 +729,8 @@ class _TrustIndicators extends StatelessWidget {
                 ),
                 SizedBox(width: 24),
                 _TrustIndicator(
-                  iconAsset: 'assets/icons/new_boopi/State=Default, Icon=3 User.svg',
+                  iconAsset:
+                      'assets/icons/new_boopi/State=Default, Icon=3 User.svg',
                   iconWidth: 13.089,
                   iconHeight: 11.941,
                   iconGap: 4.333,
@@ -855,10 +833,7 @@ abstract final class _PlansLayout {
 }
 
 abstract final class _PlansColors {
-  static const topBlue = Color(0xFF49A7F4);
-  static const midBlue = Color(0xFF2D86EA);
-  static const bottomBlue = Color(0xFF0F4E9B);
-  static const headerOverlay = Color(0xFF49A7F4);
+  static const headerOverlay = AppColors.backgroundGradientStart;
   static const glass = Color(0x2EFFFFFF);
   static const glassBorder = Color(0x66FFFFFF);
   static const selectedBorder = Color(0xFF99E1FA);

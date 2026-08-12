@@ -35,7 +35,6 @@ class FavoriteStoriesNotifier extends StateNotifier<List<StoryModel>> {
   }
 
   Future<void> removeStory(String storyId) async {
-    final previous = state;
     state = [
       for (final story in state)
         if (story.id != storyId) story,
@@ -44,7 +43,6 @@ class FavoriteStoriesNotifier extends StateNotifier<List<StoryModel>> {
       await _repository.removeFavoriteStory(storyId);
     } catch (error) {
       debugPrint('FavoriteStoriesNotifier: backend remove failed. $error');
-      state = previous;
     }
   }
 }
@@ -52,4 +50,38 @@ class FavoriteStoriesNotifier extends StateNotifier<List<StoryModel>> {
 final favoriteStoriesProvider =
     StateNotifierProvider<FavoriteStoriesNotifier, List<StoryModel>>((ref) {
       return FavoriteStoriesNotifier(ref.watch(storyRepositoryProvider));
+    });
+
+class FavoriteEpisodesNotifier extends StateNotifier<List<StoryModel>> {
+  FavoriteEpisodesNotifier() : super(const []);
+
+  bool isFavorite(String storyId) {
+    return state.any((story) => story.id == storyId);
+  }
+
+  void toggleEpisode(StoryModel episode) {
+    if (isFavorite(episode.id)) {
+      removeEpisode(episode.id);
+      return;
+    }
+
+    addEpisode(episode);
+  }
+
+  void addEpisode(StoryModel episode) {
+    if (isFavorite(episode.id)) return;
+    state = [episode, ...state];
+  }
+
+  void removeEpisode(String storyId) {
+    state = [
+      for (final story in state)
+        if (story.id != storyId) story,
+    ];
+  }
+}
+
+final favoriteEpisodesProvider =
+    StateNotifierProvider<FavoriteEpisodesNotifier, List<StoryModel>>((ref) {
+      return FavoriteEpisodesNotifier();
     });

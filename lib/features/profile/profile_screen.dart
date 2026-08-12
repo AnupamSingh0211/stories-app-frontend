@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import '../../shared/widgets/glassy_bottom_nav_bar.dart';
 import '../auth/auth_provider.dart';
 import '../auth/profile_notifier.dart';
@@ -51,14 +52,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
         extendBody: true,
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
-            ),
-          ),
+        body: AppScreenBackground(
           child: Stack(
             children: [
               Positioned.fill(

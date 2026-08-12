@@ -79,6 +79,7 @@ flutter:
   assets:
     - .env
     - assets/audio/background/
+    - assets/images/backgrounds/
     - assets/icons/new_boopi/
     - assets/icons/new_boopi/Iconly/Light/
 

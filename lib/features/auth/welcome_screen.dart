@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import 'assets_provider.dart';
 import 'auth_provider.dart';
 import 'indian_phone_number.dart';
@@ -431,17 +432,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment(-0.574, -0.819),
-            end: Alignment(0.574, 0.819),
-            stops: [0.0618, 0.4562, 0.9382],
-            colors: [Color(0xFF74C0F8), Color(0xFF2D86EA), Color(0xFF123F87)],
-          ),
-        ),
+      body: AppScreenBackground(
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -771,15 +762,33 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
               border: Border.all(color: AppColors.borderGlass),
               boxShadow: const [_buttonShadow],
             ),
-            child: Text(
-              _isVerifyingOtp ? 'Verifying...' : 'Submit',
-              style: TextStyle(
-                fontFamily: AppTypography.fontFamily,
-                fontSize: 16,
-                height: 20 / 16,
-                fontWeight: FontWeight.w700,
-                color: canSubmitOtp ? Colors.white : AppColors.textDisabled,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Submit',
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontFamily,
+                    fontSize: 16,
+                    height: 20 / 16,
+                    fontWeight: FontWeight.w700,
+                    color: canSubmitOtp || _isVerifyingOtp
+                        ? Colors.white
+                        : AppColors.textDisabled,
+                  ),
+                ),
+                if (_isVerifyingOtp) ...[
+                  const SizedBox(width: 10),
+                  const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),

@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_screen_background.dart';
 
 const _figmaWidth = 390.0;
 const _arrowUpAsset = 'assets/icons/new_boopi/Iconly/Light/Arrow - Up 2.svg';
@@ -30,19 +31,7 @@ class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
                 .toDouble();
             final safeTop = MediaQuery.paddingOf(context).top;
 
-            return DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomLeft,
-                  end: Alignment.topRight,
-                  colors: [
-                    AppColors.blue300,
-                    AppColors.blue500,
-                    AppColors.blue800,
-                  ],
-                  stops: [0, 0.48, 1],
-                ),
-              ),
+            return AppScreenBackground(
               child: Stack(
                 children: [
                   Positioned(

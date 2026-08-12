@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import '../auth/profile_notifier.dart';
 import '../auth/profile_repository.dart';
 
@@ -64,22 +65,18 @@ class _StoryLanguageScreenState extends ConsumerState<StoryLanguageScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final watchedLocale =
-        ref.watch(profileNotifierProvider).valueOrNull?.selectedChild?.locale;
+    final watchedLocale = ref
+        .watch(profileNotifierProvider)
+        .valueOrNull
+        ?.selectedChild
+        ?.locale;
     final selectedLocale = normalizeProfileLocale(
       _selectedLocale ?? watchedLocale,
     );
 
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.blue300, AppColors.blue500, AppColors.blue800],
-            ),
-          ),
+        body: AppScreenBackground(
           child: SafeArea(
             bottom: false,
             child: LayoutBuilder(
@@ -167,10 +164,7 @@ class _LanguageHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Story Language',
-              style: _LanguageTextStyles.title,
-            ),
+            const Text('Story Language', style: _LanguageTextStyles.title),
           ],
         ),
       ),
@@ -179,10 +173,7 @@ class _LanguageHeader extends StatelessWidget {
 }
 
 class _LanguageCard extends StatelessWidget {
-  const _LanguageCard({
-    required this.selectedLocale,
-    required this.onChanged,
-  });
+  const _LanguageCard({required this.selectedLocale, required this.onChanged});
 
   final String selectedLocale;
   final ValueChanged<String> onChanged;

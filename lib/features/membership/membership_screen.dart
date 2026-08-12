@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_screen_background.dart';
 import 'membership_plans_screen.dart';
 import 'membership_side_banner.dart';
 
@@ -22,20 +23,8 @@ class MembershipScreen extends StatelessWidget {
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _MembershipSystemUi.style,
         child: Scaffold(
-          backgroundColor: _MembershipColors.topBlue,
-          body: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _MembershipColors.topBlue,
-                  _MembershipColors.midBlue,
-                  _MembershipColors.bottomBlue,
-                ],
-                stops: [0, 0.54, 1],
-              ),
-            ),
+          backgroundColor: Colors.transparent,
+          body: AppScreenBackground(
             child: Stack(
               children: [
                 SafeArea(
@@ -104,9 +93,7 @@ class MembershipScreen extends StatelessWidget {
                                             child: _SeeAllPlansButton(
                                               onPressed:
                                                   onSeeAllPlans ??
-                                                  () => Navigator.of(
-                                                    context,
-                                                  ).push(
+                                                  () => Navigator.of(context).push(
                                                     MaterialPageRoute<void>(
                                                       builder: (_) =>
                                                           const MembershipPlansScreen(),
@@ -147,20 +134,7 @@ class _MembershipBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _MembershipColors.topBlue,
-            _MembershipColors.midBlue,
-            _MembershipColors.bottomBlue,
-          ],
-          stops: [0, 0.54, 1],
-        ),
-      ),
-    );
+    return const SizedBox.expand();
   }
 }
 
@@ -523,10 +497,7 @@ abstract final class _MembershipLayout {
 }
 
 abstract final class _MembershipColors {
-  static const topBlue = Color(0xFF49A7F4);
-  static const midBlue = Color(0xFF2D86EA);
-  static const bottomBlue = Color(0xFF0F4E9B);
-  static const headerOverlay = Color(0xFF49A7F4);
+  static const headerOverlay = AppColors.backgroundGradientStart;
   static const glass = Color(0x2EFFFFFF);
   static const glassBorder = Color(0x66FFFFFF);
   static const textSecondaryOpacity = Color(0xD9FFFFFF);
