@@ -40,6 +40,24 @@ class FeaturedBannerModel {
   final String subtitle;
 }
 
+class StoryCardModel {
+  const StoryCardModel({
+    required this.id,
+    required this.title,
+    required this.thumbnailUrl,
+    required this.heroBannerUrl,
+    required this.category,
+    required this.sortOrder,
+  });
+
+  final String id;
+  final String title;
+  final String thumbnailUrl;
+  final String heroBannerUrl;
+  final String category;
+  final int sortOrder;
+}
+
 class StoryModel {
   const StoryModel({
     required this.id,

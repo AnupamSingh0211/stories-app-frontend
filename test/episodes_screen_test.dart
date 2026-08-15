@@ -14,15 +14,21 @@ void main() {
 
   Widget episodesApp({
     List<StoryModel> cmsStories = const [],
+    StoryCardModel? storyCard,
     SessionStoryHistoryNotifier? historyNotifier,
   }) {
     return ProviderScope(
       overrides: [
-        cmsEpisodeStoriesProvider.overrideWith((ref) async => cmsStories),
+        if (storyCard != null)
+          storyCardStoriesProvider.overrideWith(
+            (ref, storyCardId) async => cmsStories,
+          ),
         if (historyNotifier != null)
           sessionStoryHistoryProvider.overrideWith((ref) => historyNotifier),
       ],
-      child: MaterialApp(home: EpisodesScreen(assetUrlBuilder: assetUrl)),
+      child: MaterialApp(
+        home: EpisodesScreen(storyCard: storyCard, assetUrlBuilder: assetUrl),
+      ),
     );
   }
 
@@ -129,8 +135,8 @@ void main() {
                     MaterialPageRoute<void>(
                       builder: (context) => ProviderScope(
                         overrides: [
-                          cmsEpisodeStoriesProvider.overrideWith(
-                            (ref) async => const [],
+                          storyCardStoriesProvider.overrideWith(
+                            (ref, storyCardId) async => const [],
                           ),
                         ],
                         child: EpisodesScreen(assetUrlBuilder: assetUrl),
@@ -159,7 +165,7 @@ void main() {
     expect(find.byType(EpisodesScreen), findsNothing);
   });
 
-  testWidgets('appends CMS stories from Supabase after legacy episodes', (
+  testWidgets('appends scoped CMS stories after Krishna legacy episodes', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -176,7 +182,9 @@ void main() {
       coverUrl: 'https://example.test/story-assets/vasudev-cover.jpg',
     );
 
-    await tester.pumpWidget(episodesApp(cmsStories: const [vasudevStory]));
+    await tester.pumpWidget(
+      episodesApp(storyCard: _krishnaCard, cmsStories: const [vasudevStory]),
+    );
     await tester.pump();
 
     expect(find.text('8 Episodes'), findsOneWidget);
@@ -192,7 +200,7 @@ void main() {
     );
   });
 
-  testWidgets('renders progress and completion on the matching CMS episode', (
+  testWidgets('renders progress and completion on scoped CMS story', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -219,10 +227,10 @@ void main() {
             audioPosition: const Duration(seconds: 20),
             audioDuration: const Duration(seconds: 60),
           );
-    addTearDown(historyNotifier.dispose);
 
     await tester.pumpWidget(
       episodesApp(
+        storyCard: _krishnaCard,
         cmsStories: const [vasudevStory],
         historyNotifier: historyNotifier,
       ),
@@ -249,4 +257,50 @@ void main() {
     );
     expect(find.text('Watched'), findsOneWidget);
   });
+
+  testWidgets('non-Krishna CMS card shows only its own child stories', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 868);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const testStory = StoryModel(
+      id: '0356e979-4807-4a66-a28b-60b5c9ffd1f2',
+      title: 'test story',
+      thumbnailUrl: 'https://example.test/story-assets/test-story.jpg',
+      category: 'Story',
+      durationMinutes: 1,
+      coverUrl: 'https://example.test/story-assets/test-story-cover.jpg',
+    );
+
+    await tester.pumpWidget(
+      episodesApp(storyCard: _testStoryCard, cmsStories: const [testStory]),
+    );
+    await tester.pump();
+
+    expect(find.text('test story'), findsWidgets);
+    expect(find.text('1 Episodes'), findsOneWidget);
+    expect(find.text('Makhan Ki Talaash'), findsNothing);
+    expect(find.byKey(const ValueKey('episode-stage-left-1')), findsOneWidget);
+  });
 }
+
+const _krishnaCard = StoryCardModel(
+  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+  title: 'Shararati Krishna ke karname',
+  thumbnailUrl: 'https://example.test/app-assets/krishna-card.webp',
+  heroBannerUrl: 'https://example.test/app-assets/krishna-hero.webp',
+  category: 'Krishna Stories',
+  sortOrder: 1,
+);
+
+const _testStoryCard = StoryCardModel(
+  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
+  title: 'test story',
+  thumbnailUrl: 'https://example.test/story-assets/test-story.jpg',
+  heroBannerUrl: 'https://example.test/story-assets/test-story-hero.jpg',
+  category: 'Story',
+  sortOrder: 2,
+);

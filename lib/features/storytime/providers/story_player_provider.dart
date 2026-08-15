@@ -14,9 +14,20 @@ final storytimeContentProvider = FutureProvider<StorytimeContent>((ref) {
   return ref.watch(storyRepositoryProvider).fetchStorytimeContent();
 });
 
-final cmsEpisodeStoriesProvider = FutureProvider<List<StoryModel>>((ref) {
-  return ref.watch(storyRepositoryProvider).fetchStoriesWithEpisodes();
+final storyCardsProvider = FutureProvider<List<StoryCardModel>>((ref) {
+  return ref
+      .watch(storyRepositoryProvider)
+      .fetchStoryCards()
+      .catchError((_) => const <StoryCardModel>[]);
 });
+
+final storyCardStoriesProvider =
+    FutureProvider.family<List<StoryModel>, String>((ref, storyCardId) {
+      return ref
+          .watch(storyRepositoryProvider)
+          .fetchStoriesForCard(storyCardId)
+          .catchError((_) => const <StoryModel>[]);
+    });
 
 final storyPlayerProvider = StateNotifierProvider.autoDispose
     .family<StoryPlayerNotifier, StoryPlayerState, String>((ref, storyId) {

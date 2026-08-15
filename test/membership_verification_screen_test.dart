@@ -52,6 +52,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('verification header fills the status bar area', (tester) async {
+    await _setViewport(tester, const Size(390, 868));
+    tester.view.padding = const FakeViewPadding(top: 44);
+    addTearDown(() => tester.view.padding = FakeViewPadding.zero);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: const MembershipVerificationScreen(),
+      ),
+    );
+    await tester.pump();
+
+    final headerRect = tester.getRect(
+      find.byKey(const ValueKey('membershipVerificationHeader')),
+    );
+    final backRect = tester.getRect(
+      find.byKey(const ValueKey('membershipVerificationBackButton')),
+    );
+
+    expect(headerRect.top, 0);
+    expect(headerRect.height, 100);
+    expect(backRect.top, greaterThanOrEqualTo(44));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('verification keypad fills four year boxes', (tester) async {
     await _setViewport(tester, const Size(390, 868));
     await tester.pumpWidget(

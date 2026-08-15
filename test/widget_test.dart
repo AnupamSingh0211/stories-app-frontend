@@ -103,6 +103,7 @@ void main() {
           storytimeContentProvider.overrideWith(
             (ref) async => StorytimeContent.empty(),
           ),
+          storyCardsProvider.overrideWith((ref) async => const []),
         ],
         child: const MyApp(),
       ),
@@ -241,6 +242,7 @@ void main() {
           storytimeContentProvider.overrideWith(
             (ref) async => StorytimeContent.empty(),
           ),
+          storyCardsProvider.overrideWith((ref) async => const []),
         ],
         child: MaterialApp(
           themeMode: ThemeMode.dark,
@@ -543,7 +545,6 @@ void main() {
               ),
             ]),
           ),
-          cmsEpisodeStoriesProvider.overrideWith((ref) async => const []),
         ],
         child: MaterialApp(
           themeMode: ThemeMode.dark,
@@ -573,6 +574,7 @@ void main() {
           storytimeContentProvider.overrideWith(
             (ref) async => StorytimeContent.empty(),
           ),
+          storyCardsProvider.overrideWith((ref) async => const []),
         ],
         child: MaterialApp(
           themeMode: ThemeMode.dark,
@@ -620,6 +622,7 @@ void main() {
           storytimeContentProvider.overrideWith(
             (ref) async => StorytimeContent.empty(),
           ),
+          storyCardsProvider.overrideWith((ref) async => const []),
         ],
         child: MaterialApp(
           themeMode: ThemeMode.dark,
@@ -662,6 +665,64 @@ void main() {
     expect(find.byKey(const ValueKey('episode-stage-left-3')), findsOneWidget);
   });
 
+  testWidgets('home shows CMS story card and opens scoped child stories', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 1600);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const cmsCard = StoryCardModel(
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
+      title: 'test story',
+      thumbnailUrl: 'https://example.test/story-assets/test-story.jpg',
+      heroBannerUrl: 'https://example.test/story-assets/test-story-hero.jpg',
+      category: 'Story',
+      sortOrder: 1,
+    );
+    const childStory = StoryModel(
+      id: '0356e979-4807-4a66-a28b-60b5c9ffd1f2',
+      title: 'test child story',
+      thumbnailUrl: 'https://example.test/story-assets/test-child.jpg',
+      category: 'Story',
+      durationMinutes: 1,
+      coverUrl: 'https://example.test/story-assets/test-child-cover.jpg',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+          storyCardsProvider.overrideWith((ref) async => const [cmsCard]),
+          storyCardStoriesProvider.overrideWith(
+            (ref, storyCardId) async =>
+                storyCardId == cmsCard.id ? const [childStory] : const [],
+          ),
+        ],
+        child: MaterialApp(
+          themeMode: ThemeMode.dark,
+          darkTheme: AppTheme.darkTheme,
+          home: const HomeScreen(childName: 'Aarav', childAge: 3),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text('test story'), 500);
+    await tester.tap(find.text('test story'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EpisodesScreen), findsOneWidget);
+    expect(find.text('test story'), findsWidgets);
+    expect(find.text('test child story'), findsOneWidget);
+    expect(find.text('Makhan Ki Talaash'), findsNothing);
+    expect(find.text('1 Episodes'), findsOneWidget);
+  });
+
   testWidgets('home and stories stay stable on compact scaled Android layout', (
     WidgetTester tester,
   ) async {
@@ -685,6 +746,7 @@ void main() {
           companionsProvider.overrideWith((ref) async => const []),
           appAssetsProvider.overrideWithValue(const {}),
           storytimeContentProvider.overrideWith((ref) async => _storyContent),
+          storyCardsProvider.overrideWith((ref) async => const []),
         ],
         child: MaterialApp(
           themeMode: ThemeMode.dark,
@@ -717,6 +779,7 @@ void main() {
           companionsProvider.overrideWith((ref) async => const []),
           appAssetsProvider.overrideWithValue(const {}),
           storytimeContentProvider.overrideWith((ref) async => _storyContent),
+          storyCardsProvider.overrideWith((ref) async => const []),
           continueListeningProvider.overrideWith(
             (ref) => _SeededContinueListeningNotifier(
               ContinueListeningEntry(
