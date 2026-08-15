@@ -21,9 +21,10 @@ class StoryRepository {
   static const morningWhispersStoryId = '11111111-1111-4111-8111-111111111111';
   static const arrivalNewsStoryId = '22222222-2222-4222-8222-222222222222';
   static const _storyAssetsBucket = 'story-assets';
+  static const krishnaStoryCardId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
   static const _storyColumns =
       'id, title, category_id, thumbnail_url, cover_url, duration_seconds, '
-      'is_featured, created_at';
+      'is_featured, created_at, story_card_id, sort_order';
   static final StoryPageMemoryCache _storyPageCache = StoryPageMemoryCache();
   static final StorytimeContentMemoryCache _storytimeContentCache =
       StorytimeContentMemoryCache();
@@ -57,45 +58,55 @@ class StoryRepository {
     _storytimeContentCache.clear();
   }
 
-  Future<List<StoryModel>> fetchStoriesWithEpisodes() async {
+  Future<List<StoryCardModel>> fetchStoryCards() async {
+    final client = SupabaseClientProvider.client;
+    final storage = client.storage.from('app-assets');
+
+    try {
+      final rows = await _trackedSupabaseRequest(
+        'story_cards.select',
+        () async => client
+            .from('story_cards')
+            .select(
+              'id, title, thumbnail_url, hero_banner_url, '
+              'category, sort_order, is_active',
+            )
+            .eq('is_active', true)
+            .order('sort_order', ascending: true)
+            .order('created_at', ascending: true),
+      );
+
+      return _mapRows(rows)
+          .map((row) => _storyCardFromMap(row, storage))
+          .whereType<StoryCardModel>()
+          .toList(growable: false);
+    } catch (error) {
+      debugPrint('StoryRepository: story card query failed. $error');
+      throw const StoryRepositoryException(
+        'Story cards could not be loaded from the database.',
+      );
+    }
+  }
+
+  Future<List<StoryModel>> fetchStoriesForCard(String storyCardId) async {
     final client = SupabaseClientProvider.client;
 
     try {
-      final episodeRows = await _trackedSupabaseRequest(
-        'episodes.select_story_ids',
-        () async => client
-            .from('episodes')
-            .select('story_id')
-            .order('episode_number', ascending: true),
-      );
-      final storyIds = _mapRows(episodeRows)
-          .map((row) => row['story_id']?.toString())
-          .whereType<String>()
-          .where((id) => id.trim().isNotEmpty)
-          .where(
-            (id) => id != morningWhispersStoryId && id != arrivalNewsStoryId,
-          )
-          .toSet()
-          .toList(growable: false);
-
-      if (storyIds.isEmpty) {
-        return const [];
-      }
-
       final storyRows = await _trackedSupabaseRequest(
-        'stories.select_episode_stories',
+        'stories.select_for_card',
         () async => client
             .from('stories')
             .select(_storyColumns)
-            .inFilter('id', storyIds)
+            .eq('story_card_id', storyCardId)
+            .order('sort_order', ascending: true)
             .order('created_at', ascending: true),
       );
 
       return _storyModelsFromRows(client, _mapRows(storyRows));
     } catch (error) {
-      debugPrint('StoryRepository: episode story query failed. $error');
+      debugPrint('StoryRepository: story card stories query failed. $error');
       throw const StoryRepositoryException(
-        'CMS stories could not be loaded from the database.',
+        'Stories for this card could not be loaded from the database.',
       );
     }
   }
@@ -674,6 +685,36 @@ class StoryRepository {
       id: row['id'].toString(),
       title: row['title'] as String,
       stories: stories,
+    );
+  }
+
+  StoryCardModel? _storyCardFromMap(
+    Map<String, dynamic> row,
+    StorageFileApi storage,
+  ) {
+    final title = _firstString(row, ['title']);
+    final thumbnailUrl = _assetUrl(
+      storage,
+      _firstString(row, ['thumbnail_url']),
+    );
+    final heroBannerUrl = _assetUrl(
+      storage,
+      _firstString(row, ['hero_banner_url']),
+    );
+
+    if (title.isEmpty || thumbnailUrl.isEmpty || heroBannerUrl.isEmpty) {
+      return null;
+    }
+
+    final category = _firstString(row, ['category']);
+
+    return StoryCardModel(
+      id: row['id'].toString(),
+      title: title,
+      thumbnailUrl: thumbnailUrl,
+      heroBannerUrl: heroBannerUrl,
+      category: category.isEmpty ? 'Story' : category,
+      sortOrder: _intValue(row['sort_order']),
     );
   }
 

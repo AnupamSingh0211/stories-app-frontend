@@ -172,6 +172,62 @@ void main() {
     expect(progressRect.bottom, greaterThan(640));
   });
 
+  testWidgets('direct episode player image follows the current audio page', (
+    tester,
+  ) async {
+    notifier = _TestStoryPlayerNotifier(
+      pages: const [
+        StoryPage(
+          pageNumber: 1,
+          imageUrl: 'https://example.test/page-1.webp',
+          audioUrl: 'page-1.mp3',
+          text: 'Page one',
+        ),
+        StoryPage(
+          pageNumber: 2,
+          imageUrl: 'https://example.test/page-2.webp',
+          audioUrl: 'page-2.mp3',
+          text: 'Page two',
+        ),
+      ],
+    );
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(453, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          storyPlayerProvider.overrideWith((ref, storyId) => notifier),
+        ],
+        child: const MaterialApp(
+          home: StoryPlayerScreen(
+            storyId: '',
+            title: 'Test Story',
+            story: story,
+            openDirectly: true,
+            playerImageUrl: 'https://example.test/fallback-cover.webp',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      tester.widget<StoryImageView>(find.byType(StoryImageView)).imageUrl,
+      'https://example.test/page-1.webp',
+    );
+
+    notifier.simulateAudioAdvance(1);
+    await tester.pump();
+
+    expect(
+      tester.widget<StoryImageView>(find.byType(StoryImageView)).imageUrl,
+      'https://example.test/page-2.webp',
+    );
+  });
+
   testWidgets('Play Now vertically activates the first story page', (
     tester,
   ) async {

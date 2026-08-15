@@ -17,6 +17,7 @@ import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/favorite_stories_provider.dart';
 import '../storytime/providers/story_player_provider.dart';
+import '../storytime/repositories/story_repository.dart';
 import '../storytime/screens/episodes_screen.dart';
 
 const String _supabaseAssetBase =
@@ -55,6 +56,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'Little One',
     ]);
     final contentState = ref.watch(storytimeContentProvider);
+    final storyCardsState = ref.watch(storyCardsProvider);
     final favoriteStories = ref.watch(favoriteStoriesProvider);
 
     return MediaQuery.withNoTextScaling(
@@ -76,6 +78,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               .clamp(0.0, double.infinity)
                               .toDouble();
                       final banner = _resolveBanner(contentState.valueOrNull);
+                      final homeStories = _homeStoryCards(
+                        storyCardsState.valueOrNull ?? const [],
+                      );
 
                       if (_bottomNavIndex == 2) {
                         return _ComingSoonTab(
@@ -114,7 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             SizedBox(height: 12 * scale),
                             _TwoColumnStoryGrid(
                               scale: scale,
-                              stories: _topPickStories,
+                              stories: homeStories.take(2).toList(),
                               favoriteStoryIds: {
                                 for (final story in favoriteStories) story.id,
                               },
@@ -124,7 +129,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             SizedBox(height: 12 * scale),
                             _TwoColumnStoryGrid(
                               scale: scale,
-                              stories: _madeForYouStories,
+                              stories: homeStories.skip(2).toList(),
                               favoriteStoryIds: {
                                 for (final story in favoriteStories) story.id,
                               },
@@ -133,6 +138,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               SizedBox(height: 16 * scale),
                               Text(
                                 'Stories could not be refreshed.',
+                                style: AppTypography.bodySmallMedium.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.72),
+                                ),
+                              ),
+                            ],
+                            if (storyCardsState.hasError) ...[
+                              SizedBox(height: 16 * scale),
+                              Text(
+                                'Story cards could not be refreshed.',
                                 style: AppTypography.bodySmallMedium.copyWith(
                                   color: Colors.white.withValues(alpha: 0.72),
                                 ),
@@ -204,6 +218,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  List<_HomeStoryCard> _homeStoryCards(List<StoryCardModel> cmsCards) {
+    final cards = _hardcodedHomeStoryCards.toList(growable: true);
+    final existingDatabaseIds = cards
+        .map((card) => card.storyCard?.id)
+        .whereType<String>()
+        .toSet();
+
+    for (final card in cmsCards) {
+      if (existingDatabaseIds.contains(card.id)) {
+        continue;
+      }
+      cards.add(_HomeStoryCard.cms(card));
+    }
+
+    return List.unmodifiable(cards);
   }
 }
 
@@ -452,7 +483,7 @@ class _TwoColumnStoryGrid extends StatelessWidget {
     required this.favoriteStoryIds,
   });
 
-  final List<StoryModel> stories;
+  final List<_HomeStoryCard> stories;
   final double scale;
   final Set<String> favoriteStoryIds;
 
@@ -482,18 +513,25 @@ class _TwoColumnStoryGrid extends StatelessWidget {
                     return StoryCard(
                       title: story.title,
                       imageUrl: story.thumbnailUrl,
-                      episodeCount: 'Ep 3 of 7',
+                      episodeCount: story.episodeCountLabel,
                       imageHeight: 184 * scale,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (context) => const EpisodesScreen(),
+                          builder: (context) =>
+                              EpisodesScreen(storyCard: story.storyCard),
                         ),
                       ),
-                      isFavorite: favoriteStoryIds.contains(story.id),
+                      isFavorite:
+                          story.favoriteStory != null &&
+                          favoriteStoryIds.contains(story.id),
                       onFavoriteTap: () {
+                        final favoriteStory = story.favoriteStory;
+                        if (favoriteStory == null) {
+                          return;
+                        }
                         ref
                             .read(favoriteStoriesProvider.notifier)
-                            .toggleStory(story);
+                            .toggleStory(favoriteStory);
                       },
                     );
                   },
@@ -504,6 +542,52 @@ class _TwoColumnStoryGrid extends StatelessWidget {
       },
     );
   }
+}
+
+class _HomeStoryCard {
+  const _HomeStoryCard({
+    required this.id,
+    required this.title,
+    required this.thumbnailUrl,
+    required this.category,
+    required this.episodeCountLabel,
+    this.storyCard,
+    this.favoriteStory,
+  });
+
+  factory _HomeStoryCard.hardcoded(
+    StoryModel story, {
+    StoryCardModel? storyCard,
+  }) {
+    return _HomeStoryCard(
+      id: storyCard?.id ?? story.id,
+      title: story.title,
+      thumbnailUrl: story.thumbnailUrl,
+      category: story.category,
+      episodeCountLabel: 'Ep 3 of 7',
+      storyCard: storyCard,
+      favoriteStory: story,
+    );
+  }
+
+  factory _HomeStoryCard.cms(StoryCardModel storyCard) {
+    return _HomeStoryCard(
+      id: storyCard.id,
+      title: storyCard.title,
+      thumbnailUrl: storyCard.thumbnailUrl,
+      category: storyCard.category,
+      episodeCountLabel: storyCard.category,
+      storyCard: storyCard,
+    );
+  }
+
+  final String id;
+  final String title;
+  final String thumbnailUrl;
+  final String category;
+  final String episodeCountLabel;
+  final StoryCardModel? storyCard;
+  final StoryModel? favoriteStory;
 }
 
 class _ComingSoonTab extends StatefulWidget {
@@ -650,7 +734,7 @@ String _storyThumbnailUrl(String fileName) {
   return Uri.encodeFull('${_supabaseAssetBase}story_thumbnails/$fileName');
 }
 
-final _topPickStories = [
+final _hardcodedTopPickStories = [
   StoryModel(
     id: 'top-pick-shararati-krishna',
     title: 'Shararati Krishna ke karname',
@@ -696,6 +780,23 @@ final _madeForYouStories = [
     category: 'Ganesh Stories',
     durationMinutes: 3,
   ),
+];
+
+final _hardcodedHomeStoryCards = [
+  _HomeStoryCard.hardcoded(
+    _hardcodedTopPickStories[0],
+    storyCard: StoryCardModel(
+      id: StoryRepository.krishnaStoryCardId,
+      title: 'Shararati Krishna ke karname',
+      thumbnailUrl: _storyThumbnailUrl('Shararati krishna ke karname.webp'),
+      heroBannerUrl:
+          '${_supabaseAssetBase}featured_banners/kanha ki sunheri subah.webp',
+      category: 'Krishna Stories',
+      sortOrder: 1,
+    ),
+  ),
+  _HomeStoryCard.hardcoded(_hardcodedTopPickStories[1]),
+  for (final story in _madeForYouStories) _HomeStoryCard.hardcoded(story),
 ];
 
 final _comingSoonStories = [

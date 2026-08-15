@@ -34,74 +34,82 @@ class _MembershipVerificationScreenState
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: AppScreenBackground(
-            child: SafeArea(
-              left: false,
-              right: false,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final contentWidth = constraints.maxWidth;
-                  final scale = contentWidth / _VerificationLayout.designWidth;
-                  final canvasHeight = math.max(
-                    constraints.maxHeight / scale,
-                    _VerificationLayout.designHeight,
-                  );
+            child: Stack(
+              children: [
+                SafeArea(
+                  left: false,
+                  right: false,
+                  bottom: false,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final contentWidth = constraints.maxWidth;
+                      final scale =
+                          contentWidth / _VerificationLayout.designWidth;
+                      final canvasHeight = math.max(
+                        constraints.maxHeight / scale,
+                        _VerificationLayout.designHeight,
+                      );
 
-                  return Stack(
-                    children: [
-                      SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        child: Center(
-                          child: SizedBox(
-                            width: contentWidth,
-                            height: canvasHeight * scale,
-                            child: FittedBox(
-                              fit: BoxFit.fill,
-                              alignment: Alignment.topCenter,
+                      return Stack(
+                        children: [
+                          SingleChildScrollView(
+                            physics: const ClampingScrollPhysics(),
+                            child: Center(
                               child: SizedBox(
-                                width: _VerificationLayout.designWidth,
-                                height: canvasHeight,
-                                child: ClipRect(
-                                  child: Stack(
-                                    clipBehavior: Clip.hardEdge,
-                                    children: [
-                                      const Positioned.fill(
-                                        child: _VerificationBackground(),
+                                width: contentWidth,
+                                height: canvasHeight * scale,
+                                child: FittedBox(
+                                  fit: BoxFit.fill,
+                                  alignment: Alignment.topCenter,
+                                  child: SizedBox(
+                                    width: _VerificationLayout.designWidth,
+                                    height: canvasHeight,
+                                    child: ClipRect(
+                                      child: Stack(
+                                        clipBehavior: Clip.hardEdge,
+                                        children: [
+                                          const Positioned.fill(
+                                            child: _VerificationBackground(),
+                                          ),
+                                          const _VerificationArtwork(),
+                                          const Positioned(
+                                            top:
+                                                _VerificationLayout
+                                                    .heroGroupTop,
+                                            left: 0,
+                                            right: 0,
+                                            child: _VerificationHeroCopy(),
+                                          ),
+                                          Positioned(
+                                            top: _VerificationLayout.panelTop,
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            child: _VerificationPanel(
+                                              digits: _digits,
+                                              onDigitPressed: _enterDigit,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const _VerificationArtwork(),
-                                      const Positioned(
-                                        top: _VerificationLayout.heroGroupTop,
-                                        left: 0,
-                                        right: 0,
-                                        child: _VerificationHeroCopy(),
-                                      ),
-                                      Positioned(
-                                        top: _VerificationLayout.panelTop,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        child: _VerificationPanel(
-                                          digits: _digits,
-                                          onDigitPressed: _enterDigit,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      const Positioned(
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        child: _VerificationHeader(),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: _VerificationHeader(),
+                ),
+              ],
             ),
           ),
         ),
@@ -124,51 +132,60 @@ class _VerificationHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusBarHeight = MediaQuery.paddingOf(context).top;
+
     return Container(
-      height: _VerificationLayout.headerHeight,
+      key: const ValueKey('membershipVerificationHeader'),
+      height: statusBarHeight + _VerificationLayout.headerHeight,
       color: _VerificationColors.headerOverlay,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Semantics(
-            button: true,
-            label: 'Back',
-            child: InkResponse(
-              key: const ValueKey('membershipVerificationBackButton'),
-              onTap: () => Navigator.of(context).maybePop(),
-              radius: 24,
-              child: const SizedBox.square(
-                dimension: 24,
-                child: Icon(
-                  Icons.arrow_back_rounded,
-                  color: AppColors.textOnPrimary,
-                  size: 24,
-                  applyTextScaling: false,
+      padding: EdgeInsets.only(top: statusBarHeight),
+      child: SizedBox(
+        height: _VerificationLayout.headerHeight,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Semantics(
+                button: true,
+                label: 'Back',
+                child: InkResponse(
+                  key: const ValueKey('membershipVerificationBackButton'),
+                  onTap: () => Navigator.of(context).maybePop(),
+                  radius: 24,
+                  child: const SizedBox.square(
+                    dimension: 24,
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppColors.textOnPrimary,
+                      size: 24,
+                      applyTextScaling: false,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Premium Membership',
-                maxLines: 1,
-                softWrap: false,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontFamily,
-                  fontSize: 20,
-                  height: 24 / 20,
-                  letterSpacing: -0.25,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textOnPrimary,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Premium Membership',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontFamily,
+                      fontSize: 20,
+                      height: 24 / 20,
+                      letterSpacing: -0.25,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textOnPrimary,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -25,8 +25,9 @@ const _episodeHeroWidth = 359.0;
 const _episodeHeroHeight = 202.0;
 
 class EpisodesScreen extends ConsumerWidget {
-  const EpisodesScreen({this.assetUrlBuilder, super.key});
+  const EpisodesScreen({this.storyCard, this.assetUrlBuilder, super.key});
 
+  final StoryCardModel? storyCard;
   final EpisodeAssetUrlBuilder? assetUrlBuilder;
 
   String _assetUrl(String bucket, String path) {
@@ -40,11 +41,16 @@ class EpisodesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bannerUrl = _assetUrl('app-assets', _bannerPath);
-    final cmsStoriesState = ref.watch(cmsEpisodeStoriesProvider);
+    final selectedCard = storyCard;
+    final bannerUrl =
+        selectedCard?.heroBannerUrl ?? _assetUrl('app-assets', _bannerPath);
+    final cmsStoriesState = selectedCard == null
+        ? null
+        : ref.watch(storyCardStoriesProvider(selectedCard.id));
     final history = ref.watch(sessionStoryHistoryProvider);
     final episodes = _episodeItems(
-      cmsStoriesState.valueOrNull ?? const [],
+      selectedCard,
+      cmsStoriesState?.valueOrNull ?? const [],
       history,
     );
 
@@ -77,6 +83,7 @@ class EpisodesScreen extends ConsumerWidget {
                     padding: EdgeInsets.symmetric(horizontal: horizontal),
                     child: _HeroCard(
                       imageUrl: bannerUrl,
+                      title: selectedCard?.title ?? _storyTitle,
                       episodeCount: episodes.length,
                       scale: scale,
                       width: heroWidth,
@@ -123,28 +130,39 @@ class EpisodesScreen extends ConsumerWidget {
   }
 
   List<_EpisodeItem> _episodeItems(
+    StoryCardModel? selectedCard,
     List<StoryModel> cmsStories,
     SessionStoryHistoryState history,
   ) {
-    final legacyItems = _episodes
-        .map(
-          (episode) => _EpisodeItem.legacy(
-            index: episode.index,
-            title: episode.title,
-            durationMinutes: episode.durationMinutes,
-            progress: history.progressForStory(episode.id),
-            isCompleted: history.isStoryCompleted(episode.id),
-            imageUrl: _assetUrl(
-              'story-assets',
-              '$_storyAssetFolder/page-${episode.imageNumber.toString().padLeft(3, '0')}.webp',
-            ),
-          ),
-        )
-        .toList(growable: true);
+    final isKrishnaCard =
+        selectedCard == null ||
+        selectedCard.id == StoryRepository.krishnaStoryCardId;
+    final legacyItems = isKrishnaCard
+        ? _episodes
+              .map(
+                (episode) => _EpisodeItem.legacy(
+                  index: episode.index,
+                  title: episode.title,
+                  durationMinutes: episode.durationMinutes,
+                  progress: history.progressForStory(episode.id),
+                  isCompleted: history.isStoryCompleted(episode.id),
+                  imageUrl: _assetUrl(
+                    'story-assets',
+                    '$_storyAssetFolder/page-${episode.imageNumber.toString().padLeft(3, '0')}.webp',
+                  ),
+                ),
+              )
+              .toList(growable: true)
+        : <_EpisodeItem>[];
 
     final existingIds = legacyItems.map((item) => item.story?.id).toSet();
     for (final story in cmsStories) {
       if (existingIds.contains(story.id)) {
+        continue;
+      }
+      if (isKrishnaCard &&
+          (story.id == StoryRepository.morningWhispersStoryId ||
+              story.id == StoryRepository.arrivalNewsStoryId)) {
         continue;
       }
       legacyItems.add(
@@ -246,6 +264,7 @@ class _TopBar extends StatelessWidget {
 class _HeroCard extends StatelessWidget {
   const _HeroCard({
     required this.imageUrl,
+    required this.title,
     required this.episodeCount,
     required this.scale,
     required this.width,
@@ -253,6 +272,7 @@ class _HeroCard extends StatelessWidget {
   });
 
   final String imageUrl;
+  final String title;
   final int episodeCount;
   final double scale;
   final double width;
@@ -315,7 +335,7 @@ class _HeroCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        _storyTitle,
+                        title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.titleSemiBold.copyWith(

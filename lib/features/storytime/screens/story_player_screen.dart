@@ -815,6 +815,7 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
           isPlaying: state.isPlaying,
           audioPosition: state.audioPosition,
           audioDuration: state.audioDuration,
+          currentImageUrl: state.currentImageUrl,
           isEnabled: state.pages.isNotEmpty && state.errorMessage == null,
         ),
       ),
@@ -878,7 +879,9 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
                     ),
                     const SizedBox(height: _episodeHeaderImageGap),
                     _EpisodeStoryImage(
-                      imageUrl: imageUrl,
+                      imageUrl: state.currentImageUrl.isNotEmpty
+                          ? state.currentImageUrl
+                          : imageUrl,
                       width: playerWidth,
                       height: _episodePlayerImageHeight,
                     ),
