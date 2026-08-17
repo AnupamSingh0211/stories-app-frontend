@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
@@ -36,14 +38,63 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
   void initState() {
     super.initState();
     _selectedPlan = widget.initialPlan;
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'subscription_page',
+        properties: {
+          'source': 'membership_screen',
+          'subscription_plan_id': _selectedPlan.name,
+        },
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'subscription_page_viewed',
+        properties: {
+          'screen_name': 'subscription_page',
+          'source': 'membership_screen',
+          'subscription_plan_id': _selectedPlan.name,
+        },
+      ),
+    );
   }
 
   void _selectPlan(MembershipPlan plan) {
     if (_selectedPlan == plan) return;
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'select_subscription_plan',
+        screenName: 'subscription_page',
+        properties: {
+          'source': 'plan_selector',
+          'subscription_plan_id': plan.name,
+        },
+      ),
+    );
     setState(() => _selectedPlan = plan);
   }
 
   void _continue(BuildContext context) {
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'subscription_started',
+        properties: {
+          'screen_name': 'subscription_page',
+          'source': 'subscription_continue',
+          'subscription_plan_id': _selectedPlan.name,
+        },
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'continue_subscription',
+        screenName: 'subscription_page',
+        properties: {
+          'source': 'subscription_continue',
+          'subscription_plan_id': _selectedPlan.name,
+        },
+      ),
+    );
     final onContinue = widget.onContinue;
     if (onContinue != null) {
       onContinue(_selectedPlan);
@@ -202,7 +253,25 @@ class _PlansHeader extends StatelessWidget {
                 label: 'Back',
                 child: InkResponse(
                   key: const ValueKey('membershipPlansBackButton'),
-                  onTap: () => Navigator.of(context).maybePop(),
+                  onTap: () {
+                    unawaited(
+                      PostHogAnalytics.instance.capture(
+                        'back_clicked',
+                        properties: {
+                          'screen_name': 'subscription_page',
+                          'source': 'subscription_header',
+                        },
+                      ),
+                    );
+                    unawaited(
+                      PostHogAnalytics.instance.buttonClicked(
+                        buttonName: 'back',
+                        screenName: 'subscription_page',
+                        properties: {'source': 'subscription_header'},
+                      ),
+                    );
+                    Navigator.of(context).maybePop();
+                  },
                   radius: 24,
                   child: const SizedBox.square(
                     dimension: 24,

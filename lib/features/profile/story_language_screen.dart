@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
@@ -26,6 +29,17 @@ class _StoryLanguageScreenState extends ConsumerState<StoryLanguageScreen> {
   bool _isSaving = false;
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'story_language_screen',
+        properties: {'source': 'profile_screen'},
+      ),
+    );
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _selectedLocale ??=
@@ -36,6 +50,13 @@ class _StoryLanguageScreenState extends ConsumerState<StoryLanguageScreen> {
   Future<void> _continue() async {
     if (_isSaving) return;
 
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'save_story_language',
+        screenName: 'story_language_screen',
+        properties: {'source': 'story_language_screen'},
+      ),
+    );
     final locale = normalizeProfileLocale(_selectedLocale);
     final hasProfile =
         ref.read(profileNotifierProvider).valueOrNull?.selectedChild != null;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,17 +6,43 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import 'membership_plans_screen.dart';
 import 'membership_side_banner.dart';
 
-class MembershipScreen extends StatelessWidget {
+class MembershipScreen extends StatefulWidget {
   const MembershipScreen({super.key, this.onUnlock, this.onSeeAllPlans});
 
   final VoidCallback? onUnlock;
   final VoidCallback? onSeeAllPlans;
+
+  @override
+  State<MembershipScreen> createState() => _MembershipScreenState();
+}
+
+class _MembershipScreenState extends State<MembershipScreen> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'membership_screen',
+        properties: {'source': 'subscription_flow'},
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'subscription_page_viewed',
+        properties: {
+          'screen_name': 'membership_screen',
+          'source': 'subscription_flow',
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +108,34 @@ class MembershipScreen extends StatelessWidget {
                                                 _MembershipLayout.ctaGap,
                                             left: _MembershipLayout.ctaLeft,
                                             child: _MembershipCta(
-                                              onPressed: onUnlock ?? () {},
+                                              onPressed: () {
+                                                unawaited(
+                                                  PostHogAnalytics.instance
+                                                      .capture(
+                                                        'subscription_started',
+                                                        properties: {
+                                                          'screen_name':
+                                                              'membership_screen',
+                                                          'source':
+                                                              'membership_cta',
+                                                        },
+                                                      ),
+                                                );
+                                                unawaited(
+                                                  PostHogAnalytics.instance
+                                                      .buttonClicked(
+                                                        buttonName:
+                                                            'unlock_membership',
+                                                        screenName:
+                                                            'membership_screen',
+                                                        properties: {
+                                                          'source':
+                                                              'membership_cta',
+                                                        },
+                                                      ),
+                                                );
+                                                widget.onUnlock?.call();
+                                              },
                                             ),
                                           ),
                                           Positioned(
@@ -92,13 +146,28 @@ class MembershipScreen extends StatelessWidget {
                                             right: 0,
                                             child: _SeeAllPlansButton(
                                               onPressed:
-                                                  onSeeAllPlans ??
-                                                  () => Navigator.of(context).push(
-                                                    MaterialPageRoute<void>(
-                                                      builder: (_) =>
-                                                          const MembershipPlansScreen(),
-                                                    ),
-                                                  ),
+                                                  widget.onSeeAllPlans ??
+                                                  () {
+                                                    unawaited(
+                                                      PostHogAnalytics.instance
+                                                          .buttonClicked(
+                                                            buttonName:
+                                                                'see_all_plans',
+                                                            screenName:
+                                                                'membership_screen',
+                                                            properties: {
+                                                              'source':
+                                                                  'membership_footer',
+                                                            },
+                                                          ),
+                                                    );
+                                                    Navigator.of(context).push(
+                                                      MaterialPageRoute<void>(
+                                                        builder: (_) =>
+                                                            const MembershipPlansScreen(),
+                                                      ),
+                                                    );
+                                                  },
                                             ),
                                           ),
                                         ],
@@ -160,7 +229,25 @@ class _MembershipHeader extends StatelessWidget {
                 label: 'Back',
                 child: InkResponse(
                   key: const ValueKey('membershipBackButton'),
-                  onTap: () => Navigator.of(context).maybePop(),
+                  onTap: () {
+                    unawaited(
+                      PostHogAnalytics.instance.capture(
+                        'back_clicked',
+                        properties: {
+                          'screen_name': 'membership_screen',
+                          'source': 'membership_header',
+                        },
+                      ),
+                    );
+                    unawaited(
+                      PostHogAnalytics.instance.buttonClicked(
+                        buttonName: 'back',
+                        screenName: 'membership_screen',
+                        properties: {'source': 'membership_header'},
+                      ),
+                    );
+                    Navigator.of(context).maybePop();
+                  },
                   radius: 24,
                   child: const SizedBox.square(
                     dimension: 24,

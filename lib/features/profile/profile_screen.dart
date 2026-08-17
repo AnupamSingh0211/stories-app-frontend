@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
@@ -42,6 +44,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isAutoPlayNextStoryEnabled = true;
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'profile_screen',
+        properties: {'source': 'app_navigation'},
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final profileState = ref.watch(profileNotifierProvider);
     final childProfiles = profileState.valueOrNull;
@@ -72,6 +85,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 children: childProfiles?.children ?? const [],
                                 selectedChildId: profile?.id,
                                 onSelected: (childId) {
+                                  unawaited(
+                                    PostHogAnalytics.instance.capture(
+                                      'profile_selected',
+                                      properties: {
+                                        'screen_name': 'profile_screen',
+                                        'source': 'profile_switcher',
+                                      },
+                                    ),
+                                  );
                                   ref
                                       .read(profileNotifierProvider.notifier)
                                       .selectChild(childId);
@@ -111,12 +133,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         'assets/icons/new_boopi/streamline-sharp_star-badge.svg',
                                     title: 'Subscription',
                                     subtitle: 'For yawns and cuddles.',
-                                    onTap: () => Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) =>
-                                            const MembershipScreen(),
-                                      ),
-                                    ),
+                                    onTap: () =>
+                                        _openMembership(context),
                                   ),
                                   _ProfileMenuRow(
                                     iconAsset:
@@ -204,6 +222,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: GlassyBottomNavBar(
                   currentIndex: 3,
                   onTap: (index) {
+                    unawaited(
+                      PostHogAnalytics.instance.buttonClicked(
+                        buttonName: 'bottom_nav_item',
+                        screenName: 'profile_screen',
+                        properties: {
+                          'source': 'bottom_nav',
+                          'target_index': index,
+                        },
+                      ),
+                    );
                     switch (index) {
                       case 0:
                         _openHome(context, profile);
@@ -253,6 +281,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _addChild(BuildContext context, int childCount) async {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'add_child_profile',
+        screenName: 'profile_screen',
+        properties: {'source': 'profile_switcher'},
+      ),
+    );
     if (childCount >= maxChildProfiles) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -273,6 +308,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _logout() async {
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'logout_clicked',
+        properties: {
+          'screen_name': 'profile_screen',
+          'source': 'profile_menu',
+        },
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'logout',
+        screenName: 'profile_screen',
+        properties: {'source': 'profile_menu'},
+      ),
+    );
     await ref.read(appAuthServiceProvider).signOut();
     ref.invalidate(authSessionProvider);
     ref.invalidate(profileNotifierProvider);
@@ -306,6 +357,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _openLibrary(BuildContext context) {
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'favorites_clicked',
+        properties: {
+          'screen_name': 'profile_screen',
+          'source': 'profile_menu',
+        },
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'favorites',
+        screenName: 'profile_screen',
+        properties: {'source': 'profile_menu'},
+      ),
+    );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const LibrarySectionsScreen(),
@@ -314,6 +381,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _openStoryLanguage(BuildContext context) {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'story_language',
+        screenName: 'profile_screen',
+        properties: {'source': 'profile_menu'},
+      ),
+    );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const StoryLanguageScreen(),
@@ -322,6 +396,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _openPrivacyPolicy(BuildContext context) {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'privacy_policy',
+        screenName: 'profile_screen',
+        properties: {'source': 'profile_menu'},
+      ),
+    );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const PrivacyPolicyScreen(),
@@ -330,6 +411,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _openHelpAndSupport(BuildContext context) {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'help_and_support',
+        screenName: 'profile_screen',
+        properties: {'source': 'profile_menu'},
+      ),
+    );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const HelpAndSupportScreen(),
@@ -338,12 +426,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _toggleAutoPlayNextStory() {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'auto_play_next_story',
+        screenName: 'profile_screen',
+        properties: {
+          'source': 'profile_menu',
+          'enabled_after_click': !_isAutoPlayNextStoryEnabled,
+        },
+      ),
+    );
     setState(() {
       _isAutoPlayNextStoryEnabled = !_isAutoPlayNextStoryEnabled;
     });
   }
 
   Future<void> _shareBoopi(BuildContext context) async {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'share_boopi',
+        screenName: 'profile_screen',
+        properties: {'source': 'profile_menu'},
+      ),
+    );
     const message = 'Check out Boopi, a magical bedtime stories app for kids.';
 
     try {
@@ -371,6 +476,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickProfileAvatar(ChildProfileModel profile) async {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'profile_avatar',
+        screenName: 'profile_screen',
+        properties: {'source': 'child_profile_card'},
+      ),
+    );
     final selectedImage = await _imagePicker.pickImage(
       source: ImageSource.gallery,
       maxWidth: 1024,
@@ -402,6 +514,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() {
       _selectedAvatarBytes[profile.id] = bytes;
     });
+  }
+
+  void _openMembership(BuildContext context) {
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'subscription_page_viewed',
+        properties: {
+          'screen_name': 'profile_screen',
+          'source': 'profile_menu',
+        },
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'subscription',
+        screenName: 'profile_screen',
+        properties: {'source': 'profile_menu'},
+      ),
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const MembershipScreen(),
+      ),
+    );
   }
 }
 

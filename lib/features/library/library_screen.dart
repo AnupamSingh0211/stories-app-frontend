@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import '../auth/profile_notifier.dart';
 import '../profile/profile_screen.dart';
@@ -22,6 +25,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'library_screen',
+        properties: {'source': 'app_navigation'},
+      ),
+    );
     Future.microtask(() {
       ref.read(savedLibraryProvider.notifier).loadLibrary();
     });
@@ -90,20 +99,47 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               right: 24,
               bottom: 18,
               child: _LibraryBottomNavigation(
-                onHomeTap: () => Navigator.maybePop(context),
-                onStoriesTap: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const StorytimeScreen(),
-                  ),
-                ),
-                onProfileTap: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (context) => ProfileScreen(
-                      fallbackChildName: profile?.childName,
-                      fallbackChildAge: profile?.age,
+                onHomeTap: () {
+                  unawaited(
+                    PostHogAnalytics.instance.buttonClicked(
+                      buttonName: 'home_tab',
+                      screenName: 'library_screen',
+                      properties: {'source': 'bottom_nav'},
                     ),
-                  ),
-                ),
+                  );
+                  Navigator.maybePop(context);
+                },
+                onStoriesTap: () {
+                  unawaited(
+                    PostHogAnalytics.instance.buttonClicked(
+                      buttonName: 'stories_tab',
+                      screenName: 'library_screen',
+                      properties: {'source': 'bottom_nav'},
+                    ),
+                  );
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const StorytimeScreen(),
+                    ),
+                  );
+                },
+                onProfileTap: () {
+                  unawaited(
+                    PostHogAnalytics.instance.buttonClicked(
+                      buttonName: 'profile_tab',
+                      screenName: 'library_screen',
+                      properties: {'source': 'bottom_nav'},
+                    ),
+                  );
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute<void>(
+                      builder: (context) => ProfileScreen(
+                        fallbackChildName: profile?.childName,
+                        fallbackChildAge: profile?.age,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],

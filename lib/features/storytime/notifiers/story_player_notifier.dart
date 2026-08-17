@@ -4,6 +4,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../../core/analytics_service.dart';
 import '../../../core/performance/story_performance_metrics.dart';
 import '../audio/story_audio_preloader.dart';
 import '../repositories/story_repository.dart';
@@ -196,6 +197,10 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
         await _repository.removeFavoriteStory(_storyId);
       } else {
         await _repository.addFavoriteStory(_storyId);
+        await PostHogAnalytics.instance.capture(
+          'story_favorited',
+          properties: {'source': 'story_player', 'story_id': _storyId},
+        );
       }
     } catch (error) {
       state = state.copyWith(

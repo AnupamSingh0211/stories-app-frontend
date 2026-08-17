@@ -1,13 +1,32 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 
 const _figmaWidth = 390.0;
 
-class PrivacyPolicyScreen extends StatelessWidget {
+class PrivacyPolicyScreen extends StatefulWidget {
   const PrivacyPolicyScreen({super.key});
+
+  @override
+  State<PrivacyPolicyScreen> createState() => _PrivacyPolicyScreenState();
+}
+
+class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'privacy_policy_screen',
+        properties: {'source': 'profile_screen'},
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +83,25 @@ class _PrivacyPolicyHeader extends StatelessWidget {
             SizedBox.square(
               dimension: 24,
               child: InkResponse(
-                onTap: () => Navigator.of(context).maybePop(),
+                onTap: () {
+                  unawaited(
+                    PostHogAnalytics.instance.capture(
+                      'back_clicked',
+                      properties: {
+                        'screen_name': 'privacy_policy_screen',
+                        'source': 'privacy_header',
+                      },
+                    ),
+                  );
+                  unawaited(
+                    PostHogAnalytics.instance.buttonClicked(
+                      buttonName: 'back',
+                      screenName: 'privacy_policy_screen',
+                      properties: {'source': 'privacy_header'},
+                    ),
+                  );
+                  Navigator.of(context).maybePop();
+                },
                 radius: 24,
                 child: const Icon(
                   Icons.arrow_back_rounded,

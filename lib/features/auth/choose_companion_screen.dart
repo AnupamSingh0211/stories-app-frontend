@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_shadows.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import '../../shared/widgets/pill_button.dart';
@@ -10,13 +13,30 @@ import 'companion_model.dart';
 import 'companions_provider.dart';
 import 'confirm_companion_screen.dart';
 
-class ChooseCompanionScreen extends ConsumerWidget {
+class ChooseCompanionScreen extends ConsumerStatefulWidget {
   const ChooseCompanionScreen({super.key, this.onComplete});
 
   final CompanionFlowComplete? onComplete;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChooseCompanionScreen> createState() =>
+      _ChooseCompanionScreenState();
+}
+
+class _ChooseCompanionScreenState extends ConsumerState<ChooseCompanionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'profile_selection_screen',
+        properties: {'source': 'onboarding'},
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final companions = ref.watch(companionsProvider);
 
     return Scaffold(
@@ -25,7 +45,10 @@ class ChooseCompanionScreen extends ConsumerWidget {
           child: SafeArea(
             child: companions.when(
               data: (items) =>
-                  _CompanionList(companions: items, onComplete: onComplete),
+                  _CompanionList(
+                    companions: items,
+                    onComplete: widget.onComplete,
+                  ),
               loading: () => const _LoadingState(),
               error: (error, stackTrace) => _ErrorState(error: error),
             ),
@@ -87,6 +110,13 @@ class _CompanionList extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 30, 20, 0),
             child: PillButton(
               onTap: () {
+                unawaited(
+                  PostHogAnalytics.instance.buttonClicked(
+                    buttonName: 'skip_companion_selection',
+                    screenName: 'profile_selection_screen',
+                    properties: {'source': 'companion_selection'},
+                  ),
+                );
                 final onComplete = this.onComplete;
                 if (onComplete != null) {
                   onComplete(context);
@@ -214,6 +244,16 @@ class _CompanionCard extends StatelessWidget {
           const SizedBox(height: 18),
           PillButton(
             onTap: () {
+              unawaited(
+                PostHogAnalytics.instance.buttonClicked(
+                  buttonName: 'select_companion',
+                  screenName: 'profile_selection_screen',
+                  properties: {
+                    'source': 'companion_card',
+                    'target_type': 'companion',
+                  },
+                ),
+              );
               Navigator.push(
                 context,
                 MaterialPageRoute(

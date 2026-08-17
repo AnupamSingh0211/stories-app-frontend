@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import 'profile_notifier.dart';
@@ -85,6 +88,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   void initState() {
     super.initState();
     _nameController.addListener(_refresh);
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'child_profile_setup_screen',
+        properties: {'source': widget.popOnSave ? 'profile_screen' : 'signup'},
+      ),
+    );
   }
 
   @override
@@ -112,6 +121,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
     _submissionLocked = true;
     setState(() => _isSubmitting = true);
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'save_child_profile',
+        screenName: 'child_profile_setup_screen',
+        properties: {'source': widget.popOnSave ? 'profile_screen' : 'signup'},
+      ),
+    );
 
     try {
       final child = await ref
@@ -121,8 +137,17 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             gender: _selectedGender!,
             age: _selectedAge!,
             locale: _selectedLocale!,
-          );
+      );
 
+      unawaited(
+        PostHogAnalytics.instance.capture(
+          widget.popOnSave ? 'child_profile_added' : 'signup_completed',
+          properties: {
+            'screen_name': 'child_profile_setup_screen',
+            'source': widget.popOnSave ? 'profile_screen' : 'signup',
+          },
+        ),
+      );
       if (!mounted) return;
       if (widget.popOnSave) {
         Navigator.pop(context, child);

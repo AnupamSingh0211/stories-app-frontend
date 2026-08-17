@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/analytics_service.dart';
 import 'core/supabase_config.dart';
 import 'core/theme.dart';
 import 'features/auth/auth_provider.dart';
@@ -27,6 +30,7 @@ Future<void> main() async {
       url: SupabaseConfig.url,
       anonKey: SupabaseConfig.anonKey,
     );
+    await PostHogAnalytics.instance.setup();
   } catch (_) {
     FlutterNativeSplash.remove();
     rethrow;
@@ -42,6 +46,29 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(authSessionProvider);
+
+    ref.listen<AsyncValue<AppSessionIdentity?>>(authSessionProvider, (
+      previous,
+      next,
+    ) {
+      next.whenData((identity) {
+        if (identity == null) {
+          unawaited(PostHogAnalytics.instance.resetUser());
+          return;
+        }
+
+        unawaited(
+          PostHogAnalytics.instance.identifyUser(
+            identity.userId,
+            properties: {
+              'auth_source': DevOtpAuthConfig.enabled
+                  ? 'dev_backend_otp'
+                  : 'supabase',
+            },
+          ),
+        );
+      });
+    });
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
