@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:page_flip/page_flip.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/analytics_service.dart';
 import '../../../shared/theme/app_border_radius.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_shadows.dart';
@@ -86,6 +87,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
   bool _pendingStoryStart = false;
   bool _isSynchronizingFeed = false;
   bool _hasClosedAfterCompletion = false;
+  bool _didTrackCompletion = false;
   int _feedIndex = 0;
 
   @override
@@ -97,6 +99,17 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
     }
     _feedController = PageController(viewportFraction: _feedViewportFraction);
     WidgetsBinding.instance.addObserver(this);
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'story_player_screen',
+        properties: _storyAnalyticsProperties(
+          widget.story,
+          storyId: widget.storyId,
+          title: widget.title,
+          source: widget.openDirectly ? 'episodes_screen' : 'story_player',
+        ),
+      ),
+    );
     if (widget.initialPages.isNotEmpty) {
       ref
           .read(storyRepositoryProvider)
@@ -110,6 +123,17 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
         }
       });
     }
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_opened',
+        properties: _storyAnalyticsProperties(
+          widget.story,
+          storyId: widget.storyId,
+          title: widget.title,
+          source: widget.openDirectly ? 'episodes_screen' : 'story_player',
+        ),
+      ),
+    );
   }
 
   @override
@@ -169,6 +193,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
 
         final historyNotifier = ref.read(sessionStoryHistoryProvider.notifier);
         if (currentState.isComplete || _isAtPlaybackEnd(currentState)) {
+          _trackStoryCompleted(currentState);
           historyNotifier.completeStory(widget.storyId);
           if (widget.openDirectly && !_hasClosedAfterCompletion) {
             _hasClosedAfterCompletion = true;
@@ -263,7 +288,9 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
             _StoryFeedHeader(
               isFavorite: playerState.isFavorite,
               onBack: _exitStory,
-              onToggleFavorite: ref.read(provider.notifier).toggleFavorite,
+              onToggleFavorite: () {
+                unawaited(ref.read(provider.notifier).toggleFavorite());
+              },
             ),
             Expanded(
               child: LayoutBuilder(
@@ -370,6 +397,28 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
   }
 
   Future<void> _startStory() async {
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_play_clicked',
+        properties: _storyAnalyticsProperties(
+          widget.story,
+          storyId: widget.storyId,
+          title: widget.title,
+          source: 'story_preface',
+        ),
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'story_play',
+        screenName: 'story_player_screen',
+        properties: {
+          'source': 'story_preface',
+          'target_type': 'story',
+          'target_id': widget.storyId,
+        },
+      ),
+    );
     final state = ref.read(storyPlayerProvider(widget.storyId));
     if (state.isLoading || state.pages.isEmpty) {
       _pendingStoryStart = true;
@@ -459,6 +508,26 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
   }
 
   Future<void> _exitStory() async {
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'back_clicked',
+        properties: {
+          'screen_name': 'story_player_screen',
+          'source': widget.openDirectly ? 'episode_player' : 'story_player',
+        },
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'back',
+        screenName: 'story_player_screen',
+        properties: {
+          'source': widget.openDirectly ? 'episode_player' : 'story_player',
+          'target_type': 'story',
+          'target_id': widget.storyId,
+        },
+      ),
+    );
     _saveSessionProgress();
     await ref.read(storyPlayerProvider(widget.storyId).notifier).pause();
     if (mounted) {
@@ -471,6 +540,16 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       return;
     }
 
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'bottom_nav_item',
+        screenName: 'story_player_screen',
+        properties: {
+          'source': 'bottom_nav',
+          'target_index': index,
+        },
+      ),
+    );
     _saveSessionProgress();
     await ref.read(storyPlayerProvider(widget.storyId).notifier).pause();
     if (!mounted) {
@@ -575,6 +654,30 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
     return remaining <= const Duration(milliseconds: 500);
   }
 
+  void _trackStoryCompleted(StoryPlayerState state) {
+    if (_didTrackCompletion) {
+      return;
+    }
+
+    _didTrackCompletion = true;
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_completed',
+        properties: {
+          ..._storyAnalyticsProperties(
+            widget.story,
+            storyId: widget.storyId,
+            title: widget.title,
+            source: widget.openDirectly ? 'episodes_screen' : 'story_player',
+          ),
+          'page_count': state.pageCount,
+          'current_page_index': state.currentPageIndex,
+          'audio_duration_seconds': state.audioDuration.inSeconds,
+        },
+      ),
+    );
+  }
+
   Future<void> _playBackgroundMusic() async {
     try {
       if (!_hasLoadedBackgroundMusic) {
@@ -606,6 +709,21 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       debugPrint('StoryPlayerScreen: background music failed. $error');
     }
   }
+}
+
+Map<String, Object?> _storyAnalyticsProperties(
+  StoryModel? story, {
+  required String storyId,
+  required String title,
+  required String source,
+}) {
+  return {
+    'source': source,
+    'story_id': story?.id ?? storyId,
+    'story_title': story?.title ?? title,
+    'story_category': story?.category,
+    'duration_minutes': story?.durationMinutes,
+  };
 }
 
 class _StoryPageFlipView extends StatefulWidget {
@@ -873,7 +991,10 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
                         onToggleFavorite: () {
                           ref
                               .read(favoriteEpisodesProvider.notifier)
-                              .toggleEpisode(episode);
+                              .toggleEpisode(
+                                episode,
+                                source: 'episode_player',
+                              );
                         },
                       ),
                     ),
@@ -893,13 +1014,62 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
                       position: state.audioPosition,
                       duration: state.audioDuration,
                       onSeek: notifier.seekTo,
-                      onBackward: () =>
-                          notifier.seekBy(const Duration(seconds: -10)),
+                      onBackward: () {
+                        unawaited(
+                          PostHogAnalytics.instance.buttonClicked(
+                            buttonName: 'rewind_10_seconds',
+                            screenName: 'story_player_screen',
+                            properties: {
+                              'source': 'episode_player',
+                              'target_type': 'episode',
+                              'target_id': storyId,
+                            },
+                          ),
+                        );
+                        notifier.seekBy(const Duration(seconds: -10));
+                      },
                       onTogglePlayback: () {
+                        unawaited(
+                          PostHogAnalytics.instance.capture(
+                            state.isPlaying
+                                ? 'story_pause_clicked'
+                                : 'story_play_clicked',
+                            properties: {
+                              'screen_name': 'story_player_screen',
+                              'source': 'episode_player',
+                              'story_id': storyId,
+                            },
+                          ),
+                        );
+                        unawaited(
+                          PostHogAnalytics.instance.buttonClicked(
+                            buttonName: state.isPlaying
+                                ? 'story_pause'
+                                : 'story_play',
+                            screenName: 'story_player_screen',
+                            properties: {
+                              'source': 'episode_player',
+                              'target_type': 'episode',
+                              'target_id': storyId,
+                            },
+                          ),
+                        );
                         state.isPlaying ? notifier.pause() : notifier.play();
                       },
-                      onForward: () =>
-                          notifier.seekBy(const Duration(seconds: 10)),
+                      onForward: () {
+                        unawaited(
+                          PostHogAnalytics.instance.buttonClicked(
+                            buttonName: 'forward_10_seconds',
+                            screenName: 'story_player_screen',
+                            properties: {
+                              'source': 'episode_player',
+                              'target_type': 'episode',
+                              'target_id': storyId,
+                            },
+                          ),
+                        );
+                        notifier.seekBy(const Duration(seconds: 10));
+                      },
                     ),
                   ],
                 ),
@@ -1729,10 +1899,57 @@ class _StoryControlsConsumer extends ConsumerWidget {
       playbackSpeed: state.playbackSpeed,
       isEnabled: state.isEnabled,
       onTogglePlayback: () {
+        unawaited(
+          PostHogAnalytics.instance.capture(
+            state.isPlaying ? 'story_pause_clicked' : 'story_play_clicked',
+            properties: {
+              'screen_name': 'story_player_screen',
+              'source': 'story_controls',
+              'story_id': storyId,
+            },
+          ),
+        );
+        unawaited(
+          PostHogAnalytics.instance.buttonClicked(
+            buttonName: state.isPlaying ? 'story_pause' : 'story_play',
+            screenName: 'story_player_screen',
+            properties: {
+              'source': 'story_controls',
+              'target_type': 'story',
+              'target_id': storyId,
+            },
+          ),
+        );
         state.isPlaying ? notifier.pause() : notifier.play();
       },
-      onToggleFavorite: notifier.toggleFavorite,
-      onChangeSpeed: notifier.changeSpeed,
+      onToggleFavorite: () {
+        unawaited(
+          PostHogAnalytics.instance.buttonClicked(
+            buttonName: 'favorite',
+            screenName: 'story_player_screen',
+            properties: {
+              'source': 'story_controls',
+              'target_type': 'story',
+              'target_id': storyId,
+            },
+          ),
+        );
+        notifier.toggleFavorite();
+      },
+      onChangeSpeed: () {
+        unawaited(
+          PostHogAnalytics.instance.buttonClicked(
+            buttonName: 'playback_speed',
+            screenName: 'story_player_screen',
+            properties: {
+              'source': 'story_controls',
+              'target_type': 'story',
+              'target_id': storyId,
+            },
+          ),
+        );
+        notifier.changeSpeed();
+      },
     );
   }
 }

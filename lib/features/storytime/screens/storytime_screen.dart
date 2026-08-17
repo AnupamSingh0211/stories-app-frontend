@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/analytics_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
@@ -43,16 +46,81 @@ class StorytimeScreen extends ConsumerStatefulWidget {
 
 class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
   final _pageController = PageController(viewportFraction: 337 / 390);
+  final _scrollController = ScrollController();
   int _activePage = 0;
   bool _showSearch = false;
+  bool _didTrackListEnd = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_trackStoryListScroll);
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'storytime_screen',
+        properties: {'source': 'app_navigation'},
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_list_viewed',
+        properties: {'screen_name': 'storytime_screen'},
+      ),
+    );
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_trackStoryListScroll);
+    _scrollController.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
+  void _trackStoryListScroll() {
+    if (_didTrackListEnd || !_scrollController.hasClients) {
+      return;
+    }
+
+    final position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    final scrollDepth = position.pixels / position.maxScrollExtent;
+    if (scrollDepth < 0.92) {
+      return;
+    }
+
+    _didTrackListEnd = true;
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_list_end_reached',
+        properties: {
+          'screen_name': 'storytime_screen',
+          'scroll_depth': scrollDepth.clamp(0.0, 1.0),
+        },
+      ),
+    );
+  }
+
   void _openFavorites() {
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'favorites_clicked',
+        properties: {
+          'screen_name': 'storytime_screen',
+          'source': 'storytime_header',
+        },
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'favorites',
+        screenName: 'storytime_screen',
+        properties: {'source': 'storytime_header'},
+      ),
+    );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const LibrarySectionsScreen(),
@@ -78,6 +146,7 @@ class _StorytimeScreenState extends ConsumerState<StorytimeScreen> {
                 bottom: false,
                 child: contentState.when(
                   data: (content) => CustomScrollView(
+                    controller: _scrollController,
                     physics: const ClampingScrollPhysics(),
                     slivers: [
                       SliverToBoxAdapter(
@@ -724,7 +793,7 @@ class _StoryCard extends StatelessWidget {
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: _FavoriteStoryButton(storyId: story.id),
+                    child: _FavoriteStoryButton(story: story),
                   ),
                   Positioned(
                     right: 12,
@@ -781,9 +850,9 @@ void _openProfile(BuildContext context, String? childName, int? childAge) {
 }
 
 class _FavoriteStoryButton extends ConsumerStatefulWidget {
-  const _FavoriteStoryButton({required this.storyId});
+  const _FavoriteStoryButton({required this.story});
 
-  final String storyId;
+  final StoryModel story;
 
   @override
   ConsumerState<_FavoriteStoryButton> createState() =>
@@ -802,7 +871,7 @@ class _FavoriteStoryButtonState extends ConsumerState<_FavoriteStoryButton> {
   }
 
   Future<void> _load() async {
-    if (widget.storyId.trim().isEmpty) {
+    if (widget.story.id.trim().isEmpty) {
       setState(() => _loading = false);
       return;
     }
@@ -810,7 +879,7 @@ class _FavoriteStoryButtonState extends ConsumerState<_FavoriteStoryButton> {
     try {
       final isFavorite = await ref
           .read(storyRepositoryProvider)
-          .isFavoriteStory(widget.storyId);
+          .isFavoriteStory(widget.story.id);
       if (mounted) {
         setState(() {
           _isFavorite = isFavorite;
@@ -823,7 +892,7 @@ class _FavoriteStoryButtonState extends ConsumerState<_FavoriteStoryButton> {
   }
 
   Future<void> _toggle() async {
-    if (_updating || widget.storyId.trim().isEmpty) return;
+    if (_updating || widget.story.id.trim().isEmpty) return;
     final next = !_isFavorite;
     setState(() {
       _isFavorite = next;
@@ -833,9 +902,16 @@ class _FavoriteStoryButtonState extends ConsumerState<_FavoriteStoryButton> {
     try {
       final repository = ref.read(storyRepositoryProvider);
       if (next) {
-        await repository.addFavoriteStory(widget.storyId);
+        await repository.addFavoriteStory(widget.story.id);
+        await PostHogAnalytics.instance.capture(
+          'story_favorited',
+          properties: _storyAnalyticsProperties(
+            widget.story,
+            source: 'story_list',
+          ),
+        );
       } else {
-        await repository.removeFavoriteStory(widget.storyId);
+        await repository.removeFavoriteStory(widget.story.id);
       }
     } catch (_) {
       if (mounted) setState(() => _isFavorite = !next);
@@ -860,6 +936,19 @@ class _FavoriteStoryButtonState extends ConsumerState<_FavoriteStoryButton> {
       ),
     );
   }
+}
+
+Map<String, Object?> _storyAnalyticsProperties(
+  StoryModel story, {
+  required String source,
+}) {
+  return {
+    'source': source,
+    'story_id': story.id,
+    'story_title': story.title,
+    'story_category': story.category,
+    'duration_minutes': story.durationMinutes,
+  };
 }
 
 class _DurationBadge extends StatelessWidget {

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_auth/smart_auth.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
@@ -77,6 +78,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   bool _showInvalidOtp = false;
   bool _hasRequestedPhoneNumberHint = false;
   bool _isListeningForOtp = false;
+  bool _didTrackOtpScreen = false;
   _WelcomeAuthStep _authStep = _WelcomeAuthStep.mobileNumber;
   String _otpValue = '';
   String _sentMobileNumber = '';
@@ -90,6 +92,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     super.initState();
     _mobileNumberFocusNode.addListener(_handleMobileNumberFocusChanged);
     _otpFocusNode.addListener(_handleOtpFocusChanged);
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'login_screen',
+        properties: {'source': 'app_start'},
+      ),
+    );
   }
 
   @override
@@ -153,6 +161,22 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       return;
     }
 
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'request_otp',
+        screenName: 'login_screen',
+        properties: {'source': 'phone_auth'},
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'signup_started',
+        properties: {
+          'screen_name': 'login_screen',
+          'auth_provider': 'phone_otp',
+        },
+      ),
+    );
     final localNumber = _mobileNumberController.text.trim();
     await _requestOtp(
       localNumber: localNumber,
@@ -220,6 +244,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           _authStep = _WelcomeAuthStep.otp;
         }
       });
+      if (moveToOtpStep) {
+        _trackOtpScreenOpened();
+      }
       unawaited(_listenForOtpFromSms());
       _startResendCooldown();
       _mobileNumberFocusNode.unfocus();
@@ -291,6 +318,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     }
 
     _clearMessage();
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'submit_otp',
+        screenName: 'otp_verification_screen',
+        properties: {'source': 'phone_auth'},
+      ),
+    );
     setState(() {
       _isVerifyingOtp = true;
     });
@@ -303,6 +337,15 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
         throw StateError('Phone OTP returned an anonymous identity.');
       }
       _hasAuthenticated = true;
+      unawaited(
+        PostHogAnalytics.instance.capture(
+          'login_completed',
+          properties: {
+            'screen_name': 'otp_verification_screen',
+            'auth_provider': 'phone_otp',
+          },
+        ),
+      );
     } catch (_) {
       _hasAuthenticated = false;
       if (!mounted) return;
@@ -323,6 +366,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     }
 
     unawaited(_stopListeningForOtpFromSms());
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'resend_otp',
+        screenName: 'otp_verification_screen',
+        properties: {'source': 'phone_auth'},
+      ),
+    );
     await _requestOtp(
       localNumber: _sentMobileNumber,
       e164Number: _sentE164MobileNumber,
@@ -399,6 +449,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 
   void _editMobileNumber() {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'edit_phone_number',
+        screenName: 'otp_verification_screen',
+        properties: {'source': 'phone_auth'},
+      ),
+    );
     setState(() {
       _authStep = _WelcomeAuthStep.mobileNumber;
       _otpValue = '';
@@ -417,6 +474,23 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
         _focusAndShowKeyboard(_mobileNumberFocusNode);
       }
     });
+  }
+
+  void _trackOtpScreenOpened() {
+    if (_didTrackOtpScreen) {
+      return;
+    }
+
+    _didTrackOtpScreen = true;
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'otp_verification_screen',
+        properties: {
+          'source': 'phone_auth',
+          'auth_provider': 'phone_otp',
+        },
+      ),
+    );
   }
 
   @override

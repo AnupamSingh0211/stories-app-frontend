@@ -88,7 +88,17 @@ class ProfileNotifier extends _$ProfileNotifier {
     if (kDebugMode) {
       debugPrint('ProfileNotifier: loading profiles for authenticated user');
     }
-    final children = await _repository.fetchChildProfiles();
+    final List<ChildProfileModel> children;
+    try {
+      children = await _repository.fetchChildProfiles();
+    } on BackendApiException catch (error) {
+      if (error.isUnauthorized) {
+        await ref.read(appAuthServiceProvider).signOut();
+        ref.invalidate(authSessionProvider);
+        return const ChildProfilesState();
+      }
+      rethrow;
+    }
     final selectedChildId = await _resolveSelectedChildId(userId, children);
     return ChildProfilesState(
       children: children,
@@ -218,7 +228,17 @@ class ProfileNotifier extends _$ProfileNotifier {
 
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final children = await _repository.fetchChildProfiles();
+      final List<ChildProfileModel> children;
+      try {
+        children = await _repository.fetchChildProfiles();
+      } on BackendApiException catch (error) {
+        if (error.isUnauthorized) {
+          await ref.read(appAuthServiceProvider).signOut();
+          ref.invalidate(authSessionProvider);
+          return const ChildProfilesState();
+        }
+        rethrow;
+      }
       final selectedId = await _resolveSelectedChildId(
         session.userId,
         children,

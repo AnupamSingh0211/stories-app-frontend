@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
@@ -20,10 +22,42 @@ class MembershipVerificationScreen extends StatefulWidget {
 class _MembershipVerificationScreenState
     extends State<MembershipVerificationScreen> {
   final List<String> _digits = [];
+  bool _didTrackCompletion = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'membership_verification_screen',
+        properties: {'source': 'subscription_flow'},
+      ),
+    );
+  }
 
   void _enterDigit(String digit) {
     if (_digits.length == _VerificationLayout.yearLength) return;
     setState(() => _digits.add(digit));
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'verification_digit',
+        screenName: 'membership_verification_screen',
+        properties: {'source': 'parent_gate'},
+      ),
+    );
+    if (_digits.length == _VerificationLayout.yearLength &&
+        !_didTrackCompletion) {
+      _didTrackCompletion = true;
+      unawaited(
+        PostHogAnalytics.instance.capture(
+          'subscription_completed',
+          properties: {
+            'screen_name': 'membership_verification_screen',
+            'source': 'parent_gate',
+          },
+        ),
+      );
+    }
   }
 
   @override
@@ -150,7 +184,25 @@ class _VerificationHeader extends StatelessWidget {
                 label: 'Back',
                 child: InkResponse(
                   key: const ValueKey('membershipVerificationBackButton'),
-                  onTap: () => Navigator.of(context).maybePop(),
+                  onTap: () {
+                    unawaited(
+                      PostHogAnalytics.instance.capture(
+                        'back_clicked',
+                        properties: {
+                          'screen_name': 'membership_verification_screen',
+                          'source': 'verification_header',
+                        },
+                      ),
+                    );
+                    unawaited(
+                      PostHogAnalytics.instance.buttonClicked(
+                        buttonName: 'back',
+                        screenName: 'membership_verification_screen',
+                        properties: {'source': 'verification_header'},
+                      ),
+                    );
+                    Navigator.of(context).maybePop();
+                  },
                   radius: 24,
                   child: const SizedBox.square(
                     dimension: 24,

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/analytics_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/app_screen_background.dart';
@@ -24,14 +27,90 @@ const _baseWidth = 390.0;
 const _episodeHeroWidth = 359.0;
 const _episodeHeroHeight = 202.0;
 
-class EpisodesScreen extends ConsumerWidget {
+class EpisodesScreen extends ConsumerStatefulWidget {
   const EpisodesScreen({this.storyCard, this.assetUrlBuilder, super.key});
 
   final StoryCardModel? storyCard;
   final EpisodeAssetUrlBuilder? assetUrlBuilder;
 
+  @override
+  ConsumerState<EpisodesScreen> createState() => _EpisodesScreenState();
+}
+
+class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
+  final ScrollController _episodesScrollController = ScrollController();
+  bool _hasTrackedStoryListEnd = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _episodesScrollController.addListener(_trackStoryListEndIfNeeded);
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'episodes_screen',
+        properties: {
+          'source': 'story_card',
+          'story_card_id':
+              widget.storyCard?.id ?? StoryRepository.krishnaStoryCardId,
+        },
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_list_viewed',
+        properties: {
+          'screen_name': 'episodes_screen',
+          'source': 'episodes_list',
+          'story_card_id':
+              widget.storyCard?.id ?? StoryRepository.krishnaStoryCardId,
+          'story_card_title': widget.storyCard?.title ?? _storyTitle,
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _episodesScrollController
+      ..removeListener(_trackStoryListEndIfNeeded)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _trackStoryListEndIfNeeded() {
+    if (_hasTrackedStoryListEnd || !_episodesScrollController.hasClients) {
+      return;
+    }
+
+    final position = _episodesScrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    const bottomThreshold = 80.0;
+    final isNearBottom =
+        position.pixels >= position.maxScrollExtent - bottomThreshold;
+    if (!isNearBottom) {
+      return;
+    }
+
+    _hasTrackedStoryListEnd = true;
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_list_end_reached',
+        properties: {
+          'screen_name': 'episodes_screen',
+          'source': 'episodes_list',
+          'story_card_id':
+              widget.storyCard?.id ?? StoryRepository.krishnaStoryCardId,
+          'story_card_title': widget.storyCard?.title ?? _storyTitle,
+        },
+      ),
+    );
+  }
+
   String _assetUrl(String bucket, String path) {
-    final builder = assetUrlBuilder;
+    final builder = widget.assetUrlBuilder;
     if (builder != null) {
       return builder(bucket, path);
     }
@@ -40,8 +119,8 @@ class EpisodesScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectedCard = storyCard;
+  Widget build(BuildContext context) {
+    final selectedCard = widget.storyCard;
     final bannerUrl =
         selectedCard?.heroBannerUrl ?? _assetUrl('app-assets', _bannerPath);
     final cmsStoriesState = selectedCard == null
@@ -65,6 +144,7 @@ class EpisodesScreen extends ConsumerWidget {
                 .toDouble();
 
             return CustomScrollView(
+              controller: _episodesScrollController,
               physics: const ClampingScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
@@ -74,7 +154,25 @@ class EpisodesScreen extends ConsumerWidget {
                     bottom: false,
                     child: _TopBar(
                       scale: scale,
-                      onBack: () => Navigator.maybePop(context),
+                      onBack: () {
+                        unawaited(
+                          PostHogAnalytics.instance.capture(
+                            'back_clicked',
+                            properties: {
+                              'screen_name': 'episodes_screen',
+                              'source': 'episodes_header',
+                            },
+                          ),
+                        );
+                        unawaited(
+                          PostHogAnalytics.instance.buttonClicked(
+                            buttonName: 'back',
+                            screenName: 'episodes_screen',
+                            properties: {'source': 'episodes_header'},
+                          ),
+                        );
+                        Navigator.maybePop(context);
+                      },
                     ),
                   ),
                 ),
@@ -179,6 +277,17 @@ class EpisodesScreen extends ConsumerWidget {
   }
 
   void _openEpisode(BuildContext context, _EpisodeItem episode) {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'episode',
+        screenName: 'episodes_screen',
+        properties: {
+          'source': 'episodes_list',
+          'target_type': 'episode',
+          'target_id': episode.id,
+        },
+      ),
+    );
     final story = episode.story;
     if (story != null) {
       Navigator.of(context).push(

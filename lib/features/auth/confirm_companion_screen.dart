@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import '../../shared/widgets/pill_button.dart';
@@ -9,7 +12,7 @@ import 'companion_flow.dart';
 import 'companion_model.dart';
 import 'companion_notifier.dart';
 
-class ConfirmCompanionScreen extends ConsumerWidget {
+class ConfirmCompanionScreen extends ConsumerStatefulWidget {
   const ConfirmCompanionScreen({
     required this.companion,
     super.key,
@@ -20,7 +23,24 @@ class ConfirmCompanionScreen extends ConsumerWidget {
   final CompanionFlowComplete? onComplete;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConfirmCompanionScreen> createState() =>
+      _ConfirmCompanionScreenState();
+}
+
+class _ConfirmCompanionScreenState extends ConsumerState<ConfirmCompanionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'confirm_companion_screen',
+        properties: {'source': 'profile_selection_screen'},
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
@@ -41,9 +61,31 @@ class ConfirmCompanionScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _TopBar(onBack: () => Navigator.pop(context)),
+                          _TopBar(
+                            onBack: () {
+                              unawaited(
+                                PostHogAnalytics.instance.capture(
+                                  'back_clicked',
+                                  properties: {
+                                    'screen_name': 'confirm_companion_screen',
+                                    'source': 'confirm_companion_header',
+                                  },
+                                ),
+                              );
+                              unawaited(
+                                PostHogAnalytics.instance.buttonClicked(
+                                  buttonName: 'back',
+                                  screenName: 'confirm_companion_screen',
+                                  properties: {
+                                    'source': 'confirm_companion_header',
+                                  },
+                                ),
+                              );
+                              Navigator.pop(context);
+                            },
+                          ),
                           const SizedBox(height: 46),
-                          _CompanionPortrait(companion: companion),
+                          _CompanionPortrait(companion: widget.companion),
                           const SizedBox(height: 48),
                           Text(
                             'Your Eternal Friend',
@@ -57,7 +99,7 @@ class ConfirmCompanionScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 20),
                           Text(
-                            companion.longDescription,
+                            widget.companion.longDescription,
                             textAlign: TextAlign.center,
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: colors.onSurface.withValues(alpha: 0.68),
@@ -70,12 +112,22 @@ class ConfirmCompanionScreen extends ConsumerWidget {
                           const SizedBox(height: 54),
                           PillButton(
                             onTap: () async {
+                              unawaited(
+                                PostHogAnalytics.instance.buttonClicked(
+                                  buttonName: 'confirm_companion',
+                                  screenName: 'confirm_companion_screen',
+                                  properties: {
+                                    'source': 'confirm_companion_cta',
+                                    'target_type': 'companion',
+                                  },
+                                ),
+                              );
                               ref
                                   .read(companionNotifierProvider.notifier)
-                                  .selectCompanion(companion);
+                                  .selectCompanion(widget.companion);
 
                               if (!context.mounted) return;
-                              final onComplete = this.onComplete;
+                              final onComplete = widget.onComplete;
                               if (onComplete != null) {
                                 onComplete(context);
                                 return;
@@ -106,7 +158,18 @@ class ConfirmCompanionScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 22),
                           TextButton.icon(
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () {
+                              unawaited(
+                                PostHogAnalytics.instance.buttonClicked(
+                                  buttonName: 'change_companion',
+                                  screenName: 'confirm_companion_screen',
+                                  properties: {
+                                    'source': 'confirm_companion_footer',
+                                  },
+                                ),
+                              );
+                              Navigator.pop(context);
+                            },
                             icon: Icon(
                               Icons.swap_horiz_rounded,
                               color: colors.onSurface.withValues(alpha: 0.7),

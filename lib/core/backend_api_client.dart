@@ -39,22 +39,28 @@ abstract interface class BackendTransport {
 }
 
 class HttpBackendTransport implements BackendTransport {
-  HttpBackendTransport({http.Client? client})
-    : _client = client ?? http.Client();
+  HttpBackendTransport({
+    http.Client? client,
+    Duration requestTimeout = const Duration(seconds: 15),
+  }) : _client = client ?? http.Client(),
+       _requestTimeout = requestTimeout;
 
   final http.Client _client;
+  final Duration _requestTimeout;
 
   @override
   Future<BackendTransportResponse> send(BackendTransportRequest request) async {
-    final response = await _client.send(
-      http.Request(request.method, request.uri)
-        ..headers.addAll(request.headers)
-        ..body = request.body ?? '',
-    );
+    final response = await _client
+        .send(
+          http.Request(request.method, request.uri)
+            ..headers.addAll(request.headers)
+            ..body = request.body ?? '',
+        )
+        .timeout(_requestTimeout);
 
     return BackendTransportResponse(
       statusCode: response.statusCode,
-      body: await response.stream.bytesToString(),
+      body: await response.stream.bytesToString().timeout(_requestTimeout),
       headers: response.headers,
     );
   }
@@ -235,14 +241,25 @@ class BackendApiClient {
       encodedBody = jsonEncode(body);
     }
 
-    final response = await _transport.send(
-      BackendTransportRequest(
-        method: method,
-        uri: uri,
-        headers: headers,
-        body: encodedBody,
-      ),
-    );
+    final BackendTransportResponse response;
+    try {
+      response = await _transport.send(
+        BackendTransportRequest(
+          method: method,
+          uri: uri,
+          headers: headers,
+          body: encodedBody,
+        ),
+      );
+    } on TimeoutException {
+      throw const BackendApiException(
+        'The backend request timed out. Please check your connection and backend URL.',
+      );
+    } on http.ClientException catch (error) {
+      throw BackendApiException(
+        'Could not connect to the backend. ${error.message}',
+      );
+    }
 
     final decoded = _decodeResponseBody(response.body);
     if (response.statusCode == 401 || response.statusCode == 403) {

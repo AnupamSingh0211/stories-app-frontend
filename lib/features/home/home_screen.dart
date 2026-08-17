@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/custom_search_bar.dart';
@@ -39,11 +41,66 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _bottomNavIndex = 0;
   final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _homeScrollController = ScrollController();
+  bool _hasTrackedStoryListEnd = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _homeScrollController.addListener(_trackStoryListEndIfNeeded);
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'home_screen',
+        properties: {'source': 'app_navigation'},
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_list_viewed',
+        properties: {
+          'screen_name': 'home_screen',
+          'source': 'home_story_cards',
+        },
+      ),
+    );
+  }
 
   @override
   void dispose() {
+    _homeScrollController
+      ..removeListener(_trackStoryListEndIfNeeded)
+      ..dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _trackStoryListEndIfNeeded() {
+    if (_hasTrackedStoryListEnd || !_homeScrollController.hasClients) {
+      return;
+    }
+
+    final position = _homeScrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    const bottomThreshold = 80.0;
+    final isNearBottom =
+        position.pixels >= position.maxScrollExtent - bottomThreshold;
+    if (!isNearBottom) {
+      return;
+    }
+
+    _hasTrackedStoryListEnd = true;
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_list_end_reached',
+        properties: {
+          'screen_name': 'home_screen',
+          'source': 'home_story_cards',
+        },
+      ),
+    );
   }
 
   @override
@@ -90,6 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       }
 
                       return SingleChildScrollView(
+                        controller: _homeScrollController,
                         physics: const ClampingScrollPhysics(),
                         padding: EdgeInsets.fromLTRB(
                           horizontal,
@@ -168,6 +226,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   onTap: (index) {
                     _dismissSearchFocus();
                     if (index == 3) {
+                      unawaited(
+                        PostHogAnalytics.instance.buttonClicked(
+                          buttonName: 'profile_tab',
+                          screenName: 'home_screen',
+                          properties: {'source': 'bottom_nav'},
+                        ),
+                      );
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (context) => ProfileScreen(
@@ -180,6 +245,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       return;
                     }
 
+                    unawaited(
+                      PostHogAnalytics.instance.buttonClicked(
+                        buttonName: 'bottom_nav_item',
+                        screenName: 'home_screen',
+                        properties: {
+                          'source': 'bottom_nav',
+                          'target_index': index,
+                        },
+                      ),
+                    );
                     setState(() => _bottomNavIndex = index);
                   },
                 ),
@@ -204,6 +279,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _openFavorites(BuildContext context) {
     _dismissSearchFocus();
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'favorites',
+        screenName: 'home_screen',
+        properties: {'source': 'home_header'},
+      ),
+    );
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'favorites_clicked',
+        properties: {
+          'screen_name': 'home_screen',
+          'source': 'home_header',
+        },
+      ),
+    );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const LibrarySectionsScreen(),
@@ -515,15 +606,41 @@ class _TwoColumnStoryGrid extends StatelessWidget {
                       imageUrl: story.thumbnailUrl,
                       episodeCount: story.episodeCountLabel,
                       imageHeight: 184 * scale,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) =>
-                              EpisodesScreen(storyCard: story.storyCard),
-                        ),
-                      ),
+                      onTap: () {
+                        unawaited(
+                          PostHogAnalytics.instance.capture(
+                            'home_story_card_clicked',
+                            properties: {
+                              'screen_name': 'home_screen',
+                              'source': 'home_story_cards',
+                              'story_card_id': story.storyCard?.id ?? story.id,
+                            },
+                          ),
+                        );
+                        unawaited(
+                          PostHogAnalytics.instance.buttonClicked(
+                            buttonName: 'story_card',
+                            screenName: 'home_screen',
+                            properties: {
+                              'source': 'home_story_cards',
+                              'target_type': 'story_card',
+                              'target_id': story.storyCard?.id ?? story.id,
+                            },
+                          ),
+                        );
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                EpisodesScreen(storyCard: story.storyCard),
+                          ),
+                        );
+                      },
                       isFavorite:
                           story.favoriteStory != null &&
-                          favoriteStoryIds.contains(story.id),
+                          (favoriteStoryIds.contains(story.id) ||
+                              favoriteStoryIds.contains(
+                                story.favoriteStory!.id,
+                              )),
                       onFavoriteTap: () {
                         final favoriteStory = story.favoriteStory;
                         if (favoriteStory == null) {
@@ -531,7 +648,10 @@ class _TwoColumnStoryGrid extends StatelessWidget {
                         }
                         ref
                             .read(favoriteStoriesProvider.notifier)
-                            .toggleStory(favoriteStory);
+                            .toggleStory(
+                              favoriteStory,
+                              source: 'home_story_card',
+                            );
                       },
                     );
                   },

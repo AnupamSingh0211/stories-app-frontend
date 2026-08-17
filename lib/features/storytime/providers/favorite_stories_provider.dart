@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/analytics_service.dart';
 import '../models/story_model.dart';
 import '../repositories/story_repository.dart';
 import 'story_player_provider.dart';
@@ -14,16 +17,22 @@ class FavoriteStoriesNotifier extends StateNotifier<List<StoryModel>> {
     return state.any((story) => story.id == storyId);
   }
 
-  Future<void> toggleStory(StoryModel story) async {
+  Future<void> toggleStory(
+    StoryModel story, {
+    String source = 'story_card',
+  }) async {
     if (isFavorite(story.id)) {
       await removeStory(story.id);
       return;
     }
 
-    await addStory(story);
+    await addStory(story, source: source);
   }
 
-  Future<void> addStory(StoryModel story) async {
+  Future<void> addStory(
+    StoryModel story, {
+    String source = 'story_card',
+  }) async {
     if (isFavorite(story.id)) return;
 
     state = [story, ...state];
@@ -32,6 +41,10 @@ class FavoriteStoriesNotifier extends StateNotifier<List<StoryModel>> {
     } catch (error) {
       debugPrint('FavoriteStoriesNotifier: backend add failed. $error');
     }
+    await PostHogAnalytics.instance.capture(
+      'story_favorited',
+      properties: _favoriteAnalyticsProperties(story, source: source),
+    );
   }
 
   Future<void> removeStory(String storyId) async {
@@ -59,18 +72,24 @@ class FavoriteEpisodesNotifier extends StateNotifier<List<StoryModel>> {
     return state.any((story) => story.id == storyId);
   }
 
-  void toggleEpisode(StoryModel episode) {
+  void toggleEpisode(StoryModel episode, {String source = 'episode_player'}) {
     if (isFavorite(episode.id)) {
       removeEpisode(episode.id);
       return;
     }
 
-    addEpisode(episode);
+    addEpisode(episode, source: source);
   }
 
-  void addEpisode(StoryModel episode) {
+  void addEpisode(StoryModel episode, {String source = 'episode_player'}) {
     if (isFavorite(episode.id)) return;
     state = [episode, ...state];
+    unawaited(
+      PostHogAnalytics.instance.capture(
+        'story_favorited',
+        properties: _favoriteAnalyticsProperties(episode, source: source),
+      ),
+    );
   }
 
   void removeEpisode(String storyId) {
@@ -85,3 +104,16 @@ final favoriteEpisodesProvider =
     StateNotifierProvider<FavoriteEpisodesNotifier, List<StoryModel>>((ref) {
       return FavoriteEpisodesNotifier();
     });
+
+Map<String, Object?> _favoriteAnalyticsProperties(
+  StoryModel story, {
+  required String source,
+}) {
+  return {
+    'source': source,
+    'story_id': story.id,
+    'story_title': story.title,
+    'story_category': story.category,
+    'duration_minutes': story.durationMinutes,
+  };
+}

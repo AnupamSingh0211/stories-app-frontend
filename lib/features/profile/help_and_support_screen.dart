@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
@@ -19,6 +21,17 @@ class HelpAndSupportScreen extends StatefulWidget {
 
 class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
   int? _expandedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'help_and_support_screen',
+        properties: {'source': 'profile_screen'},
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +70,16 @@ class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
                         _FaqList(
                           expandedIndex: _expandedIndex,
                           onToggle: (index) {
+                            unawaited(
+                              PostHogAnalytics.instance.buttonClicked(
+                                buttonName: 'faq_item',
+                                screenName: 'help_and_support_screen',
+                                properties: {
+                                  'source': 'faq_list',
+                                  'target_index': index,
+                                },
+                              ),
+                            );
                             setState(() {
                               _expandedIndex = _expandedIndex == index
                                   ? null
@@ -102,7 +125,25 @@ class _HelpHeader extends StatelessWidget {
           SizedBox.square(
             dimension: 24 * scale,
             child: InkResponse(
-              onTap: () => Navigator.of(context).maybePop(),
+              onTap: () {
+                unawaited(
+                  PostHogAnalytics.instance.capture(
+                    'back_clicked',
+                    properties: {
+                      'screen_name': 'help_and_support_screen',
+                      'source': 'help_header',
+                    },
+                  ),
+                );
+                unawaited(
+                  PostHogAnalytics.instance.buttonClicked(
+                    buttonName: 'back',
+                    screenName: 'help_and_support_screen',
+                    properties: {'source': 'help_header'},
+                  ),
+                );
+                Navigator.of(context).maybePop();
+              },
               radius: 24 * scale,
               child: Icon(
                 Icons.arrow_back_rounded,

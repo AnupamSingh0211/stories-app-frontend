@@ -49,6 +49,7 @@ dependencies:
   smart_auth: ^3.2.0
   image_picker: ^1.1.2
   share_plus: ^10.1.4
+  posthog_flutter: ^5.36.2
 
 dev_dependencies:
   flutter_test:

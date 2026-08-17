@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_bottom_navigation.dart';
@@ -102,6 +103,28 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
   bool _didPrecacheFavoriteMascot = false;
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PostHogAnalytics.instance.screenOpened(
+        'library_screen',
+        properties: {
+          'source': 'app_navigation',
+          'initial_section': widget.initialSection.name,
+        },
+      ),
+    );
+    if (widget.initialSection == LibrarySection.favourites) {
+      unawaited(
+        PostHogAnalytics.instance.screenOpened(
+          'favorites_screen',
+          properties: {'source': 'library_screen'},
+        ),
+      );
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_didPrecacheFavoriteMascot) {
@@ -165,9 +188,17 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
                       onProfileTap: () =>
                           _openProfile(context, childName, selectedChild?.age),
                       onSearchTap: () {
+                        unawaited(
+                          PostHogAnalytics.instance.buttonClicked(
+                            buttonName: 'library_search',
+                            screenName: 'library_screen',
+                            properties: {'source': 'library_header'},
+                          ),
+                        );
                         setState(() => _showSearch = !_showSearch);
                       },
                       onFavoritesTap: () {
+                        _trackLibrarySectionSelected(LibrarySection.favourites);
                         setState(() {
                           _selectedSection = LibrarySection.favourites;
                         });
@@ -186,6 +217,7 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
                     _LibrarySectionTabs(
                       selectedSection: _selectedSection,
                       onSelected: (section) {
+                        _trackLibrarySectionSelected(section);
                         setState(() => _selectedSection = section);
                       },
                     ),
@@ -238,6 +270,19 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _trackLibrarySectionSelected(LibrarySection section) {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'library_section',
+        screenName: 'library_screen',
+        properties: {
+          'source': 'library_tabs',
+          'section': section.name,
+        },
       ),
     );
   }
@@ -307,6 +352,18 @@ class _FavouritesScreen extends ConsumerWidget {
                                       story: story,
                                       scale: scale,
                                       onFavoriteTap: () {
+                                        unawaited(
+                                          PostHogAnalytics.instance.capture(
+                                            'favorite_removed',
+                                            properties: {
+                                              'screen_name':
+                                                  'favorites_screen',
+                                              'source': 'favorites_story_card',
+                                              'target_type': 'story',
+                                              'target_id': story.id,
+                                            },
+                                          ),
+                                        );
                                         ref
                                             .read(
                                               favoriteStoriesProvider.notifier,
@@ -349,6 +406,19 @@ class _FavouritesScreen extends ConsumerWidget {
                                       scale: scale,
                                       opensDirectly: true,
                                       onFavoriteTap: () {
+                                        unawaited(
+                                          PostHogAnalytics.instance.capture(
+                                            'favorite_removed',
+                                            properties: {
+                                              'screen_name':
+                                                  'favorites_screen',
+                                              'source':
+                                                  'favorites_episode_card',
+                                              'target_type': 'episode',
+                                              'target_id': episode.id,
+                                            },
+                                          ),
+                                        );
                                         ref
                                             .read(
                                               favoriteEpisodesProvider.notifier,
