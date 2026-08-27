@@ -208,8 +208,17 @@ class BackendApiClient {
     return _stringKeyedMap(data);
   }
 
-  Future<void> delete(String path, {bool authenticated = false}) async {
-    await _request(method: 'DELETE', path: path, authenticated: authenticated);
+  Future<void> delete(
+    String path, {
+    bool authenticated = false,
+    Map<String, String>? queryParameters,
+  }) async {
+    await _request(
+      method: 'DELETE',
+      path: path,
+      authenticated: authenticated,
+      queryParameters: queryParameters,
+    );
   }
 
   Future<dynamic> _request({

@@ -14,10 +14,12 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
   StoryPlayerNotifier(
     this._repository, {
     required String storyId,
+    String? profileId,
     int initialPageIndex = 0,
     Duration initialAudioPosition = Duration.zero,
     StoryAudioPreloader? audioPreloader,
   }) : _storyId = storyId,
+       _profileId = profileId,
        _initialPageIndex = initialPageIndex,
        _initialAudioPosition = initialAudioPosition,
        _audioPreloader = audioPreloader ?? JustAudioStoryAudioPreloader(),
@@ -37,6 +39,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
   final StoryRepository _repository;
   final String _storyId;
+  final String? _profileId;
   final int _initialPageIndex;
   final Duration _initialAudioPosition;
   final StoryAudioPreloader _audioPreloader;
@@ -194,9 +197,9 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
     try {
       if (wasFavorite) {
-        await _repository.removeFavoriteStory(_storyId);
+        await _repository.removeFavoriteStory(_storyId, profileId: _profileId);
       } else {
-        await _repository.addFavoriteStory(_storyId);
+        await _repository.addFavoriteStory(_storyId, profileId: _profileId);
         await PostHogAnalytics.instance.capture(
           'story_favorited',
           properties: {'source': 'story_player', 'story_id': _storyId},
@@ -297,7 +300,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
     final transitionStopwatch = Stopwatch()..start();
     final previousPageIndex = state.currentPageIndex;
     if (state.pages.isEmpty) {
-      _setError('This story does not have any pages yet.');
+      _setError('This story does not have any episodes yet.');
       return;
     }
     if (pageIndex < 0 || pageIndex >= state.pages.length) {
@@ -307,7 +310,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
     final page = state.pages[pageIndex];
     if (page.audioUrl.isEmpty) {
-      _setError('This story page is missing audio.');
+      _setError('This episode is missing audio.');
       return;
     }
 
@@ -360,7 +363,7 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
       if (_disposed || loadGeneration != _audioLoadGeneration) {
         return;
       }
-      _setError('This story page could not be played. Please try again.');
+      _setError('This episode could not be played. Please try again.');
     } finally {
       if (loadGeneration == _audioLoadGeneration) {
         _isPreparingPageAudio = false;
@@ -491,7 +494,10 @@ class StoryPlayerNotifier extends StateNotifier<StoryPlayerState> {
 
   Future<void> _loadFavorite() async {
     try {
-      final isFavorite = await _repository.isFavoriteStory(_storyId);
+      final isFavorite = await _repository.isFavoriteStory(
+        _storyId,
+        profileId: _profileId,
+      );
       if (!_disposed) {
         state = state.copyWith(isFavorite: isFavorite);
       }

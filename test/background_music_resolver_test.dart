@@ -1,41 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dharma_app/features/storytime/audio/background_music_resolver.dart';
-import 'package:dharma_app/features/storytime/repositories/story_repository.dart';
 
 void main() {
-  test('returns story one background music for Kanha Ki Sunheri Subah', () {
+  test('returns common background music for CMS stories', () {
     final asset = backgroundMusicAssetForStory(
-      storyId: StoryRepository.morningWhispersStoryId,
+      storyId: 'cms-story-1',
       locale: 'en-IN',
     );
 
     expect(asset, commonStoryBackgroundMusicAsset);
   });
 
-  test('returns story two background music for Kanha Ke Aane Ki Khabar', () {
+  test('unsupported locale still resolves safely', () {
     final asset = backgroundMusicAssetForStory(
-      storyId: StoryRepository.arrivalNewsStoryId,
-      locale: 'hi-IN',
-    );
-
-    expect(asset, commonStoryBackgroundMusicAsset);
-  });
-
-  test('unsupported locale still resolves known story safely', () {
-    final asset = backgroundMusicAssetForStory(
-      storyId: StoryRepository.morningWhispersStoryId,
+      storyId: 'cms-story-1',
       locale: 'fr-FR',
     );
 
     expect(asset, commonStoryBackgroundMusicAsset);
   });
 
-  test('unknown story has no background music asset', () {
-    final asset = backgroundMusicAssetForStory(
-      storyId: 'unknown-story',
-      locale: 'en-IN',
-    );
+  test('blank story has no background music asset', () {
+    final asset = backgroundMusicAssetForStory(storyId: '', locale: 'en-IN');
 
     expect(asset, isNull);
   });

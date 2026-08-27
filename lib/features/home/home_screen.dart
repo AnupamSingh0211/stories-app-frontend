@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/analytics_service.dart';
+import '../../core/supabase_config.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/custom_search_bar.dart';
@@ -21,25 +22,30 @@ import '../storytime/providers/favorite_stories_provider.dart';
 import '../storytime/providers/story_player_provider.dart';
 import '../storytime/repositories/story_repository.dart';
 import '../storytime/screens/episodes_screen.dart';
+import '../storytime/screens/story_player_screen.dart';
 
-const String _supabaseAssetBase =
-    'https://ozdvhjcumeujfxodiawc.supabase.co/storage/v1/object/public/app-assets/';
 const double _figmaWidth = 390;
 const double _homeHeroBannerWidth = 359;
 const double _homeHeroBannerHeight = 202;
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key, this.childName, this.childAge});
+  const HomeScreen({
+    super.key,
+    this.childName,
+    this.childAge,
+    this.initialTab = 0,
+  });
 
   final String? childName;
   final int? childAge;
+  final int initialTab;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _bottomNavIndex = 0;
+  late int _bottomNavIndex;
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _homeScrollController = ScrollController();
   bool _hasTrackedStoryListEnd = false;
@@ -47,6 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _bottomNavIndex = widget.initialTab.clamp(0, 2);
     _homeScrollController.addListener(_trackStoryListEndIfNeeded);
     unawaited(
       PostHogAnalytics.instance.screenOpened(
@@ -114,7 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ]);
     final contentState = ref.watch(storytimeContentProvider);
     final storyCardsState = ref.watch(storyCardsProvider);
-    final favoriteStories = ref.watch(favoriteStoriesProvider);
+    final favoriteStoryCards = ref.watch(favoriteStoryCardsProvider);
 
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
@@ -138,6 +145,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       final homeStories = _homeStoryCards(
                         storyCardsState.valueOrNull ?? const [],
                       );
+
+                      if (_bottomNavIndex == 1) {
+                        return _PopularTab(
+                          scale: scale,
+                          stories:
+                              contentState.valueOrNull?.popularStories ??
+                              const [],
+                          onBack: () => setState(() => _bottomNavIndex = 0),
+                        );
+                      }
 
                       if (_bottomNavIndex == 2) {
                         return _ComingSoonTab(
@@ -166,32 +183,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             SizedBox(height: 24 * scale),
                             CustomSearchBar(focusNode: _searchFocusNode),
                             SizedBox(height: 20 * scale),
-                            _HeroBanner(
-                              banner: banner,
-                              scale: scale,
-                              width: heroWidth,
-                              height: _homeHeroBannerHeight * scale,
-                            ),
-                            SizedBox(height: 22 * scale),
+                            if (banner != null) ...[
+                              _HeroBanner(
+                                banner: banner,
+                                scale: scale,
+                                width: heroWidth,
+                                height: _homeHeroBannerHeight * scale,
+                              ),
+                              SizedBox(height: 22 * scale),
+                            ],
                             _SectionTitle('Top Picks for You', scale: scale),
                             SizedBox(height: 12 * scale),
                             _TwoColumnStoryGrid(
                               scale: scale,
                               stories: homeStories.take(2).toList(),
                               favoriteStoryIds: {
-                                for (final story in favoriteStories) story.id,
+                                for (final card in favoriteStoryCards) card.id,
                               },
                             ),
-                            SizedBox(height: 22 * scale),
-                            _SectionTitle('Made for You', scale: scale),
-                            SizedBox(height: 12 * scale),
-                            _TwoColumnStoryGrid(
-                              scale: scale,
-                              stories: homeStories.skip(2).toList(),
-                              favoriteStoryIds: {
-                                for (final story in favoriteStories) story.id,
-                              },
-                            ),
+                            if (homeStories.length > 2) ...[
+                              SizedBox(height: 22 * scale),
+                              _SectionTitle('Made for You', scale: scale),
+                              SizedBox(height: 12 * scale),
+                              _TwoColumnStoryGrid(
+                                scale: scale,
+                                stories: homeStories.skip(2).toList(),
+                                favoriteStoryIds: {
+                                  for (final card in favoriteStoryCards)
+                                    card.id,
+                                },
+                              ),
+                            ],
+                            if (homeStories.isEmpty) ...[
+                              SizedBox(height: 16 * scale),
+                              Text(
+                                'No stories available yet.',
+                                textAlign: TextAlign.center,
+                                style: AppTypography.bodySmallMedium.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.72),
+                                ),
+                              ),
+                            ],
                             if (contentState.hasError) ...[
                               SizedBox(height: 16 * scale),
                               Text(
@@ -266,14 +298,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  _HomeBannerData _resolveBanner(StorytimeContent? content) {
+  _HomeBannerData? _resolveBanner(StorytimeContent? content) {
     final banner = content?.featuredBanners.firstOrNull;
+    if (banner == null) {
+      return null;
+    }
+
     return _HomeBannerData(
-      imageUrl:
-          banner?.imageUrl ??
-          '${_supabaseAssetBase}featured_banners/krishna ki sunheri subah.webp',
-      title: 'Kanha Ki Sunheri Subah',
-      subtitle: 'TONIGHT',
+      imageUrl: banner.imageUrl,
+      title: banner.title,
+      subtitle: banner.subtitle,
     );
   }
 
@@ -289,10 +323,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     unawaited(
       PostHogAnalytics.instance.capture(
         'favorites_clicked',
-        properties: {
-          'screen_name': 'home_screen',
-          'source': 'home_header',
-        },
+        properties: {'screen_name': 'home_screen', 'source': 'home_header'},
       ),
     );
     Navigator.of(context).push(
@@ -312,20 +343,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   List<_HomeStoryCard> _homeStoryCards(List<StoryCardModel> cmsCards) {
-    final cards = _hardcodedHomeStoryCards.toList(growable: true);
-    final existingDatabaseIds = cards
-        .map((card) => card.storyCard?.id)
-        .whereType<String>()
-        .toSet();
-
-    for (final card in cmsCards) {
-      if (existingDatabaseIds.contains(card.id)) {
-        continue;
-      }
-      cards.add(_HomeStoryCard.cms(card));
-    }
-
-    return List.unmodifiable(cards);
+    return List.unmodifiable(cmsCards.map(_HomeStoryCard.cms));
   }
 }
 
@@ -636,22 +654,25 @@ class _TwoColumnStoryGrid extends StatelessWidget {
                         );
                       },
                       isFavorite:
-                          story.favoriteStory != null &&
-                          (favoriteStoryIds.contains(story.id) ||
-                              favoriteStoryIds.contains(
-                                story.favoriteStory!.id,
-                              )),
+                          story.storyCard != null &&
+                          favoriteStoryIds.contains(story.storyCard!.id),
                       onFavoriteTap: () {
-                        final favoriteStory = story.favoriteStory;
-                        if (favoriteStory == null) {
+                        final storyCard = story.storyCard;
+                        if (storyCard == null) {
+                          _showFavoriteError(
+                            context,
+                            'This story card is not available to favorite yet.',
+                          );
                           return;
                         }
-                        ref
-                            .read(favoriteStoriesProvider.notifier)
-                            .toggleStory(
-                              favoriteStory,
-                              source: 'home_story_card',
-                            );
+                        unawaited(
+                          _toggleFavoriteStoryCard(
+                            context,
+                            ref,
+                            storyCard,
+                            source: 'home_story_card',
+                          ),
+                        );
                       },
                     );
                   },
@@ -664,6 +685,141 @@ class _TwoColumnStoryGrid extends StatelessWidget {
   }
 }
 
+class _PopularTab extends StatelessWidget {
+  const _PopularTab({
+    required this.scale,
+    required this.stories,
+    required this.onBack,
+  });
+
+  final double scale;
+  final List<StoryModel> stories;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = 118 * scale + MediaQuery.paddingOf(context).bottom;
+
+    return CustomScrollView(
+      physics: const ClampingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: _TabHeader(title: 'Popular', scale: scale, onBack: onBack),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            16 * scale,
+            0,
+            16 * scale,
+            bottomPadding,
+          ),
+          sliver: stories.isEmpty
+              ? SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _TabEmptyState(
+                    scale: scale,
+                    icon: Icons.auto_awesome_rounded,
+                    title: 'No popular stories yet.',
+                    subtitle:
+                        'Popular picks will appear here as children listen.',
+                  ),
+                )
+              : SliverList.separated(
+                  itemCount: stories.length,
+                  separatorBuilder: (context, index) =>
+                      SizedBox(height: 12 * scale),
+                  itemBuilder: (context, index) {
+                    final story = stories[index];
+                    return _PopularStoryTile(story: story, scale: scale);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PopularStoryTile extends StatelessWidget {
+  const _PopularStoryTile({required this.story, required this.scale});
+
+  final StoryModel story;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (context) => StoryPlayerScreen(
+              storyId: story.id,
+              title: story.title,
+              story: story,
+            ),
+          ),
+        );
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.backgroundGlass,
+          borderRadius: BorderRadius.circular(12 * scale),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(12 * scale),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8 * scale),
+                child: SizedBox.square(
+                  dimension: 72 * scale,
+                  child: Image.network(
+                    story.thumbnailUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return ColoredBox(
+                        color: Colors.white.withValues(alpha: 0.18),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              SizedBox(width: 12 * scale),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      story.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.bodyMediumSemiBold.copyWith(
+                        color: AppColors.textOnPrimary,
+                        fontSize: 14 * scale,
+                      ),
+                    ),
+                    SizedBox(height: 4 * scale),
+                    Text(
+                      story.category,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.bodySmallMedium.copyWith(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontSize: 12 * scale,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _HomeStoryCard {
   const _HomeStoryCard({
     required this.id,
@@ -672,23 +828,7 @@ class _HomeStoryCard {
     required this.category,
     required this.episodeCountLabel,
     this.storyCard,
-    this.favoriteStory,
   });
-
-  factory _HomeStoryCard.hardcoded(
-    StoryModel story, {
-    StoryCardModel? storyCard,
-  }) {
-    return _HomeStoryCard(
-      id: storyCard?.id ?? story.id,
-      title: story.title,
-      thumbnailUrl: story.thumbnailUrl,
-      category: story.category,
-      episodeCountLabel: 'Ep 3 of 7',
-      storyCard: storyCard,
-      favoriteStory: story,
-    );
-  }
 
   factory _HomeStoryCard.cms(StoryCardModel storyCard) {
     return _HomeStoryCard(
@@ -707,7 +847,6 @@ class _HomeStoryCard {
   final String category;
   final String episodeCountLabel;
   final StoryCardModel? storyCard;
-  final StoryModel? favoriteStory;
 }
 
 class _ComingSoonTab extends StatefulWidget {
@@ -733,34 +872,10 @@ class _ComingSoonTabState extends State<_ComingSoonTab> {
       physics: const ClampingScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(
-          child: SizedBox(
-            height: 56 * scale,
-            child: Padding(
-              padding: EdgeInsets.all(16 * scale),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: widget.onBack,
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: AppColors.textOnPrimary,
-                      size: 24 * scale,
-                    ),
-                  ),
-                  SizedBox(width: 12 * scale),
-                  Text(
-                    'Coming Soon',
-                    style: AppTypography.heading3SemiBold.copyWith(
-                      color: AppColors.textOnPrimary,
-                      fontSize: 20 * scale,
-                      height: 24 / 20,
-                      letterSpacing: -0.25,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          child: _TabHeader(
+            title: 'Coming Soon',
+            scale: scale,
+            onBack: widget.onBack,
           ),
         ),
         SliverPadding(
@@ -770,59 +885,171 @@ class _ComingSoonTabState extends State<_ComingSoonTab> {
             16 * scale,
             bottomPadding,
           ),
-          sliver: SliverLayoutBuilder(
-            builder: (context, constraints) {
-              final maxContentWidth = 358 * scale;
-              final availableWidth = constraints.crossAxisExtent;
-              final contentWidth = availableWidth < maxContentWidth
-                  ? availableWidth
-                  : maxContentWidth;
-              final gap = 16 * scale;
-              final cardWidth = (contentWidth - gap) / 2;
-
-              return SliverToBoxAdapter(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: SizedBox(
-                    width: contentWidth,
-                    child: Wrap(
-                      spacing: gap,
-                      runSpacing: 16 * scale,
-                      children: [
-                        for (final story in _comingSoonStories)
-                          ComingSoonStoryCard(
-                            title: story.title,
-                            imageUrl: story.thumbnailUrl,
-                            width: cardWidth,
-                            scale: scale,
-                            isLiked: _likedStoryIds.contains(story.id),
-                            isDisliked: _dislikedStoryIds.contains(story.id),
-                            onLikeTap: () {
-                              setState(() {
-                                if (!_likedStoryIds.add(story.id)) {
-                                  _likedStoryIds.remove(story.id);
-                                }
-                                _dislikedStoryIds.remove(story.id);
-                              });
-                            },
-                            onDislikeTap: () {
-                              setState(() {
-                                if (!_dislikedStoryIds.add(story.id)) {
-                                  _dislikedStoryIds.remove(story.id);
-                                }
-                                _likedStoryIds.remove(story.id);
-                              });
-                            },
-                          ),
-                      ],
-                    ),
+          sliver: _comingSoonStories.isEmpty
+              ? SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _TabEmptyState(
+                    scale: scale,
+                    icon: Icons.upcoming_rounded,
+                    title: 'New stories are on the way.',
+                    subtitle:
+                        'Upcoming CMS stories will appear here for preview voting.',
                   ),
+                )
+              : SliverLayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxContentWidth = 358 * scale;
+                    final availableWidth = constraints.crossAxisExtent;
+                    final contentWidth = availableWidth < maxContentWidth
+                        ? availableWidth
+                        : maxContentWidth;
+                    final gap = 16 * scale;
+                    final cardWidth = (contentWidth - gap) / 2;
+
+                    return SliverToBoxAdapter(
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: contentWidth,
+                          child: Wrap(
+                            spacing: gap,
+                            runSpacing: 16 * scale,
+                            children: [
+                              for (final story in _comingSoonStories)
+                                ComingSoonStoryCard(
+                                  title: story.title,
+                                  imageUrl: story.imageUrl,
+                                  width: cardWidth,
+                                  scale: scale,
+                                  isLiked: _likedStoryIds.contains(story.id),
+                                  isDisliked: _dislikedStoryIds.contains(
+                                    story.id,
+                                  ),
+                                  onLikeTap: () {
+                                    setState(() {
+                                      if (!_likedStoryIds.add(story.id)) {
+                                        _likedStoryIds.remove(story.id);
+                                      }
+                                      _dislikedStoryIds.remove(story.id);
+                                    });
+                                  },
+                                  onDislikeTap: () {
+                                    setState(() {
+                                      if (!_dislikedStoryIds.add(story.id)) {
+                                        _dislikedStoryIds.remove(story.id);
+                                      }
+                                      _likedStoryIds.remove(story.id);
+                                    });
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
+    );
+  }
+}
+
+class _TabHeader extends StatelessWidget {
+  const _TabHeader({
+    required this.title,
+    required this.scale,
+    required this.onBack,
+  });
+
+  final String title;
+  final double scale;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56 * scale,
+      child: Padding(
+        padding: EdgeInsets.all(16 * scale),
+        child: Row(
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onBack,
+              child: Icon(
+                Icons.arrow_back_rounded,
+                color: AppColors.textOnPrimary,
+                size: 24 * scale,
+              ),
+            ),
+            SizedBox(width: 12 * scale),
+            Text(
+              title,
+              style: AppTypography.heading3SemiBold.copyWith(
+                color: AppColors.textOnPrimary,
+                fontSize: 20 * scale,
+                height: 24 / 20,
+                letterSpacing: -0.25,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TabEmptyState extends StatelessWidget {
+  const _TabEmptyState({
+    required this.scale,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final double scale;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.backgroundGlass,
+          borderRadius: BorderRadius.circular(16 * scale),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(20 * scale),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: AppColors.textOnPrimary, size: 34 * scale),
+              SizedBox(height: 12 * scale),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyMediumSemiBold.copyWith(
+                  color: AppColors.textOnPrimary,
+                  fontSize: 14 * scale,
+                ),
+              ),
+              SizedBox(height: 6 * scale),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: AppTypography.bodySmallMedium.copyWith(
+                  color: Colors.white.withValues(alpha: 0.72),
+                  fontSize: 12 * scale,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -850,116 +1077,73 @@ String _firstNonEmpty(List<String?> values) {
   return '';
 }
 
-String _storyThumbnailUrl(String fileName) {
-  return Uri.encodeFull('${_supabaseAssetBase}story_thumbnails/$fileName');
+Future<void> _toggleFavoriteStoryCard(
+  BuildContext context,
+  WidgetRef ref,
+  StoryCardModel storyCard, {
+  required String source,
+}) async {
+  try {
+    await ref
+        .read(favoriteStoryCardsProvider.notifier)
+        .toggleStoryCard(storyCard, source: source);
+  } on StoryRepositoryException catch (error) {
+    if (!context.mounted) return;
+    _showFavoriteError(context, error.message);
+  }
 }
 
-final _hardcodedTopPickStories = [
-  StoryModel(
-    id: 'top-pick-shararati-krishna',
-    title: 'Shararati Krishna ke karname',
-    thumbnailUrl: _storyThumbnailUrl('Shararati krishna ke karname.webp'),
-    category: 'Krishna Stories',
-    durationMinutes: 3,
-  ),
-  StoryModel(
-    id: 'top-pick-bal-ganesh',
-    title: 'Bal Ganesh Aur Laddo',
-    thumbnailUrl: _storyThumbnailUrl('Bal Ganesh aur laddu.webp'),
-    category: 'Ganesh Stories',
-    durationMinutes: 3,
-  ),
-];
+void _showFavoriteError(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
 
-final _madeForYouStories = [
-  StoryModel(
-    id: 'made-for-you-arjun',
-    title: 'Veer Bal Arjun',
-    thumbnailUrl: _storyThumbnailUrl('Veer Bal Arjun.webp'),
-    category: 'Mahabharata',
-    durationMinutes: 3,
-  ),
-  StoryModel(
-    id: 'made-for-you-makhan',
-    title: 'Krishna aur makhan',
-    thumbnailUrl: _storyThumbnailUrl('krishna aur makhan.webp'),
-    category: 'Krishna Stories',
-    durationMinutes: 3,
-  ),
-  StoryModel(
-    id: 'made-for-you-handi',
-    title: 'Krishna aur handi',
-    thumbnailUrl: _storyThumbnailUrl('krishna aur handi.webp'),
-    category: 'Krishna Stories',
-    durationMinutes: 3,
-  ),
-  StoryModel(
-    id: 'made-for-you-ganesh-masti',
-    title: 'Bal Ganesh ki Masti',
-    thumbnailUrl: _storyThumbnailUrl('Bal Ganesh ki masti.webp'),
-    category: 'Ganesh Stories',
-    durationMinutes: 3,
-  ),
-];
+String _comingSoonPreviewUrl(String fileName) {
+  return SupabaseConfig.appAssetsPublicUrl('story_thumbnails/$fileName');
+}
 
-final _hardcodedHomeStoryCards = [
-  _HomeStoryCard.hardcoded(
-    _hardcodedTopPickStories[0],
-    storyCard: StoryCardModel(
-      id: StoryRepository.krishnaStoryCardId,
-      title: 'Shararati Krishna ke karname',
-      thumbnailUrl: _storyThumbnailUrl('Shararati krishna ke karname.webp'),
-      heroBannerUrl:
-          '${_supabaseAssetBase}featured_banners/kanha ki sunheri subah.webp',
-      category: 'Krishna Stories',
-      sortOrder: 1,
-    ),
-  ),
-  _HomeStoryCard.hardcoded(_hardcodedTopPickStories[1]),
-  for (final story in _madeForYouStories) _HomeStoryCard.hardcoded(story),
-];
+class _ComingSoonStoryPreview {
+  const _ComingSoonStoryPreview({
+    required this.id,
+    required this.title,
+    required this.imageUrl,
+  });
+
+  final String id;
+  final String title;
+  final String imageUrl;
+}
 
 final _comingSoonStories = [
-  StoryModel(
+  _ComingSoonStoryPreview(
     id: 'coming-soon-nanha-sapno',
     title: 'Nanha Sapno Ka Safar',
-    thumbnailUrl: _storyThumbnailUrl('Frame_1.png'),
-    category: 'Coming Soon',
-    durationMinutes: 3,
+    imageUrl: _comingSoonPreviewUrl('Frame_1.png'),
   ),
-  StoryModel(
+  _ComingSoonStoryPreview(
     id: 'coming-soon-ghar-ki-pyari',
     title: 'Ghar Ki Pyari Kahani',
-    thumbnailUrl: _storyThumbnailUrl('Frame_2.png'),
-    category: 'Coming Soon',
-    durationMinutes: 3,
+    imageUrl: _comingSoonPreviewUrl('Frame_2.png'),
   ),
-  StoryModel(
+  _ComingSoonStoryPreview(
     id: 'coming-soon-nadi-kinare',
     title: 'Nadi Kinare Ka Safar',
-    thumbnailUrl: _storyThumbnailUrl('Frame_3.png'),
-    category: 'Coming Soon',
-    durationMinutes: 3,
+    imageUrl: _comingSoonPreviewUrl('Frame_3.png'),
   ),
-  StoryModel(
+  _ComingSoonStoryPreview(
     id: 'coming-soon-mitti-mahal',
     title: 'Mitti Ka Mahal',
-    thumbnailUrl: _storyThumbnailUrl('Frame_4.png'),
-    category: 'Coming Soon',
-    durationMinutes: 3,
+    imageUrl: _comingSoonPreviewUrl('Frame_4.png'),
   ),
-  StoryModel(
+  _ComingSoonStoryPreview(
     id: 'coming-soon-ratri-kahani',
     title: 'Ratri Ki Pyari Kahani',
-    thumbnailUrl: _storyThumbnailUrl('Frame_5.png'),
-    category: 'Coming Soon',
-    durationMinutes: 3,
+    imageUrl: _comingSoonPreviewUrl('Frame_5.png'),
   ),
-  StoryModel(
+  _ComingSoonStoryPreview(
     id: 'coming-soon-hansi-safar',
     title: 'Hansi Ka Jadui Safar',
-    thumbnailUrl: _storyThumbnailUrl('Frame_6.png'),
-    category: 'Coming Soon',
-    durationMinutes: 3,
+    imageUrl: _comingSoonPreviewUrl('Frame_6.png'),
   ),
 ];

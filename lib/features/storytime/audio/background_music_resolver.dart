@@ -1,5 +1,4 @@
 import '../../auth/profile_repository.dart';
-import '../repositories/story_repository.dart';
 
 const storyBackgroundMusicVolume = 0.18;
 
@@ -11,11 +10,9 @@ String? backgroundMusicAssetForStory({
   required String locale,
 }) {
   final normalizedLocale = normalizeProfileLocale(locale);
+  if (storyId.trim().isEmpty || normalizedLocale.trim().isEmpty) {
+    return null;
+  }
 
-  return switch ((storyId, normalizedLocale)) {
-    (StoryRepository.morningWhispersStoryId, _) =>
-      commonStoryBackgroundMusicAsset,
-    (StoryRepository.arrivalNewsStoryId, _) => commonStoryBackgroundMusicAsset,
-    _ => null,
-  };
+  return commonStoryBackgroundMusicAsset;
 }

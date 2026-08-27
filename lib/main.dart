@@ -131,9 +131,8 @@ class AppSessionGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return session.when(
       loading: () => const _StartupScreen(),
-      error: (error, stackTrace) => const _AuthMascotPrecacheGate(
-        child: WelcomeScreen(),
-      ),
+      error: (error, stackTrace) =>
+          const _AuthMascotPrecacheGate(child: WelcomeScreen()),
       data: (currentSession) {
         if (currentSession == null) {
           return const _AuthMascotPrecacheGate(child: WelcomeScreen());
@@ -142,11 +141,21 @@ class AppSessionGate extends ConsumerWidget {
         final profiles = ref.watch(profileNotifierProvider);
         return profiles.when(
           loading: () => const _StartupScreen(),
-          error: (error, stackTrace) => _StartupErrorScreen(
-            onRetry: () => ref.invalidate(profileNotifierProvider),
-          ),
+          error: (error, stackTrace) {
+            if (DevOtpAuthConfig.enabled) {
+              return const HomeScreen();
+            }
+
+            return _StartupErrorScreen(
+              onRetry: () => ref.invalidate(profileNotifierProvider),
+            );
+          },
           data: (state) {
             if (state.children.isEmpty) {
+              if (DevOtpAuthConfig.enabled) {
+                return const HomeScreen();
+              }
+
               return const ProfileSetupScreen();
             }
 

@@ -8,17 +8,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  String assetUrl(String bucket, String path) {
-    return 'https://example.test/$bucket/$path';
-  }
-
   Widget episodesApp({
     List<StoryModel> cmsStories = const [],
-    StoryCardModel? storyCard,
+    StoryCardModel? storyCard = _storyCard,
     SessionStoryHistoryNotifier? historyNotifier,
   }) {
     return ProviderScope(
       overrides: [
+        storyHistoryRepositoryProvider.overrideWithValue(
+          InMemoryStoryHistoryRepository(),
+        ),
         if (storyCard != null)
           storyCardStoriesProvider.overrideWith(
             (ref, storyCardId) async => cmsStories,
@@ -26,66 +25,25 @@ void main() {
         if (historyNotifier != null)
           sessionStoryHistoryProvider.overrideWith((ref) => historyNotifier),
       ],
-      child: MaterialApp(
-        home: EpisodesScreen(storyCard: storyCard, assetUrlBuilder: assetUrl),
-      ),
+      child: MaterialApp(home: EpisodesScreen(storyCard: storyCard)),
     );
   }
 
-  testWidgets('renders the Figma episode titles and seven story images', (
-    tester,
-  ) async {
+  testWidgets('renders empty state without hardcoded episodes', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 868);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(episodesApp());
-    await tester.pump();
+    await tester.pumpWidget(episodesApp(cmsStories: const []));
+    await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-
-    expect(find.text('Shararati Krishna ke karname'), findsOneWidget);
-    expect(find.text('7 Episodes'), findsOneWidget);
-    expect(find.text('Makhan Ki Talaash'), findsOneWidget);
-    expect(find.text('Makhan Chor Kanha'), findsOneWidget);
-    expect(find.text('Meri Pyari Bachhiya'), findsOneWidget);
-    expect(find.text('Bansuri Ki Dhun'), findsOneWidget);
-    expect(find.text('Titliyon Ke Peeche'), findsOneWidget);
-    expect(find.text('Barish Wali Masti'), findsOneWidget);
-    expect(find.text('Vrindavan Ke Dost'), findsOneWidget);
-    expect(find.text('Watched'), findsNothing);
-    expect(find.textContaining('min left'), findsNothing);
-
-    final heroRect = tester.getRect(
-      find.byKey(const ValueKey('episodesHeroBanner')),
-    );
-    expect(heroRect.size, const Size(359, 202));
-    expect(
-      tester.getTopLeft(find.text('Episodes')).dy,
-      greaterThan(heroRect.bottom),
-    );
-
-    final imageViews = tester.widgetList<StoryImageView>(
-      find.byType(StoryImageView),
-    );
-    expect(imageViews, hasLength(8));
-    expect(
-      imageViews.map((view) => view.imageUrl),
-      contains(
-        'https://example.test/app-assets/featured_banners/kanha ki sunheri subah.webp',
-      ),
-    );
-    expect(
-      imageViews.map((view) => view.imageUrl),
-      containsAll(
-        List.generate(
-          7,
-          (index) =>
-              'https://example.test/story-assets/stories/kanha ki sunheri subah/images/page-${(index + 1).toString().padLeft(3, '0')}.webp',
-        ),
-      ),
-    );
+    expect(find.text('CMS Story Card'), findsOneWidget);
+    expect(find.text('0 Episodes'), findsOneWidget);
+    expect(find.text('No episodes available yet.'), findsOneWidget);
+    expect(find.text('Makhan Ki Talaash'), findsNothing);
+    expect(find.text('Makhan Chor Kanha'), findsNothing);
   });
 
   testWidgets('uses responsive hero and content width on wide screens', (
@@ -97,7 +55,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(episodesApp());
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
 
@@ -135,11 +93,14 @@ void main() {
                     MaterialPageRoute<void>(
                       builder: (context) => ProviderScope(
                         overrides: [
+                          storyHistoryRepositoryProvider.overrideWithValue(
+                            InMemoryStoryHistoryRepository(),
+                          ),
                           storyCardStoriesProvider.overrideWith(
                             (ref, storyCardId) async => const [],
                           ),
                         ],
-                        child: EpisodesScreen(assetUrlBuilder: assetUrl),
+                        child: const EpisodesScreen(storyCard: _storyCard),
                       ),
                     ),
                   );
@@ -165,38 +126,30 @@ void main() {
     expect(find.byType(EpisodesScreen), findsNothing);
   });
 
-  testWidgets('appends scoped CMS stories after Krishna legacy episodes', (
-    tester,
-  ) async {
+  testWidgets('renders scoped CMS stories only', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 868);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    const vasudevStory = StoryModel(
-      id: 'c6c27045-8376-48ec-be6a-022470532a57',
-      title: 'Vasudev ka vachan',
-      thumbnailUrl: 'https://example.test/story-assets/vasudev.jpg',
-      category: 'Story',
-      durationMinutes: 1,
-      coverUrl: 'https://example.test/story-assets/vasudev-cover.jpg',
-    );
-
     await tester.pumpWidget(
-      episodesApp(storyCard: _krishnaCard, cmsStories: const [vasudevStory]),
+      episodesApp(cmsStories: const [_cmsStory, _secondCmsStory]),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('8 Episodes'), findsOneWidget);
-    expect(find.text('Vasudev ka vachan'), findsOneWidget);
-    expect(find.text('Vrindavan Ke Dost'), findsOneWidget);
+    expect(find.text('2 Episodes'), findsOneWidget);
+    expect(find.text('CMS Episode One'), findsOneWidget);
+    expect(find.text('CMS Episode Two'), findsOneWidget);
+    expect(find.text('Makhan Ki Talaash'), findsNothing);
+    expect(find.byKey(const ValueKey('episode-stage-left-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('episode-stage-left-2')), findsOneWidget);
 
     final imageViews = tester.widgetList<StoryImageView>(
       find.byType(StoryImageView),
     );
     expect(
       imageViews.map((view) => view.imageUrl),
-      contains(vasudevStory.thumbnailUrl),
+      contains(_cmsStory.thumbnailUrl),
     );
   });
 
@@ -208,99 +161,79 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    const vasudevStory = StoryModel(
-      id: 'c6c27045-8376-48ec-be6a-022470532a57',
-      title: 'Vasudev ka vachan',
-      thumbnailUrl: 'https://example.test/story-assets/vasudev.jpg',
-      category: 'Story',
-      durationMinutes: 1,
-      coverUrl: 'https://example.test/story-assets/vasudev-cover.jpg',
-    );
     const scope = StoryHistoryScope(userId: 'user-1', childProfileId: 'kid-1');
-    final historyNotifier =
-        SessionStoryHistoryNotifier(InMemoryStoryHistoryRepository())
-          ..activateScope(scope)
-          ..saveProgress(
-            story: vasudevStory,
+    final historyNotifier = _SeededHistoryNotifier(
+      SessionStoryHistoryState(
+        scope: scope,
+        progressByStoryId: {
+          _cmsStory.id: ContinueListeningEntry(
+            story: _cmsStory,
             currentPageIndex: 0,
             pageCount: 1,
             audioPosition: const Duration(seconds: 20),
             audioDuration: const Duration(seconds: 60),
-          );
+            updatedAt: DateTime.utc(2026, 8, 19),
+          ),
+        },
+      ),
+    );
 
     await tester.pumpWidget(
       episodesApp(
-        storyCard: _krishnaCard,
-        cmsStories: const [vasudevStory],
+        cmsStories: const [_cmsStory],
         historyNotifier: historyNotifier,
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(
-      find.byKey(const ValueKey('episode-stage-continuing-8')),
+      find.byKey(const ValueKey('episode-stage-continuing-1')),
       findsOneWidget,
     );
-    expect(find.text('Vasudev ka vachan'), findsOneWidget);
+    expect(find.text('CMS Episode One'), findsOneWidget);
     expect(find.text('1 min left'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('episode-stage-continuing-2')),
-      findsNothing,
-    );
 
-    historyNotifier.completeStory(vasudevStory.id);
+    historyNotifier.completeStory(_cmsStory.id);
     await tester.pump();
 
     expect(
-      find.byKey(const ValueKey('episode-stage-completed-8')),
+      find.byKey(const ValueKey('episode-stage-completed-1')),
       findsOneWidget,
     );
     expect(find.text('Watched'), findsOneWidget);
   });
-
-  testWidgets('non-Krishna CMS card shows only its own child stories', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 868);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    const testStory = StoryModel(
-      id: '0356e979-4807-4a66-a28b-60b5c9ffd1f2',
-      title: 'test story',
-      thumbnailUrl: 'https://example.test/story-assets/test-story.jpg',
-      category: 'Story',
-      durationMinutes: 1,
-      coverUrl: 'https://example.test/story-assets/test-story-cover.jpg',
-    );
-
-    await tester.pumpWidget(
-      episodesApp(storyCard: _testStoryCard, cmsStories: const [testStory]),
-    );
-    await tester.pump();
-
-    expect(find.text('test story'), findsWidgets);
-    expect(find.text('1 Episodes'), findsOneWidget);
-    expect(find.text('Makhan Ki Talaash'), findsNothing);
-    expect(find.byKey(const ValueKey('episode-stage-left-1')), findsOneWidget);
-  });
 }
 
-const _krishnaCard = StoryCardModel(
-  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
-  title: 'Shararati Krishna ke karname',
-  thumbnailUrl: 'https://example.test/app-assets/krishna-card.webp',
-  heroBannerUrl: 'https://example.test/app-assets/krishna-hero.webp',
-  category: 'Krishna Stories',
+const _storyCard = StoryCardModel(
+  id: 'cms-card-1',
+  title: 'CMS Story Card',
+  thumbnailUrl: 'https://example.test/story-assets/cms-card.jpg',
+  heroBannerUrl: 'https://example.test/story-assets/cms-card-hero.jpg',
+  category: 'Story',
   sortOrder: 1,
 );
 
-const _testStoryCard = StoryCardModel(
-  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
-  title: 'test story',
-  thumbnailUrl: 'https://example.test/story-assets/test-story.jpg',
-  heroBannerUrl: 'https://example.test/story-assets/test-story-hero.jpg',
+const _cmsStory = StoryModel(
+  id: 'cms-story-1',
+  title: 'CMS Episode One',
+  thumbnailUrl: 'https://example.test/story-assets/cms-story-1.jpg',
   category: 'Story',
-  sortOrder: 2,
+  durationMinutes: 1,
+  coverUrl: 'https://example.test/story-assets/cms-story-1-cover.jpg',
 );
+
+const _secondCmsStory = StoryModel(
+  id: 'cms-story-2',
+  title: 'CMS Episode Two',
+  thumbnailUrl: 'https://example.test/story-assets/cms-story-2.jpg',
+  category: 'Story',
+  durationMinutes: 2,
+  coverUrl: 'https://example.test/story-assets/cms-story-2-cover.jpg',
+);
+
+class _SeededHistoryNotifier extends SessionStoryHistoryNotifier {
+  _SeededHistoryNotifier(SessionStoryHistoryState seededState)
+    : super(InMemoryStoryHistoryRepository()) {
+    state = seededState;
+  }
+}

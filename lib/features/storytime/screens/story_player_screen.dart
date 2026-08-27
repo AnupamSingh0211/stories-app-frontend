@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:page_flip/page_flip.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/analytics_service.dart';
 import '../../../shared/theme/app_border_radius.dart';
@@ -37,8 +36,6 @@ const bool _storyPageFlipEnabled = bool.fromEnvironment(
   defaultValue: true,
 );
 
-const _episodePlayerImagePath =
-    'stories/kanha aur makhan/images/story_player_img.webp';
 const _episodePlayerHorizontalPadding = 16.0;
 const _episodePlayerImageHeight = 636.0;
 const _episodeHeaderImageGap = 13.0;
@@ -56,8 +53,8 @@ const _episodeSystemUiStyle = SystemUiOverlayStyle(
 
 class StoryPlayerScreen extends ConsumerStatefulWidget {
   const StoryPlayerScreen({
-    this.storyId = StoryRepository.morningWhispersStoryId,
-    this.title = 'Kanha Ki Sunheri Subah',
+    this.storyId = '',
+    this.title = 'Story',
     this.story,
     this.initialPages = const [],
     this.openDirectly = false,
@@ -274,7 +271,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
     if (widget.openDirectly) {
       return _EpisodeStoryPlayerScaffold(
         storyId: widget.storyId,
-        episode: _directEpisodeFavoriteItem(),
+        favoriteStory: widget.story ?? _directEpisodeFavoriteStory(),
         imageUrl: widget.playerImageUrl ?? _defaultEpisodePlayerImageUrl(),
         onBack: _exitStory,
       );
@@ -391,9 +388,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
   }
 
   String _defaultEpisodePlayerImageUrl() {
-    return Supabase.instance.client.storage
-        .from('story-assets')
-        .getPublicUrl(_episodePlayerImagePath);
+    return '';
   }
 
   Future<void> _startStory() async {
@@ -544,10 +539,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
       PostHogAnalytics.instance.buttonClicked(
         buttonName: 'bottom_nav_item',
         screenName: 'story_player_screen',
-        properties: {
-          'source': 'bottom_nav',
-          'target_index': index,
-        },
+        properties: {'source': 'bottom_nav', 'target_index': index},
       ),
     );
     _saveSessionProgress();
@@ -603,7 +595,7 @@ class _StoryPlayerScreenState extends ConsumerState<StoryPlayerScreen>
     );
   }
 
-  StoryModel _directEpisodeFavoriteItem() {
+  StoryModel _directEpisodeFavoriteStory() {
     final imageUrl =
         widget.playerImageUrl ??
         widget.story?.coverUrl ??
@@ -911,16 +903,22 @@ bool _sameStoryPages(List<StoryPage> left, List<StoryPage> right) {
   return true;
 }
 
+void _showFavoriteError(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
+
 class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
   const _EpisodeStoryPlayerScaffold({
     required this.storyId,
-    required this.episode,
+    required this.favoriteStory,
     required this.imageUrl,
     required this.onBack,
   });
 
   final String storyId;
-  final StoryModel episode;
+  final StoryModel favoriteStory;
   final String imageUrl;
   final VoidCallback onBack;
 
@@ -939,8 +937,8 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
       ),
     );
     final isFavorite = ref.watch(
-      favoriteEpisodesProvider.select(
-        (episodes) => episodes.any((item) => item.id == episode.id),
+      favoriteStoriesProvider.select(
+        (stories) => stories.any((item) => item.id == favoriteStory.id),
       ),
     );
     final notifier = ref.read(provider.notifier);
@@ -989,12 +987,20 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
                         isFavorite: isFavorite,
                         onBack: onBack,
                         onToggleFavorite: () {
-                          ref
-                              .read(favoriteEpisodesProvider.notifier)
-                              .toggleEpisode(
-                                episode,
-                                source: 'episode_player',
-                              );
+                          unawaited(
+                            ref
+                                .read(favoriteStoriesProvider.notifier)
+                                .toggleStory(
+                                  favoriteStory,
+                                  source: 'episode_player',
+                                )
+                                .catchError((Object error) {
+                                  if (context.mounted &&
+                                      error is StoryRepositoryException) {
+                                    _showFavoriteError(context, error.message);
+                                  }
+                                }),
+                          );
                         },
                       ),
                     ),

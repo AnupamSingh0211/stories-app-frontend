@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -33,6 +34,15 @@ import 'package:dharma_app/shared/theme/app_theme.dart';
 
 void main() {
   setUpAll(() async {
+    dotenv.testLoad(
+      fileInput: '''
+SUPABASE_URL=https://example.supabase.co
+SUPABASE_ANON_KEY=test-anon-key
+BACKEND_BASE_URL=http://127.0.0.1:5000
+APP_ENV=test
+DEV_AUTH_OTP_ENABLED=false
+''',
+    );
     await Supabase.initialize(
       url: 'https://example.supabase.co',
       anonKey: 'test-anon-key',
@@ -141,6 +151,70 @@ void main() {
 
     expect(find.byType(ChooseCompanionScreen), findsOneWidget);
     expect(find.byType(HomeScreen), findsNothing);
+  });
+
+  testWidgets('dev OTP profile load failure still opens home', (
+    WidgetTester tester,
+  ) async {
+    _loadEnvForTest(appEnv: 'development', devOtpEnabled: true);
+    addTearDown(_loadEnvForTest);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authSessionProvider.overrideWith(
+            (ref) => Stream.value(
+              const AppSessionIdentity(userId: 'parent-1', isAnonymous: false),
+            ),
+          ),
+          profileNotifierProvider.overrideWith(_FailingProfileNotifier.new),
+          appAssetsProvider.overrideWithValue(const {}),
+          companionsProvider.overrideWith((ref) async => const []),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+          storyCardsProvider.overrideWith((ref) async => const []),
+        ],
+        child: const MyApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _clearKnownBottomNavOverflow(tester);
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Retry loading profiles'), findsNothing);
+  });
+
+  testWidgets('dev OTP empty profiles still opens home', (
+    WidgetTester tester,
+  ) async {
+    _loadEnvForTest(appEnv: 'development', devOtpEnabled: true);
+    addTearDown(_loadEnvForTest);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authSessionProvider.overrideWith(
+            (ref) => Stream.value(
+              const AppSessionIdentity(userId: 'parent-1', isAnonymous: false),
+            ),
+          ),
+          profileNotifierProvider.overrideWith(_OnboardingProfileNotifier.new),
+          appAssetsProvider.overrideWithValue(const {}),
+          companionsProvider.overrideWith((ref) async => const []),
+          storytimeContentProvider.overrideWith(
+            (ref) async => StorytimeContent.empty(),
+          ),
+          storyCardsProvider.overrideWith((ref) async => const []),
+        ],
+        child: const MyApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _clearKnownBottomNavOverflow(tester);
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(ProfileSetupScreen), findsNothing);
   });
 
   testWidgets('profile navigation exposes and reaches all four tabs', (
@@ -426,12 +500,24 @@ void main() {
   testWidgets('home story favourite appears in favourites screen', (
     WidgetTester tester,
   ) async {
+    const cmsCard = StoryCardModel(
+      id: '33333333-3333-4333-8333-333333333333',
+      title: 'Krishna Stories',
+      thumbnailUrl: 'https://example.com/story-card.png',
+      heroBannerUrl: 'https://example.com/story-card-hero.png',
+      category: 'Story',
+      sortOrder: 1,
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
           storytimeContentProvider.overrideWith(
             (ref) async => StorytimeContent.empty(),
+          ),
+          storyCardsProvider.overrideWith((ref) async => const [cmsCard]),
+          storyRepositoryProvider.overrideWithValue(
+            const _SuccessfulFavoriteStoryRepository(),
           ),
         ],
         child: MaterialApp(
@@ -450,41 +536,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LibrarySectionsScreen), findsOneWidget);
-    expect(find.text('Shararati Krishna ke karname'), findsWidgets);
+    expect(find.text('Your Favourite Story Cards'), findsOneWidget);
+    expect(find.text('Krishna Stories'), findsWidgets);
     expect(find.bySemanticsLabel('Remove from favorites'), findsWidgets);
-    expect(find.text('No Favourites Yet'), findsNothing);
-  });
-
-  testWidgets('episode favourite appears in favourites episodes section', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          favoriteEpisodesProvider.overrideWith(
-            (ref) => _TestFavoriteEpisodesNotifier([
-              const StoryModel(
-                id: 'episode-1',
-                title: 'Veer Bal Arjun',
-                thumbnailUrl: 'https://example.com/episode.png',
-                category: 'Episode',
-                durationMinutes: 8,
-              ),
-            ]),
-          ),
-        ],
-        child: MaterialApp(
-          themeMode: ThemeMode.dark,
-          darkTheme: AppTheme.darkTheme,
-          home: const LibrarySectionsScreen(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Your Favourites Episodes'), findsOneWidget);
-    expect(find.text('See all'), findsOneWidget);
-    expect(find.text('Veer Bal Arjun'), findsOneWidget);
     expect(find.text('No Favourites Yet'), findsNothing);
   });
 
@@ -515,6 +569,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Your Favourite Episodes'), findsOneWidget);
     expect(find.text('Shararati Krishna ke karname'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Remove from favorites'));
     await tester.pumpAndSettle();
@@ -534,14 +589,15 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          favoriteStoriesProvider.overrideWith(
-            (ref) => _TestFavoriteStoriesNotifier([
-              const StoryModel(
-                id: 'story-1',
-                title: 'Shararati Krishna ke karname',
-                thumbnailUrl: 'https://example.com/story.png',
+          favoriteStoryCardsProvider.overrideWith(
+            (ref) => _TestFavoriteStoryCardsNotifier([
+              const StoryCardModel(
+                id: '33333333-3333-4333-8333-333333333333',
+                title: 'Krishna Stories',
+                thumbnailUrl: 'https://example.com/story-card.png',
+                heroBannerUrl: 'https://example.com/story-card-hero.png',
                 category: 'Story',
-                durationMinutes: 3,
+                sortOrder: 1,
               ),
             ]),
           ),
@@ -555,8 +611,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Shararati Krishna ke karname'));
-    await tester.tap(find.text('Shararati Krishna ke karname'));
+    await tester.ensureVisible(find.text('Krishna Stories'));
+    await tester.tap(find.text('Krishna Stories'));
     await tester.pumpAndSettle();
 
     expect(find.byType(EpisodesScreen), findsOneWidget);
@@ -1091,6 +1147,19 @@ const _testAssets = {
   'profile_setup_bg': 'https://example.com/profile_setup_bg.webp',
 };
 
+void _loadEnvForTest({String appEnv = 'test', bool devOtpEnabled = false}) {
+  dotenv.testLoad(
+    fileInput:
+        '''
+SUPABASE_URL=https://example.supabase.co
+SUPABASE_ANON_KEY=test-anon-key
+APP_ENV=$appEnv
+DEV_AUTH_OTP_ENABLED=$devOtpEnabled
+BACKEND_BASE_URL=http://127.0.0.1:5000
+''',
+  );
+}
+
 const _storyOne = StoryModel(
   id: 'story-one',
   title: 'Kanha Ki Sunheri Subah',
@@ -1251,6 +1320,13 @@ class _TestProfileNotifier extends ProfileNotifier {
   }
 }
 
+class _FailingProfileNotifier extends ProfileNotifier {
+  @override
+  Future<ChildProfilesState> build() async {
+    throw StateError('Profile API unavailable');
+  }
+}
+
 class _OnboardingProfileNotifier extends ProfileNotifier {
   _OnboardingProfileNotifier({this.savedChild, this.error});
 
@@ -1341,12 +1417,69 @@ class _TestFavoriteStoriesNotifier extends FavoriteStoriesNotifier {
     : super(const StoryRepository()) {
     state = stories;
   }
+
+  @override
+  Future<void> addStory(
+    StoryModel story, {
+    String source = 'story_card',
+  }) async {
+    if (isFavorite(story.id)) return;
+    state = [story, ...state];
+  }
+
+  @override
+  Future<void> removeStory(String storyId) async {
+    state = [
+      for (final story in state)
+        if (story.id != storyId) story,
+    ];
+  }
 }
 
-class _TestFavoriteEpisodesNotifier extends FavoriteEpisodesNotifier {
-  _TestFavoriteEpisodesNotifier(List<StoryModel> episodes) {
-    state = episodes;
+class _TestFavoriteStoryCardsNotifier extends FavoriteStoryCardsNotifier {
+  _TestFavoriteStoryCardsNotifier(List<StoryCardModel> storyCards)
+    : super(const StoryRepository()) {
+    state = storyCards;
   }
+
+  @override
+  Future<void> addStoryCard(
+    StoryCardModel storyCard, {
+    String source = 'home_story_card',
+  }) async {
+    if (isFavorite(storyCard.id)) return;
+    state = [storyCard, ...state];
+  }
+
+  @override
+  Future<void> removeStoryCard(String storyCardId) async {
+    state = [
+      for (final storyCard in state)
+        if (storyCard.id != storyCardId) storyCard,
+    ];
+  }
+}
+
+class _SuccessfulFavoriteStoryRepository extends StoryRepository {
+  const _SuccessfulFavoriteStoryRepository();
+
+  @override
+  Future<void> addFavoriteStory(String storyId, {String? profileId}) async {}
+
+  @override
+  Future<void> removeFavoriteStory(String storyId, {String? profileId}) async {}
+
+  @override
+  Future<void> addFavoriteStoryCard(
+    String storyCardId, {
+    String? profileId,
+  }) async {}
+
+  @override
+  Future<void> removeFavoriteStoryCard(
+    String storyCardId, {
+    String? profileId,
+  }) async {}
 }
 
 class _SeededContinueListeningNotifier extends ContinueListeningNotifier {

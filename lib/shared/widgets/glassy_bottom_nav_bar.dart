@@ -80,15 +80,13 @@ class GlassyBottomNavBar extends StatelessWidget {
               width: 68,
               height: 68,
               radius: 34,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: _buildNavItem(
                 3,
                 'Profile',
                 defaultIconPath: 'assets/icons/new_boopi/person_component.svg',
-                activeIconPath: 'assets/icons/new_boopi/person_component.svg',
+                activeIconPath:
+                    'assets/icons/new_boopi/State=Bold, Icon=Profile.svg',
                 compact: true,
               ),
             ),
@@ -119,7 +117,7 @@ class GlassyBottomNavBar extends StatelessWidget {
         height: 52,
         padding: EdgeInsets.symmetric(
           horizontal: compact ? 0 : 12,
-          vertical: compact ? 4 : 8,
+          vertical: compact ? 2 : 4,
         ),
         decoration: BoxDecoration(
           color: showActiveBackground

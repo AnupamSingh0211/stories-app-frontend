@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backend_api_client.dart';
+import '../../auth/profile_notifier.dart';
 import '../models/story_model.dart';
 import '../notifiers/story_player_notifier.dart';
 import '../notifiers/story_player_state.dart';
@@ -7,7 +9,7 @@ import '../repositories/story_repository.dart';
 import 'continue_listening_provider.dart';
 
 final storyRepositoryProvider = Provider<StoryRepository>((ref) {
-  return const StoryRepository();
+  return StoryRepository(apiClient: ref.watch(backendApiClientProvider));
 });
 
 final storytimeContentProvider = FutureProvider<StorytimeContent>((ref) {
@@ -41,9 +43,15 @@ final storyPlayerProvider = StateNotifierProvider.autoDispose
       final initialAudioPosition = continueEntry?.story.id == storyId
           ? continueEntry!.audioPosition
           : Duration.zero;
+      final profileId = ref.watch(
+        profileNotifierProvider.select(
+          (profiles) => profiles.valueOrNull?.selectedChild?.id,
+        ),
+      );
       final notifier = StoryPlayerNotifier(
         ref.watch(storyRepositoryProvider),
         storyId: storyId,
+        profileId: profileId,
         initialPageIndex: initialPageIndex,
         initialAudioPosition: initialAudioPosition,
       );

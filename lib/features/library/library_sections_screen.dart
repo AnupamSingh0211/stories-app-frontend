@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/analytics_service.dart';
+import '../../core/supabase_config.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_bottom_navigation.dart';
@@ -19,6 +20,7 @@ import '../profile/profile_screen.dart';
 import '../storytime/models/story_model.dart';
 import '../storytime/providers/continue_listening_provider.dart';
 import '../storytime/providers/favorite_stories_provider.dart';
+import '../storytime/repositories/story_repository.dart';
 import '../storytime/screens/episodes_screen.dart';
 import '../storytime/screens/story_player_screen.dart';
 import '../storytime/widgets/story_image_view.dart';
@@ -34,8 +36,9 @@ const _storyTextColor = Color(0xFF001033);
 const _emptyTitleColor = Color(0xFF29609B);
 const _tabBorderColor = AppColors.gray400;
 const _figmaWidth = 390.0;
-const _favoriteMascotFallbackUrl =
-    'https://ozdvhjcumeujfxodiawc.supabase.co/storage/v1/object/public/app-assets/backgrounds/mascot_character_favorites.png';
+final _favoriteMascotFallbackUrl = SupabaseConfig.appAssetsPublicUrl(
+  'backgrounds/mascot_character_favorites.png',
+);
 
 enum LibrarySection {
   favourites(
@@ -153,12 +156,12 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
         _favoriteMascotFallbackUrl;
 
     if (_selectedSection == LibrarySection.favourites) {
+      final favoriteStoryCards = ref.watch(favoriteStoryCardsProvider);
       final favoriteStories = ref.watch(favoriteStoriesProvider);
-      final favoriteEpisodes = ref.watch(favoriteEpisodesProvider);
-      if (favoriteStories.isNotEmpty || favoriteEpisodes.isNotEmpty) {
+      if (favoriteStoryCards.isNotEmpty || favoriteStories.isNotEmpty) {
         return _FavouritesScreen(
+          storyCards: favoriteStoryCards,
           stories: favoriteStories,
-          episodes: favoriteEpisodes,
         );
       }
 
@@ -279,20 +282,17 @@ class _LibrarySectionsScreenState extends ConsumerState<LibrarySectionsScreen> {
       PostHogAnalytics.instance.buttonClicked(
         buttonName: 'library_section',
         screenName: 'library_screen',
-        properties: {
-          'source': 'library_tabs',
-          'section': section.name,
-        },
+        properties: {'source': 'library_tabs', 'section': section.name},
       ),
     );
   }
 }
 
 class _FavouritesScreen extends ConsumerWidget {
-  const _FavouritesScreen({required this.stories, required this.episodes});
+  const _FavouritesScreen({required this.storyCards, required this.stories});
 
+  final List<StoryCardModel> storyCards;
   final List<StoryModel> stories;
-  final List<StoryModel> episodes;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -325,10 +325,87 @@ class _FavouritesScreen extends ConsumerWidget {
                           child: CustomScrollView(
                             physics: const ClampingScrollPhysics(),
                             slivers: [
+                              if (storyCards.isNotEmpty) ...[
+                                SliverToBoxAdapter(
+                                  child: _FavouritesSectionHeader(
+                                    title: 'Your Favourite Story Cards',
+                                    scale: scale,
+                                  ),
+                                ),
+                                SliverToBoxAdapter(
+                                  child: SizedBox(height: 12 * scale),
+                                ),
+                                SliverGrid(
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: itemGap,
+                                        mainAxisSpacing: itemGap,
+                                        mainAxisExtent: 253 * scale,
+                                      ),
+                                  delegate: SliverChildBuilderDelegate((
+                                    context,
+                                    index,
+                                  ) {
+                                    final card = storyCards[index];
+                                    return _FavouriteStoryCardTile(
+                                      title: card.title,
+                                      imageUrl: card.thumbnailUrl,
+                                      scale: scale,
+                                      onTap: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (context) =>
+                                                EpisodesScreen(
+                                                  storyCard: card,
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                      onFavoriteTap: () {
+                                        unawaited(
+                                          PostHogAnalytics.instance.capture(
+                                            'favorite_removed',
+                                            properties: {
+                                              'screen_name': 'favorites_screen',
+                                              'source':
+                                                  'favorites_story_card',
+                                              'target_type': 'story_card',
+                                              'target_id': card.id,
+                                            },
+                                          ),
+                                        );
+                                        unawaited(
+                                          ref
+                                              .read(
+                                                favoriteStoryCardsProvider
+                                                    .notifier,
+                                              )
+                                              .removeStoryCard(card.id)
+                                              .catchError((Object error) {
+                                                if (context.mounted &&
+                                                    error
+                                                        is StoryRepositoryException) {
+                                                  _showFavoriteError(
+                                                    context,
+                                                    error.message,
+                                                  );
+                                                }
+                                              }),
+                                        );
+                                      },
+                                    );
+                                  }, childCount: storyCards.length),
+                                ),
+                              ],
+                              if (storyCards.isNotEmpty && stories.isNotEmpty)
+                                SliverToBoxAdapter(
+                                  child: SizedBox(height: sectionGap),
+                                ),
                               if (stories.isNotEmpty) ...[
                                 SliverToBoxAdapter(
                                   child: _FavouritesSectionHeader(
-                                    title: 'Your Favourites Stories',
+                                    title: 'Your Favourite Episodes',
                                     scale: scale,
                                   ),
                                 ),
@@ -348,85 +425,61 @@ class _FavouritesScreen extends ConsumerWidget {
                                     index,
                                   ) {
                                     final story = stories[index];
-                                    return _FavouriteStoryCard(
-                                      story: story,
+                                    return _FavouriteStoryCardTile(
+                                      title: story.title,
+                                      imageUrl: story.thumbnailUrl,
                                       scale: scale,
+                                      onTap: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (context) =>
+                                                StoryPlayerScreen(
+                                                  storyId: story.id,
+                                                  title: story.title,
+                                                  story: story,
+                                                  openDirectly: true,
+                                                  playerImageUrl:
+                                                      story.coverUrl ??
+                                                      story.imageUrl ??
+                                                      story.thumbnailUrl,
+                                                ),
+                                          ),
+                                        );
+                                      },
                                       onFavoriteTap: () {
                                         unawaited(
                                           PostHogAnalytics.instance.capture(
                                             'favorite_removed',
                                             properties: {
-                                              'screen_name':
-                                                  'favorites_screen',
-                                              'source': 'favorites_story_card',
+                                              'screen_name': 'favorites_screen',
+                                              'source':
+                                                  'favorites_episode_card',
                                               'target_type': 'story',
                                               'target_id': story.id,
                                             },
                                           ),
                                         );
-                                        ref
-                                            .read(
-                                              favoriteStoriesProvider.notifier,
-                                            )
-                                            .removeStory(story.id);
+                                        unawaited(
+                                          ref
+                                              .read(
+                                                favoriteStoriesProvider
+                                                    .notifier,
+                                              )
+                                              .removeStory(story.id)
+                                              .catchError((Object error) {
+                                                if (context.mounted &&
+                                                    error
+                                                        is StoryRepositoryException) {
+                                                  _showFavoriteError(
+                                                    context,
+                                                    error.message,
+                                                  );
+                                                }
+                                              }),
+                                        );
                                       },
                                     );
                                   }, childCount: stories.length),
-                                ),
-                              ],
-                              if (stories.isNotEmpty && episodes.isNotEmpty)
-                                SliverToBoxAdapter(
-                                  child: SizedBox(height: sectionGap),
-                                ),
-                              if (episodes.isNotEmpty) ...[
-                                SliverToBoxAdapter(
-                                  child: _FavouritesSectionHeader(
-                                    title: 'Your Favourites Episodes',
-                                    scale: scale,
-                                  ),
-                                ),
-                                SliverToBoxAdapter(
-                                  child: SizedBox(height: 12 * scale),
-                                ),
-                                SliverGrid(
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        crossAxisSpacing: itemGap,
-                                        mainAxisSpacing: itemGap,
-                                        mainAxisExtent: 253 * scale,
-                                      ),
-                                  delegate: SliverChildBuilderDelegate((
-                                    context,
-                                    index,
-                                  ) {
-                                    final episode = episodes[index];
-                                    return _FavouriteStoryCard(
-                                      story: episode,
-                                      scale: scale,
-                                      opensDirectly: true,
-                                      onFavoriteTap: () {
-                                        unawaited(
-                                          PostHogAnalytics.instance.capture(
-                                            'favorite_removed',
-                                            properties: {
-                                              'screen_name':
-                                                  'favorites_screen',
-                                              'source':
-                                                  'favorites_episode_card',
-                                              'target_type': 'episode',
-                                              'target_id': episode.id,
-                                            },
-                                          ),
-                                        );
-                                        ref
-                                            .read(
-                                              favoriteEpisodesProvider.notifier,
-                                            )
-                                            .removeEpisode(episode.id);
-                                      },
-                                    );
-                                  }, childCount: episodes.length),
                                 ),
                               ],
                               SliverToBoxAdapter(
@@ -481,6 +534,12 @@ class _FavouritesSectionHeader extends StatelessWidget {
   }
 }
 
+void _showFavoriteError(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
+
 class _FavouritesHeader extends StatelessWidget {
   const _FavouritesHeader();
 
@@ -514,24 +573,26 @@ class _FavouritesHeader extends StatelessWidget {
   }
 }
 
-class _FavouriteStoryCard extends StatelessWidget {
-  const _FavouriteStoryCard({
-    required this.story,
+class _FavouriteStoryCardTile extends StatelessWidget {
+  const _FavouriteStoryCardTile({
+    required this.title,
+    required this.imageUrl,
     required this.scale,
+    required this.onTap,
     required this.onFavoriteTap,
-    this.opensDirectly = false,
   });
 
-  final StoryModel story;
+  final String title;
+  final String imageUrl;
   final double scale;
+  final VoidCallback onTap;
   final VoidCallback onFavoriteTap;
-  final bool opensDirectly;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => _openFavouriteItem(context),
+      onTap: onTap,
       child: Container(
         padding: EdgeInsets.all(12 * scale),
         decoration: BoxDecoration(
@@ -550,14 +611,14 @@ class _FavouriteStoryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _FavouriteStoryImage(
-              story: story,
+              imageUrl: imageUrl,
               scale: scale,
               onFavoriteTap: onFavoriteTap,
             ),
             SizedBox(height: 8 * scale),
             Expanded(
               child: Text(
-                story.title,
+                title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: _FavouritesTextStyles.cardTitle.copyWith(
@@ -570,37 +631,16 @@ class _FavouriteStoryCard extends StatelessWidget {
       ),
     );
   }
-
-  void _openFavouriteItem(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) {
-          if (!opensDirectly) {
-            return const EpisodesScreen();
-          }
-
-          return StoryPlayerScreen(
-            storyId: story.id,
-            title: story.title,
-            story: story,
-            openDirectly: true,
-            playerImageUrl:
-                story.coverUrl ?? story.imageUrl ?? story.thumbnailUrl,
-          );
-        },
-      ),
-    );
-  }
 }
 
 class _FavouriteStoryImage extends StatelessWidget {
   const _FavouriteStoryImage({
-    required this.story,
+    required this.imageUrl,
     required this.scale,
     required this.onFavoriteTap,
   });
 
-  final StoryModel story;
+  final String imageUrl;
   final double scale;
   final VoidCallback onFavoriteTap;
 
@@ -615,7 +655,7 @@ class _FavouriteStoryImage extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             Image.network(
-              story.thumbnailUrl,
+              imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>
                   const ColoredBox(color: AppColors.backgroundGlass),
@@ -624,11 +664,6 @@ class _FavouriteStoryImage extends StatelessWidget {
               top: 8 * scale,
               right: 8 * scale,
               child: _FavouriteHeartButton(scale: scale, onTap: onFavoriteTap),
-            ),
-            Positioned(
-              right: 8 * scale,
-              bottom: 8 * scale,
-              child: const _EpisodeBadge(label: 'Ep 3 of 7'),
             ),
           ],
         ),
@@ -672,24 +707,6 @@ class _FavouriteHeartButton extends StatelessWidget {
   }
 }
 
-class _EpisodeBadge extends StatelessWidget {
-  const _EpisodeBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.glassShadow,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(label, style: _FavouritesTextStyles.episode),
-    );
-  }
-}
-
 abstract final class _FavouritesTextStyles {
   static const headerTitle = TextStyle(
     fontFamily: AppTypography.fontFamily,
@@ -720,15 +737,6 @@ abstract final class _FavouritesTextStyles {
     fontSize: 14,
     height: 20 / 14,
     fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const episode = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 10,
-    height: 12 / 10,
-    letterSpacing: 1,
-    fontWeight: FontWeight.w700,
     color: AppColors.textOnPrimary,
   );
 }

@@ -20,6 +20,8 @@ import '../auth/profile_setup_screen.dart';
 import '../home/home_screen.dart';
 import '../library/library_sections_screen.dart';
 import '../membership/membership_screen.dart';
+import '../storytime/providers/continue_listening_provider.dart';
+import '../storytime/providers/favorite_stories_provider.dart';
 import 'help_and_support_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'story_language_screen.dart';
@@ -133,8 +135,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         'assets/icons/new_boopi/streamline-sharp_star-badge.svg',
                                     title: 'Subscription',
                                     subtitle: 'For yawns and cuddles.',
-                                    onTap: () =>
-                                        _openMembership(context),
+                                    onTap: () => _openMembership(context),
                                   ),
                                   _ProfileMenuRow(
                                     iconAsset:
@@ -237,8 +238,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         _openHome(context, profile);
                         break;
                       case 1:
+                        _openHome(context, profile, initialTab: 1);
                         break;
                       case 2:
+                        _openHome(context, profile, initialTab: 2);
                         break;
                     }
                   },
@@ -311,10 +314,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     unawaited(
       PostHogAnalytics.instance.capture(
         'logout_clicked',
-        properties: {
-          'screen_name': 'profile_screen',
-          'source': 'profile_menu',
-        },
+        properties: {'screen_name': 'profile_screen', 'source': 'profile_menu'},
       ),
     );
     unawaited(
@@ -327,6 +327,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     await ref.read(appAuthServiceProvider).signOut();
     ref.invalidate(authSessionProvider);
     ref.invalidate(profileNotifierProvider);
+    ref.invalidate(sessionStoryHistoryProvider);
+    ref.invalidate(continueListeningProvider);
+    ref.invalidate(favoriteStoryCardsProvider);
+    ref.invalidate(favoriteStoriesProvider);
 
     if (!mounted) {
       return;
@@ -335,9 +339,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  void _openHome(BuildContext context, ChildProfileModel? profile) {
+  void _openHome(
+    BuildContext context,
+    ChildProfileModel? profile, {
+    int initialTab = 0,
+  }) {
     final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
+    if (initialTab == 0 && navigator.canPop()) {
       navigator.pop();
       return;
     }
@@ -351,6 +359,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           childAge: profile?.age != null && profile!.age > 0
               ? profile.age
               : widget.fallbackChildAge ?? 2,
+          initialTab: initialTab,
         ),
       ),
     );
@@ -360,10 +369,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     unawaited(
       PostHogAnalytics.instance.capture(
         'favorites_clicked',
-        properties: {
-          'screen_name': 'profile_screen',
-          'source': 'profile_menu',
-        },
+        properties: {'screen_name': 'profile_screen', 'source': 'profile_menu'},
       ),
     );
     unawaited(
@@ -520,10 +526,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     unawaited(
       PostHogAnalytics.instance.capture(
         'subscription_page_viewed',
-        properties: {
-          'screen_name': 'profile_screen',
-          'source': 'profile_menu',
-        },
+        properties: {'screen_name': 'profile_screen', 'source': 'profile_menu'},
       ),
     );
     unawaited(
@@ -533,11 +536,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         properties: {'source': 'profile_menu'},
       ),
     );
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const MembershipScreen(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const MembershipScreen()));
   }
 }
 
