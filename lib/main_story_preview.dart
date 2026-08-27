@@ -37,18 +37,12 @@ class _StoryPreviewApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final storyAssets = Supabase.instance.client.storage.from('story-assets');
-    final coverUrl = storyAssets.getPublicUrl(
-      'stories/kanha ki sunheri subah/images/page-001.webp',
-    );
-    final previewStory = StoryModel(
-      id: StoryRepository.morningWhispersStoryId,
-      title: 'Kanha Ki Sunheri Subah',
-      thumbnailUrl: coverUrl,
-      category: 'Krishna Stories',
+    const previewStory = StoryModel(
+      id: 'preview-story',
+      title: 'Story Preview',
+      thumbnailUrl: '',
+      category: 'Story',
       durationMinutes: 4,
-      imageUrl: coverUrl,
-      coverUrl: coverUrl,
     );
 
     return MaterialApp(
@@ -70,13 +64,14 @@ class _PreviewStoryRepository extends StoryRepository {
   const _PreviewStoryRepository();
 
   @override
-  Future<bool> isFavoriteStory(String storyId) async => false;
+  Future<bool> isFavoriteStory(String storyId, {String? profileId}) async =>
+      false;
 
   @override
-  Future<void> addFavoriteStory(String storyId) async {}
+  Future<void> addFavoriteStory(String storyId, {String? profileId}) async {}
 
   @override
-  Future<void> removeFavoriteStory(String storyId) async {}
+  Future<void> removeFavoriteStory(String storyId, {String? profileId}) async {}
 
   @override
   Future<bool> isStorySaved(String storyId) async => false;

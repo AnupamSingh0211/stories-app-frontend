@@ -90,8 +90,8 @@ class BackendProfileDataSource extends ProfileDataSource {
 class LocalProfileDataSource extends ProfileDataSource {
   const LocalProfileDataSource();
 
-  static const _storageKey = 'local_child_profiles';
   static const _currentUserId = 'local-parent';
+  static const _storageKey = 'user.$_currentUserId.local_child_profiles';
 
   @override
   String? get currentUserId => _currentUserId;

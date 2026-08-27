@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/analytics_service.dart';
 import '../../../shared/theme/app_colors.dart';
@@ -12,26 +11,17 @@ import '../../../shared/widgets/app_screen_background.dart';
 import '../models/story_model.dart';
 import '../providers/continue_listening_provider.dart';
 import '../providers/story_player_provider.dart';
-import '../repositories/story_repository.dart';
 import '../widgets/story_image_view.dart';
 import 'story_player_screen.dart';
 
-typedef EpisodeAssetUrlBuilder = String Function(String bucket, String path);
-
-const _storyTitle = 'Shararati Krishna ke karname';
-const _storyAssetFolder = 'stories/kanha ki sunheri subah/images';
-const _storyPlayerImagePath =
-    'stories/kanha aur makhan/images/story_player_img.webp';
-const _bannerPath = 'featured_banners/kanha ki sunheri subah.webp';
 const _baseWidth = 390.0;
 const _episodeHeroWidth = 359.0;
 const _episodeHeroHeight = 202.0;
 
 class EpisodesScreen extends ConsumerStatefulWidget {
-  const EpisodesScreen({this.storyCard, this.assetUrlBuilder, super.key});
+  const EpisodesScreen({this.storyCard, super.key});
 
   final StoryCardModel? storyCard;
-  final EpisodeAssetUrlBuilder? assetUrlBuilder;
 
   @override
   ConsumerState<EpisodesScreen> createState() => _EpisodesScreenState();
@@ -50,8 +40,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
         'episodes_screen',
         properties: {
           'source': 'story_card',
-          'story_card_id':
-              widget.storyCard?.id ?? StoryRepository.krishnaStoryCardId,
+          'story_card_id': widget.storyCard?.id,
         },
       ),
     );
@@ -61,9 +50,8 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
         properties: {
           'screen_name': 'episodes_screen',
           'source': 'episodes_list',
-          'story_card_id':
-              widget.storyCard?.id ?? StoryRepository.krishnaStoryCardId,
-          'story_card_title': widget.storyCard?.title ?? _storyTitle,
+          'story_card_id': widget.storyCard?.id,
+          'story_card_title': widget.storyCard?.title,
         },
       ),
     );
@@ -101,28 +89,16 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
         properties: {
           'screen_name': 'episodes_screen',
           'source': 'episodes_list',
-          'story_card_id':
-              widget.storyCard?.id ?? StoryRepository.krishnaStoryCardId,
-          'story_card_title': widget.storyCard?.title ?? _storyTitle,
+          'story_card_id': widget.storyCard?.id,
+          'story_card_title': widget.storyCard?.title,
         },
       ),
     );
   }
 
-  String _assetUrl(String bucket, String path) {
-    final builder = widget.assetUrlBuilder;
-    if (builder != null) {
-      return builder(bucket, path);
-    }
-
-    return Supabase.instance.client.storage.from(bucket).getPublicUrl(path);
-  }
-
   @override
   Widget build(BuildContext context) {
     final selectedCard = widget.storyCard;
-    final bannerUrl =
-        selectedCard?.heroBannerUrl ?? _assetUrl('app-assets', _bannerPath);
     final cmsStoriesState = selectedCard == null
         ? null
         : ref.watch(storyCardStoriesProvider(selectedCard.id));
@@ -180,8 +156,8 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: horizontal),
                     child: _HeroCard(
-                      imageUrl: bannerUrl,
-                      title: selectedCard?.title ?? _storyTitle,
+                      imageUrl: selectedCard?.heroBannerUrl ?? '',
+                      title: selectedCard?.title ?? 'Stories',
                       episodeCount: episodes.length,
                       scale: scale,
                       width: heroWidth,
@@ -205,19 +181,27 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                   ),
                 ),
                 SliverToBoxAdapter(child: SizedBox(height: 8 * scale)),
-                SliverList.separated(
-                  itemCount: episodes.length,
-                  separatorBuilder: (context, index) =>
-                      SizedBox(height: 12 * scale),
-                  itemBuilder: (context, index) => Padding(
-                    padding: EdgeInsets.symmetric(horizontal: horizontal),
-                    child: _EpisodeTile(
-                      episode: episodes[index],
-                      scale: scale,
-                      onTap: () => _openEpisode(context, episodes[index]),
+                if (episodes.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: horizontal),
+                      child: _EmptyEpisodesMessage(scale: scale),
+                    ),
+                  )
+                else
+                  SliverList.separated(
+                    itemCount: episodes.length,
+                    separatorBuilder: (context, index) =>
+                        SizedBox(height: 12 * scale),
+                    itemBuilder: (context, index) => Padding(
+                      padding: EdgeInsets.symmetric(horizontal: horizontal),
+                      child: _EpisodeTile(
+                        episode: episodes[index],
+                        scale: scale,
+                        onTap: () => _openEpisode(context, episodes[index]),
+                      ),
                     ),
                   ),
-                ),
                 SliverToBoxAdapter(child: SizedBox(height: 52 * scale)),
               ],
             );
@@ -232,48 +216,19 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
     List<StoryModel> cmsStories,
     SessionStoryHistoryState history,
   ) {
-    final isKrishnaCard =
-        selectedCard == null ||
-        selectedCard.id == StoryRepository.krishnaStoryCardId;
-    final legacyItems = isKrishnaCard
-        ? _episodes
-              .map(
-                (episode) => _EpisodeItem.legacy(
-                  index: episode.index,
-                  title: episode.title,
-                  durationMinutes: episode.durationMinutes,
-                  progress: history.progressForStory(episode.id),
-                  isCompleted: history.isStoryCompleted(episode.id),
-                  imageUrl: _assetUrl(
-                    'story-assets',
-                    '$_storyAssetFolder/page-${episode.imageNumber.toString().padLeft(3, '0')}.webp',
-                  ),
-                ),
-              )
-              .toList(growable: true)
-        : <_EpisodeItem>[];
+    if (selectedCard == null) {
+      return const [];
+    }
 
-    final existingIds = legacyItems.map((item) => item.story?.id).toSet();
-    for (final story in cmsStories) {
-      if (existingIds.contains(story.id)) {
-        continue;
-      }
-      if (isKrishnaCard &&
-          (story.id == StoryRepository.morningWhispersStoryId ||
-              story.id == StoryRepository.arrivalNewsStoryId)) {
-        continue;
-      }
-      legacyItems.add(
+    return List.unmodifiable([
+      for (final (index, story) in cmsStories.indexed)
         _EpisodeItem.cmsStory(
-          index: legacyItems.length + 1,
+          index: index + 1,
           story: story,
           progress: history.progressForStory(story.id),
           isCompleted: history.isStoryCompleted(story.id),
         ),
-      );
-    }
-
-    return List.unmodifiable(legacyItems);
+    ]);
   }
 
   void _openEpisode(BuildContext context, _EpisodeItem episode) {
@@ -289,38 +244,15 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
       ),
     );
     final story = episode.story;
-    if (story != null) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => StoryPlayerScreen(
-            storyId: story.id,
-            title: story.title,
-            openDirectly: true,
-            playerImageUrl:
-                story.coverUrl ?? story.imageUrl ?? story.thumbnailUrl,
-            story: story,
-          ),
-        ),
-      );
-      return;
-    }
-
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => StoryPlayerScreen(
-          storyId: StoryRepository.morningWhispersStoryId,
-          title: episode.title,
+          storyId: story.id,
+          title: story.title,
           openDirectly: true,
-          playerImageUrl: _assetUrl('story-assets', _storyPlayerImagePath),
-          story: StoryModel(
-            id: StoryRepository.morningWhispersStoryId,
-            title: episode.title,
-            thumbnailUrl: episode.imageUrl,
-            category: 'Story',
-            durationMinutes: episode.durationMinutes,
-            imageUrl: episode.imageUrl,
-            coverUrl: episode.imageUrl,
-          ),
+          playerImageUrl:
+              story.coverUrl ?? story.imageUrl ?? story.thumbnailUrl,
+          story: story,
         ),
       ),
     );
@@ -497,6 +429,28 @@ class _HeroHeartButton extends StatelessWidget {
         'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
         width: 25 * scale,
         height: 25 * scale,
+      ),
+    );
+  }
+}
+
+class _EmptyEpisodesMessage extends StatelessWidget {
+  const _EmptyEpisodesMessage({required this.scale});
+
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 24 * scale),
+      child: Text(
+        'No episodes available yet.',
+        textAlign: TextAlign.center,
+        style: AppTypography.bodyMediumSemiBold.copyWith(
+          color: AppColors.textOnPrimary,
+          fontSize: 14 * scale,
+          height: 20 / 14,
+        ),
       ),
     );
   }
@@ -747,37 +701,6 @@ class _EpisodeActionIcon extends StatelessWidget {
 
 enum _EpisodeState { completed, continuing, left }
 
-class _Episode {
-  const _Episode({
-    required this.index,
-    required this.id,
-    required this.title,
-    required this.durationMinutes,
-    required this.imageNumber,
-    this.imageUrl = '',
-  });
-
-  final int index;
-  final String id;
-  final String title;
-  final int durationMinutes;
-  final int imageNumber;
-  final String imageUrl;
-
-  String get durationLabel => '$durationMinutes min';
-
-  _Episode copyWith({String? imageUrl}) {
-    return _Episode(
-      index: index,
-      id: id,
-      title: title,
-      durationMinutes: durationMinutes,
-      imageNumber: imageNumber,
-      imageUrl: imageUrl ?? this.imageUrl,
-    );
-  }
-}
-
 class _EpisodeItem {
   const _EpisodeItem({
     required this.index,
@@ -787,27 +710,8 @@ class _EpisodeItem {
     required this.progress,
     required this.isCompleted,
     required this.imageUrl,
-    this.story,
+    required this.story,
   });
-
-  factory _EpisodeItem.legacy({
-    required int index,
-    required String title,
-    required int durationMinutes,
-    required ContinueListeningEntry? progress,
-    required bool isCompleted,
-    required String imageUrl,
-  }) {
-    return _EpisodeItem(
-      index: index,
-      id: 'kanha-episode-$index',
-      title: title,
-      durationMinutes: durationMinutes,
-      progress: progress,
-      isCompleted: isCompleted,
-      imageUrl: imageUrl,
-    );
-  }
 
   factory _EpisodeItem.cmsStory({
     required int index,
@@ -834,7 +738,7 @@ class _EpisodeItem {
   final ContinueListeningEntry? progress;
   final bool isCompleted;
   final String imageUrl;
-  final StoryModel? story;
+  final StoryModel story;
 
   String get durationLabel => '$durationMinutes min';
 
@@ -870,55 +774,3 @@ class _EpisodeItem {
     };
   }
 }
-
-const _episodes = [
-  _Episode(
-    index: 1,
-    id: 'kanha-episode-1',
-    title: 'Makhan Ki Talaash',
-    durationMinutes: 3,
-    imageNumber: 1,
-  ),
-  _Episode(
-    index: 2,
-    id: 'kanha-episode-2',
-    title: 'Makhan Chor Kanha',
-    durationMinutes: 3,
-    imageNumber: 2,
-  ),
-  _Episode(
-    index: 3,
-    id: 'kanha-episode-3',
-    title: 'Meri Pyari Bachhiya',
-    durationMinutes: 7,
-    imageNumber: 3,
-  ),
-  _Episode(
-    index: 4,
-    id: 'kanha-episode-4',
-    title: 'Bansuri Ki Dhun',
-    durationMinutes: 5,
-    imageNumber: 4,
-  ),
-  _Episode(
-    index: 5,
-    id: 'kanha-episode-5',
-    title: 'Titliyon Ke Peeche',
-    durationMinutes: 6,
-    imageNumber: 5,
-  ),
-  _Episode(
-    index: 6,
-    id: 'kanha-episode-6',
-    title: 'Barish Wali Masti',
-    durationMinutes: 4,
-    imageNumber: 6,
-  ),
-  _Episode(
-    index: 7,
-    id: 'kanha-episode-7',
-    title: 'Vrindavan Ke Dost',
-    durationMinutes: 3,
-    imageNumber: 7,
-  ),
-];

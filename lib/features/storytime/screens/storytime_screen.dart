@@ -879,7 +879,14 @@ class _FavoriteStoryButtonState extends ConsumerState<_FavoriteStoryButton> {
     try {
       final isFavorite = await ref
           .read(storyRepositoryProvider)
-          .isFavoriteStory(widget.story.id);
+          .isFavoriteStory(
+            widget.story.id,
+            profileId: ref
+                .read(profileNotifierProvider)
+                .valueOrNull
+                ?.selectedChild
+                ?.id,
+          );
       if (mounted) {
         setState(() {
           _isFavorite = isFavorite;
@@ -901,8 +908,16 @@ class _FavoriteStoryButtonState extends ConsumerState<_FavoriteStoryButton> {
 
     try {
       final repository = ref.read(storyRepositoryProvider);
+      final profileId = ref
+          .read(profileNotifierProvider)
+          .valueOrNull
+          ?.selectedChild
+          ?.id;
       if (next) {
-        await repository.addFavoriteStory(widget.story.id);
+        await repository.addFavoriteStory(
+          widget.story.id,
+          profileId: profileId,
+        );
         await PostHogAnalytics.instance.capture(
           'story_favorited',
           properties: _storyAnalyticsProperties(
@@ -911,7 +926,10 @@ class _FavoriteStoryButtonState extends ConsumerState<_FavoriteStoryButton> {
           ),
         );
       } else {
-        await repository.removeFavoriteStory(widget.story.id);
+        await repository.removeFavoriteStory(
+          widget.story.id,
+          profileId: profileId,
+        );
       }
     } catch (_) {
       if (mounted) setState(() => _isFavorite = !next);

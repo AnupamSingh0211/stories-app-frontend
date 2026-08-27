@@ -3,6 +3,8 @@ import 'package:dharma_app/features/storytime/models/story_page.dart';
 import 'package:dharma_app/features/storytime/audio/story_audio_preloader.dart';
 import 'package:dharma_app/features/storytime/notifiers/story_player_notifier.dart';
 import 'package:dharma_app/features/storytime/notifiers/story_player_state.dart';
+import 'package:dharma_app/features/storytime/providers/continue_listening_provider.dart';
+import 'package:dharma_app/features/storytime/providers/favorite_stories_provider.dart';
 import 'package:dharma_app/features/storytime/providers/story_player_provider.dart';
 import 'package:dharma_app/features/storytime/repositories/story_repository.dart';
 import 'package:dharma_app/features/storytime/screens/story_player_screen.dart';
@@ -41,6 +43,12 @@ void main() {
       ProviderScope(
         overrides: [
           storyPlayerProvider.overrideWith((ref, storyId) => notifier),
+          storyHistoryRepositoryProvider.overrideWithValue(
+            InMemoryStoryHistoryRepository(),
+          ),
+          favoriteStoriesProvider.overrideWith(
+            (ref) => _TestFavoriteStoriesNotifier(),
+          ),
         ],
         child: const MaterialApp(
           home: StoryPlayerScreen(
@@ -85,6 +93,12 @@ void main() {
       ProviderScope(
         overrides: [
           storyPlayerProvider.overrideWith((ref, storyId) => notifier),
+          storyHistoryRepositoryProvider.overrideWithValue(
+            InMemoryStoryHistoryRepository(),
+          ),
+          favoriteStoriesProvider.overrideWith(
+            (ref) => _TestFavoriteStoriesNotifier(),
+          ),
         ],
         child: const MaterialApp(
           home: StoryPlayerScreen(
@@ -138,6 +152,12 @@ void main() {
       ProviderScope(
         overrides: [
           storyPlayerProvider.overrideWith((ref, storyId) => notifier),
+          storyHistoryRepositoryProvider.overrideWithValue(
+            InMemoryStoryHistoryRepository(),
+          ),
+          favoriteStoriesProvider.overrideWith(
+            (ref) => _TestFavoriteStoriesNotifier(),
+          ),
         ],
         child: const MaterialApp(
           home: StoryPlayerScreen(
@@ -200,6 +220,12 @@ void main() {
       ProviderScope(
         overrides: [
           storyPlayerProvider.overrideWith((ref, storyId) => notifier),
+          storyHistoryRepositoryProvider.overrideWithValue(
+            InMemoryStoryHistoryRepository(),
+          ),
+          favoriteStoriesProvider.overrideWith(
+            (ref) => _TestFavoriteStoriesNotifier(),
+          ),
         ],
         child: const MaterialApp(
           home: StoryPlayerScreen(
@@ -641,4 +667,29 @@ class _TestStoryAudioPreloader implements StoryAudioPreloader {
 
   @override
   Future<void> dispose() async {}
+}
+
+class _TestFavoriteStoriesNotifier extends FavoriteStoriesNotifier {
+  _TestFavoriteStoriesNotifier()
+    : super(const StoryRepository(), profileId: 'test-profile');
+
+  @override
+  Future<void> loadStories() async {}
+
+  @override
+  Future<void> addStory(
+    StoryModel story, {
+    String source = 'episode_player',
+  }) async {
+    if (isFavorite(story.id)) return;
+    state = [story, ...state];
+  }
+
+  @override
+  Future<void> removeStory(String storyId) async {
+    state = [
+      for (final story in state)
+        if (story.id != storyId) story,
+    ];
+  }
 }

@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backend_api_client.dart';
 import '../../auth/auth_provider.dart';
 import '../../auth/profile_notifier.dart';
 import '../models/story_model.dart';
@@ -75,9 +78,9 @@ class StoryHistorySnapshot {
 }
 
 abstract interface class StoryHistoryRepository {
-  StoryHistorySnapshot read(StoryHistoryScope scope);
+  Future<StoryHistorySnapshot> read(StoryHistoryScope scope);
 
-  void write(StoryHistoryScope scope, StoryHistorySnapshot snapshot);
+  Future<void> write(StoryHistoryScope scope, StoryHistorySnapshot snapshot);
 
   void clear();
 }
@@ -86,16 +89,204 @@ class InMemoryStoryHistoryRepository implements StoryHistoryRepository {
   StoryHistorySnapshot _snapshot = const StoryHistorySnapshot();
 
   @override
-  StoryHistorySnapshot read(StoryHistoryScope scope) => _snapshot;
+  Future<StoryHistorySnapshot> read(StoryHistoryScope scope) async => _snapshot;
 
   @override
-  void write(StoryHistoryScope scope, StoryHistorySnapshot snapshot) {
+  Future<void> write(
+    StoryHistoryScope scope,
+    StoryHistorySnapshot snapshot,
+  ) async {
     _snapshot = snapshot;
   }
 
   @override
   void clear() {
     _snapshot = const StoryHistorySnapshot();
+  }
+}
+
+class BackendStoryHistoryRepository implements StoryHistoryRepository {
+  BackendStoryHistoryRepository({required BackendApiClient apiClient})
+    : _apiClient = apiClient;
+
+  final BackendApiClient _apiClient;
+
+  @override
+  Future<StoryHistorySnapshot> read(StoryHistoryScope scope) async {
+    final data = await _apiClient.getObject(
+      '/api/v1/history',
+      authenticated: true,
+      queryParameters: {'profile_id': scope.childProfileId},
+    );
+
+    return _snapshotFromBackendMap(data);
+  }
+
+  @override
+  Future<void> write(
+    StoryHistoryScope scope,
+    StoryHistorySnapshot snapshot,
+  ) async {
+    await _apiClient.postObject(
+      '/api/v1/history/sync',
+      authenticated: true,
+      body: {
+        'profile_id': scope.childProfileId,
+        'recents': [
+          for (final entry in snapshot.recents)
+            {
+              'story_id': entry.story.id,
+              'last_played_at': entry.lastPlayedAt.toUtc().toIso8601String(),
+            },
+        ],
+        'progress': [
+          for (final entry in snapshot.progressByStoryId.values)
+            {
+              'story_id': entry.story.id,
+              'current_page': entry.currentPageIndex + 1,
+              'progress_seconds': entry.audioPosition.inSeconds,
+              'completed_percentage': entry.progress * 100,
+              'is_completed': false,
+              'last_played_at': entry.updatedAt.toUtc().toIso8601String(),
+            },
+          for (final storyId in snapshot.completedStoryIds)
+            {
+              'story_id': storyId,
+              'current_page': 1,
+              'progress_seconds': 0,
+              'completed_percentage': 100,
+              'is_completed': true,
+              'last_played_at': DateTime.now().toUtc().toIso8601String(),
+            },
+        ],
+      },
+    );
+  }
+
+  @override
+  void clear() {}
+
+  StoryHistorySnapshot _snapshotFromBackendMap(Map<String, dynamic> data) {
+    final recents = _listOfMaps(
+      data['recents'],
+    ).map(_recentFromMap).whereType<RecentStoryEntry>().toList(growable: false);
+    final progressEntries =
+        _listOfMaps(
+              data['progressByStoryId'] is Map
+                  ? (data['progressByStoryId'] as Map).values.toList()
+                  : const [],
+            )
+            .map(_continueFromMap)
+            .whereType<ContinueListeningEntry>()
+            .toList(growable: false);
+    final continueEntry = data['continueListening'] is Map
+        ? _continueFromMap(_stringKeyedMap(data['continueListening'] as Map))
+        : null;
+    final completedStoryIds = data['completedStoryIds'] is List
+        ? (data['completedStoryIds'] as List)
+              .map((value) => value.toString())
+              .where((value) => value.isNotEmpty)
+              .toSet()
+        : <String>{};
+
+    return StoryHistorySnapshot(
+      recents: recents,
+      continueListening: continueEntry,
+      progressByStoryId: {
+        for (final entry in progressEntries) entry.story.id: entry,
+      },
+      completedStoryIds: completedStoryIds,
+    );
+  }
+
+  RecentStoryEntry? _recentFromMap(Map<String, dynamic> row) {
+    final story = row['story'] is Map
+        ? _storyFromMap(_stringKeyedMap(row['story'] as Map))
+        : null;
+    if (story == null) return null;
+
+    return RecentStoryEntry(
+      story: story,
+      lastPlayedAt: _dateTimeValue(row['lastPlayedAt']) ?? DateTime.now(),
+    );
+  }
+
+  ContinueListeningEntry? _continueFromMap(Map<String, dynamic> row) {
+    final story = row['story'] is Map
+        ? _storyFromMap(_stringKeyedMap(row['story'] as Map))
+        : null;
+    if (story == null) return null;
+
+    return ContinueListeningEntry(
+      story: story,
+      currentPageIndex: _intValue(row['currentPageIndex']),
+      pageCount: _intValue(row['pageCount']).clamp(1, 9999).toInt(),
+      audioPosition: Duration(seconds: _intValue(row['audioPositionSeconds'])),
+      audioDuration: Duration(seconds: _intValue(row['audioDurationSeconds'])),
+      updatedAt: _dateTimeValue(row['updatedAt']) ?? DateTime.now(),
+    );
+  }
+
+  StoryModel? _storyFromMap(Map<String, dynamic> row) {
+    final id = row['id']?.toString() ?? '';
+    if (id.isEmpty) return null;
+
+    return StoryModel(
+      id: id,
+      title: _firstString(row, ['title'], fallback: 'Story'),
+      thumbnailUrl: _firstString(row, [
+        'thumbnailUrl',
+        'thumbnail_url',
+        'imageUrl',
+        'image_url',
+      ]),
+      category: _firstString(row, ['category'], fallback: 'Story'),
+      durationMinutes: _intValue(row['durationMinutes']),
+      imageUrl: _nullableString(row['imageUrl'] ?? row['image_url']),
+      coverUrl: _nullableString(row['coverUrl'] ?? row['cover_url']),
+    );
+  }
+
+  List<Map<String, dynamic>> _listOfMaps(Object? rows) {
+    if (rows is! List) return const [];
+
+    return rows.whereType<Map>().map(_stringKeyedMap).toList(growable: false);
+  }
+
+  Map<String, dynamic> _stringKeyedMap(Map row) {
+    return row.map((key, value) => MapEntry(key.toString(), value));
+  }
+
+  String _firstString(
+    Map<String, dynamic> row,
+    List<String> keys, {
+    String fallback = '',
+  }) {
+    for (final key in keys) {
+      final value = row[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value;
+      }
+    }
+
+    return fallback;
+  }
+
+  String? _nullableString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value;
+    return null;
+  }
+
+  int _intValue(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  DateTime? _dateTimeValue(Object? value) {
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value)?.toLocal();
+    return null;
   }
 }
 
@@ -166,6 +357,10 @@ class SessionStoryHistoryNotifier
   final StoryHistoryRepository _repository;
 
   void activateScope(StoryHistoryScope? scope) {
+    unawaited(_activateScope(scope));
+  }
+
+  Future<void> _activateScope(StoryHistoryScope? scope) async {
     if (state.scope == scope) {
       return;
     }
@@ -178,9 +373,8 @@ class SessionStoryHistoryNotifier
 
     state = SessionStoryHistoryState(scope: scope, isLoading: true);
     try {
-      // Session history deliberately starts empty for every user/profile change.
       _repository.clear();
-      final snapshot = _repository.read(scope);
+      final snapshot = await _repository.read(scope);
       state = SessionStoryHistoryState(
         scope: scope,
         recents: List.unmodifiable(snapshot.recents),
@@ -235,10 +429,7 @@ class SessionStoryHistoryNotifier
       audioDuration: audioDuration.isNegative ? Duration.zero : audioDuration,
       updatedAt: timestamp,
     );
-    final progressByStoryId = {
-      ...state.progressByStoryId,
-      story.id: entry,
-    };
+    final progressByStoryId = {...state.progressByStoryId, story.id: entry};
     final completedStoryIds = {...state.completedStoryIds}..remove(story.id);
     _commit(
       state.copyWith(
@@ -273,8 +464,16 @@ class SessionStoryHistoryNotifier
     }
 
     try {
-      _repository.write(scope, next.snapshot);
       state = next.copyWith(clearError: true);
+      unawaited(
+        _repository.write(scope, next.snapshot).catchError((_) {
+          if (mounted) {
+            state = state.copyWith(
+              errorMessage: 'Your listening history could not be updated.',
+            );
+          }
+        }),
+      );
     } catch (_) {
       state = next.copyWith(
         errorMessage: 'Your listening history could not be updated.',
@@ -324,7 +523,9 @@ class ContinueListeningNotifier extends StateNotifier<ContinueListeningEntry?> {
 }
 
 final storyHistoryRepositoryProvider = Provider<StoryHistoryRepository>(
-  (ref) => InMemoryStoryHistoryRepository(),
+  (ref) => BackendStoryHistoryRepository(
+    apiClient: ref.watch(backendApiClientProvider),
+  ),
 );
 
 final storyHistoryScopeProvider = Provider<StoryHistoryScope?>((ref) {
