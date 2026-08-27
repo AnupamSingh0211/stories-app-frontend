@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics_service.dart';
+import '../../core/backend_api_client.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import 'profile_notifier.dart';
+import 'profile_repository.dart';
 
 const _ageOptions = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const _genderOptions = [
@@ -59,9 +61,20 @@ String? _validateChildName(String? value) {
 }
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
-  const ProfileSetupScreen({super.key, this.popOnSave = false});
+  const ProfileSetupScreen({
+    super.key,
+    this.popOnSave = false,
+    this.initialChild,
+  });
+
+  const ProfileSetupScreen.edit({super.key, required ChildProfileModel child})
+    : popOnSave = true,
+      initialChild = child;
 
   final bool popOnSave;
+  final ChildProfileModel? initialChild;
+
+  bool get isEditing => initialChild != null;
 
   @override
   ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -87,11 +100,24 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   @override
   void initState() {
     super.initState();
+    final initialChild = widget.initialChild;
+    if (initialChild != null) {
+      _nameController.text = initialChild.childName;
+      _selectedGender = initialChild.gender;
+      _selectedAge = initialChild.age > 0 ? initialChild.age : null;
+      _selectedLocale = normalizeProfileLocale(initialChild.locale);
+    }
     _nameController.addListener(_refresh);
     unawaited(
       PostHogAnalytics.instance.screenOpened(
         'child_profile_setup_screen',
-        properties: {'source': widget.popOnSave ? 'profile_screen' : 'signup'},
+        properties: {
+          'source': widget.isEditing
+              ? 'profile_edit'
+              : widget.popOnSave
+              ? 'profile_screen'
+              : 'signup',
+        },
       ),
     );
   }
@@ -123,28 +149,49 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     setState(() => _isSubmitting = true);
     unawaited(
       PostHogAnalytics.instance.buttonClicked(
-        buttonName: 'save_child_profile',
+        buttonName: widget.isEditing
+            ? 'update_child_profile'
+            : 'save_child_profile',
         screenName: 'child_profile_setup_screen',
-        properties: {'source': widget.popOnSave ? 'profile_screen' : 'signup'},
+        properties: {
+          'source': widget.isEditing
+              ? 'profile_edit'
+              : widget.popOnSave
+              ? 'profile_screen'
+              : 'signup',
+        },
       ),
     );
 
     try {
-      final child = await ref
-          .read(profileNotifierProvider.notifier)
-          .addChild(
-            name: _nameController.text.trim(),
-            gender: _selectedGender!,
-            age: _selectedAge!,
-            locale: _selectedLocale!,
-      );
+      final notifier = ref.read(profileNotifierProvider.notifier);
+      final child = widget.isEditing
+          ? await notifier.updateSelectedChildProfile(
+              name: _nameController.text.trim(),
+              gender: _selectedGender!,
+              age: _selectedAge!,
+            )
+          : await notifier.addChild(
+              name: _nameController.text.trim(),
+              gender: _selectedGender!,
+              age: _selectedAge!,
+              locale: _selectedLocale!,
+            );
 
       unawaited(
         PostHogAnalytics.instance.capture(
-          widget.popOnSave ? 'child_profile_added' : 'signup_completed',
+          widget.isEditing
+              ? 'child_profile_updated'
+              : widget.popOnSave
+              ? 'child_profile_added'
+              : 'signup_completed',
           properties: {
             'screen_name': 'child_profile_setup_screen',
-            'source': widget.popOnSave ? 'profile_screen' : 'signup',
+            'source': widget.isEditing
+                ? 'profile_edit'
+                : widget.popOnSave
+                ? 'profile_screen'
+                : 'signup',
           },
         ),
       );
@@ -152,8 +199,19 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       if (widget.popOnSave) {
         Navigator.pop(context, child);
       }
-    } catch (_) {
+    } on BackendApiException catch (error) {
       _submissionLocked = false;
+      debugPrint(
+        'ProfileSetupScreen: save failed '
+        '(${error.statusCode ?? 'no status'}): ${error.message}',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      _submissionLocked = false;
+      debugPrint('ProfileSetupScreen: save failed: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -233,6 +291,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           child: _StartButton(
                             enabled: _isComplete && !isSaving,
                             isSaving: isSaving,
+                            label: widget.isEditing
+                                ? 'Save'
+                                : 'Start Storytime',
                             onTap: _saveProfile,
                           ),
                         ),
@@ -515,6 +576,10 @@ class _AgeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ageOptions = selectedAge != null && !_ageOptions.contains(selectedAge)
+        ? [selectedAge!, ..._ageOptions]
+        : _ageOptions;
+
     return SizedBox(
       height: 60,
       child: LayoutBuilder(
@@ -523,7 +588,7 @@ class _AgeSelector extends StatelessWidget {
               ((constraints.maxWidth - _ageChipSize / 2 + _ageChipMinGap) /
                       (_ageChipSize + _ageChipMinGap))
                   .floor()
-                  .clamp(1, _ageOptions.length - 1);
+                  .clamp(1, ageOptions.length - 1);
           final gap =
               ((constraints.maxWidth -
                           _ageChipSize / 2 -
@@ -536,10 +601,10 @@ class _AgeSelector extends StatelessWidget {
             clipBehavior: Clip.hardEdge,
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
-            itemCount: _ageOptions.length,
+            itemCount: ageOptions.length,
             separatorBuilder: (context, index) => SizedBox(width: gap),
             itemBuilder: (context, index) {
-              final age = _ageOptions[index];
+              final age = ageOptions[index];
               return Center(
                 child: _AgeChip(
                   age: age,
@@ -664,11 +729,13 @@ class _StartButton extends StatelessWidget {
   const _StartButton({
     required this.enabled,
     required this.isSaving,
+    required this.label,
     required this.onTap,
   });
 
   final bool enabled;
   final bool isSaving;
+  final String label;
   final VoidCallback onTap;
 
   @override
@@ -700,7 +767,7 @@ class _StartButton extends StatelessWidget {
                 ),
               )
             : Text(
-                'Start Storytime',
+                label,
                 style: _ProfileSetupTextStyles.button.copyWith(
                   color: enabled ? Colors.white : _disabledTextColor,
                 ),

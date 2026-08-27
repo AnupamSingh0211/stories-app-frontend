@@ -83,29 +83,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _ChildSwitcher(
-                                children: childProfiles?.children ?? const [],
-                                selectedChildId: profile?.id,
-                                onSelected: (childId) {
-                                  unawaited(
-                                    PostHogAnalytics.instance.capture(
-                                      'profile_selected',
-                                      properties: {
-                                        'screen_name': 'profile_screen',
-                                        'source': 'profile_switcher',
-                                      },
-                                    ),
-                                  );
-                                  ref
-                                      .read(profileNotifierProvider.notifier)
-                                      .selectChild(childId);
-                                },
-                                onAddChild: () => _addChild(
-                                  context,
-                                  childProfiles?.children.length ?? 0,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
                               if (profileState.isLoading)
                                 const _LoadingPanel()
                               else if (profile == null)
@@ -125,6 +102,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   avatarBytes: _selectedAvatarBytes[profile.id],
                                   onAvatarCameraTap: () =>
                                       _pickProfileAvatar(profile),
+                                  onEditTap: () =>
+                                      _editChildProfile(context, profile),
                                 ),
                               const SizedBox(height: 24),
                               _ProfileSection(
@@ -306,6 +285,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     await Navigator.of(context).push<ChildProfileModel>(
       MaterialPageRoute(
         builder: (context) => const ProfileSetupScreen(popOnSave: true),
+      ),
+    );
+  }
+
+  Future<void> _editChildProfile(
+    BuildContext context,
+    ChildProfileModel profile,
+  ) async {
+    unawaited(
+      PostHogAnalytics.instance.buttonClicked(
+        buttonName: 'edit_child_profile',
+        screenName: 'profile_screen',
+        properties: {'source': 'child_profile_card'},
+      ),
+    );
+
+    await Navigator.of(context).push<ChildProfileModel>(
+      MaterialPageRoute(
+        builder: (context) => ProfileSetupScreen.edit(child: profile),
       ),
     );
   }
@@ -592,134 +590,6 @@ class _ProfileHeaderBar extends StatelessWidget {
   }
 }
 
-class _ChildSwitcher extends StatelessWidget {
-  const _ChildSwitcher({
-    required this.children,
-    required this.selectedChildId,
-    required this.onSelected,
-    required this.onAddChild,
-  });
-
-  final List<ChildProfileModel> children;
-  final String? selectedChildId;
-  final ValueChanged<String> onSelected;
-  final VoidCallback onAddChild;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 35.77,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        physics: const ClampingScrollPhysics(),
-        children: [
-          for (final child in children) ...[
-            _ProfileChip(
-              label: _firstName(child.childName),
-              selected: child.id == selectedChildId,
-              onTap: () => onSelected(child.id),
-            ),
-            const SizedBox(width: 8),
-          ],
-          _ProfileChip(
-            label: 'Add New profile',
-            selected: false,
-            dashed: true,
-            showAddIcon: true,
-            onTap: onAddChild,
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _firstName(String name) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) {
-      return 'Profile';
-    }
-    return trimmed.split(RegExp(r'\s+')).first;
-  }
-}
-
-class _ProfileChip extends StatelessWidget {
-  const _ProfileChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.dashed = false,
-    this.showAddIcon = false,
-  });
-
-  final String label;
-  final bool selected;
-  final bool dashed;
-  final bool showAddIcon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = AppColors.textOnPrimary;
-    final chip = DecoratedBox(
-      decoration: ShapeDecoration(
-        color: selected ? AppColors.glassBackground : Colors.transparent,
-        shape: StadiumBorder(
-          side: BorderSide(
-            color: dashed
-                ? Colors.transparent
-                : selected
-                ? AppColors.glassBorder
-                : AppColors.borderLight,
-            width: 1.3895,
-            strokeAlign: BorderSide.strokeAlignInside,
-          ),
-        ),
-      ),
-      child: CustomPaint(
-        foregroundPainter: dashed
-            ? _DashedStadiumBorderPainter(
-                color: AppColors.borderLight,
-                strokeWidth: 1.3895,
-              )
-            : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 17.39,
-            vertical: 7.39,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showAddIcon) ...[
-                Icon(Icons.add_rounded, color: color, size: 13.993),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                label,
-                style: _ProfileTextStyles.chip.copyWith(color: color),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: showAddIcon
-          ? Stack(
-              alignment: Alignment.center,
-              children: [
-                chip,
-                const Opacity(opacity: 0, child: Text('Add Child')),
-              ],
-            )
-          : chip,
-    );
-  }
-}
-
 class _ChildProfileCard extends StatelessWidget {
   const _ChildProfileCard({
     required this.name,
@@ -727,6 +597,7 @@ class _ChildProfileCard extends StatelessWidget {
     required this.rawAge,
     this.avatarBytes,
     this.onAvatarCameraTap,
+    this.onEditTap,
   });
 
   final String name;
@@ -734,6 +605,7 @@ class _ChildProfileCard extends StatelessWidget {
   final int? rawAge;
   final Uint8List? avatarBytes;
   final VoidCallback? onAvatarCameraTap;
+  final VoidCallback? onEditTap;
 
   @override
   Widget build(BuildContext context) {
@@ -766,13 +638,26 @@ class _ChildProfileCard extends StatelessWidget {
                   ),
                 ),
               ),
-              SvgPicture.asset(
-                'assets/icons/new_boopi/State=Default, Icon=Edit Square.svg',
-                width: 24,
-                height: 24,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.textOnPrimary,
-                  BlendMode.srcIn,
+              Semantics(
+                button: true,
+                label: 'Edit child profile',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onEditTap,
+                  child: SizedBox.square(
+                    dimension: 44,
+                    child: Center(
+                      child: SvgPicture.asset(
+                        'assets/icons/new_boopi/State=Default, Icon=Edit Square.svg',
+                        width: 24,
+                        height: 24,
+                        colorFilter: const ColorFilter.mode(
+                          AppColors.textOnPrimary,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1194,51 +1079,7 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
-class _DashedStadiumBorderPainter extends CustomPainter {
-  const _DashedStadiumBorderPainter({
-    required this.color,
-    required this.strokeWidth,
-  });
-
-  final Color color;
-  final double strokeWidth;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final radius = Radius.circular(size.height / 2);
-    final path = Path()..addRRect(RRect.fromRectAndRadius(rect, radius));
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-    const dash = 2.779;
-    const gap = 1.3895;
-
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final next = distance + dash;
-        canvas.drawPath(metric.extractPath(distance, next), paint);
-        distance = next + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedStadiumBorderPainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
-  }
-}
-
 abstract final class _ProfileTextStyles {
-  static const chip = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-  );
-
   static const profileName = TextStyle(
     fontFamily: AppTypography.fontFamily,
     fontSize: 16,

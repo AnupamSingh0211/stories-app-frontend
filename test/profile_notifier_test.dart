@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dharma_app/core/backend_api_client.dart';
@@ -8,49 +7,20 @@ import 'package:dharma_app/features/auth/profile_notifier.dart';
 import 'package:dharma_app/features/auth/profile_repository.dart';
 
 void main() {
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-  });
-
-  test('returning parent loads and selects only their children', () async {
+  test('returning parent loads only their active child profile', () async {
     final repository = _FakeProfileRepository(childCount: 2);
-    final container = ProviderContainer(
-      overrides: [
-        activeSessionProvider.overrideWithValue(
-          const AppSessionIdentity(userId: 'parent-1', isAnonymous: false),
-        ),
-        profileRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
+    final container = _authenticatedContainer(repository);
     addTearDown(container.dispose);
 
     final initial = await container.read(profileNotifierProvider.future);
-    expect(initial.children.map((child) => child.childName), [
-      'Aarav',
-      'Meera',
-    ]);
+
+    expect(initial.children.map((child) => child.childName), ['Aarav']);
     expect(initial.selectedChild?.childName, 'Aarav');
     expect(repository.fetchCalls, 1);
-
-    container
-        .read(profileNotifierProvider.notifier)
-        .selectChild(repository.children.last.id);
-    expect(
-      container
-          .read(profileNotifierProvider)
-          .valueOrNull
-          ?.selectedChild
-          ?.childName,
-      'Meera',
-    );
-
-    final state = container.read(profileNotifierProvider).requireValue;
-    expect(state.children.length, 2);
-    expect(state.selectedChild?.childName, 'Meera');
   });
 
   test('signed-out session resets stale repository children', () async {
-    final repository = _FakeProfileRepository(childCount: 2);
+    final repository = _FakeProfileRepository(childCount: 1);
     final container = ProviderContainer(
       overrides: [
         activeSessionProvider.overrideWithValue(null),
@@ -66,28 +36,24 @@ void main() {
     expect(repository.fetchCalls, 0);
   });
 
-  for (final initialCount in [0, 1]) {
-    test(
-      'allows adding a child when parent has $initialCount children',
-      () async {
-        final repository = _FakeProfileRepository(childCount: initialCount);
-        final container = _authenticatedContainer(repository);
-        addTearDown(container.dispose);
-        await container.read(profileNotifierProvider.future);
+  test('allows creating the first child profile', () async {
+    final repository = _FakeProfileRepository(childCount: 0);
+    final container = _authenticatedContainer(repository);
+    addTearDown(container.dispose);
+    await container.read(profileNotifierProvider.future);
 
-        final created = await container
-            .read(profileNotifierProvider.notifier)
-            .addChild(name: 'Kabir', gender: 'boy', age: 3);
+    final created = await container
+        .read(profileNotifierProvider.notifier)
+        .addChild(name: 'Kabir', gender: 'boy', age: 3);
 
-        final state = container.read(profileNotifierProvider).requireValue;
-        expect(state.children.length, initialCount + 1);
-        expect(state.selectedChild?.id, created.id);
-      },
-    );
-  }
+    final state = container.read(profileNotifierProvider).requireValue;
+    expect(state.children, [created]);
+    expect(state.selectedChild?.id, created.id);
+    expect(repository.createCalls, 1);
+  });
 
-  test('rejects adding a third child without calling the repository', () async {
-    final repository = _FakeProfileRepository(childCount: 2);
+  test('rejects creating a second child profile without calling repository', () async {
+    final repository = _FakeProfileRepository(childCount: 1);
     final container = _authenticatedContainer(repository);
     addTearDown(container.dispose);
     await container.read(profileNotifierProvider.future);
@@ -100,10 +66,9 @@ void main() {
     );
 
     expect(repository.createCalls, 0);
-    expect(
-      container.read(profileNotifierProvider).requireValue.children.length,
-      2,
-    );
+    expect(container.read(profileNotifierProvider).requireValue.children, [
+      repository.children.first,
+    ]);
   });
 
   test('restores the previous state when creating a child fails', () async {
@@ -127,93 +92,18 @@ void main() {
     expect(state.requireValue.children, isEmpty);
   });
 
-  test('stores selected child id under the authenticated user key', () async {
-    final repository = _FakeProfileRepository(childCount: 1);
+  test('refresh keeps a single active child profile', () async {
+    final repository = _FakeProfileRepository(childCount: 2);
     final container = _authenticatedContainer(repository);
     addTearDown(container.dispose);
     await container.read(profileNotifierProvider.future);
 
-    final prefs = await SharedPreferences.getInstance();
-    expect(
-      prefs.getString(SelectedChildPreferences.keyForUser('parent-1')),
-      'child-1',
-    );
+    await container.read(profileNotifierProvider.notifier).refresh();
+
+    final state = container.read(profileNotifierProvider).requireValue;
+    expect(state.children.map((child) => child.id), ['child-1']);
+    expect(state.selectedChild?.id, 'child-1');
   });
-
-  test('two different users do not share selected child id', () async {
-    final firstRepository = _FakeProfileRepository(childCount: 2);
-    final firstContainer = _authenticatedContainer(firstRepository);
-    addTearDown(firstContainer.dispose);
-    await firstContainer.read(profileNotifierProvider.future);
-    firstContainer
-        .read(profileNotifierProvider.notifier)
-        .selectChild('child-2');
-
-    final secondRepository = _FakeProfileRepository(childCount: 1);
-    final secondContainer = ProviderContainer(
-      overrides: [
-        activeSessionProvider.overrideWithValue(
-          const AppSessionIdentity(userId: 'parent-2', isAnonymous: false),
-        ),
-        profileRepositoryProvider.overrideWithValue(secondRepository),
-      ],
-    );
-    addTearDown(secondContainer.dispose);
-    final secondState = await secondContainer.read(
-      profileNotifierProvider.future,
-    );
-
-    final prefs = await SharedPreferences.getInstance();
-    expect(
-      prefs.getString(SelectedChildPreferences.keyForUser('parent-1')),
-      'child-2',
-    );
-    expect(
-      prefs.getString(SelectedChildPreferences.keyForUser('parent-2')),
-      'child-1',
-    );
-    expect(secondState.selectedChild?.id, 'child-1');
-  });
-
-  test(
-    'missing stored selected child falls back to first backend child',
-    () async {
-      SharedPreferences.setMockInitialValues({
-        SelectedChildPreferences.keyForUser('parent-1'): 'missing-child',
-      });
-      final repository = _FakeProfileRepository(childCount: 2);
-      final container = _authenticatedContainer(repository);
-      addTearDown(container.dispose);
-
-      final state = await container.read(profileNotifierProvider.future);
-
-      expect(state.selectedChild?.id, 'child-1');
-      final prefs = await SharedPreferences.getInstance();
-      expect(
-        prefs.getString(SelectedChildPreferences.keyForUser('parent-1')),
-        'child-1',
-      );
-    },
-  );
-
-  test(
-    'signed-out state does not read or write selected child preferences',
-    () async {
-      final repository = _FakeProfileRepository(childCount: 2);
-      final container = ProviderContainer(
-        overrides: [
-          activeSessionProvider.overrideWithValue(null),
-          profileRepositoryProvider.overrideWithValue(repository),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      await container.read(profileNotifierProvider.future);
-
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getKeys(), isEmpty);
-    },
-  );
 
   test('updates selected child locale in state and repository', () async {
     final repository = _FakeProfileRepository(childCount: 1);
@@ -472,7 +362,6 @@ class _FakeProfileRepository extends ProfileRepository {
     return child;
   }
 
-  @override
   @override
   Future<ChildProfileModel> updateChildLocale({
     required ChildProfileModel child,

@@ -249,14 +249,13 @@ DEV_AUTH_OTP_ENABLED=false
     await tester.pumpAndSettle();
 
     expect(find.text('Aarav'), findsWidgets);
-    expect(find.text('Meera'), findsOneWidget);
-    await tester.tap(find.text('Meera'));
-    await tester.pump();
-    expect(find.text('5'), findsOneWidget);
+    expect(find.text('Meera'), findsNothing);
+    expect(find.text('Add New profile'), findsNothing);
+    expect(find.text('Add Child'), findsNothing);
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Stories'), findsOneWidget);
-    expect(find.text('Library'), findsOneWidget);
+    expect(find.text('Popular'), findsOneWidget);
+    expect(find.text('Soon'), findsOneWidget);
     expect(find.text('Profile'), findsNWidgets(2));
     final profileHeading = tester
         .widgetList<Text>(find.text('Profile'))
@@ -266,10 +265,10 @@ DEV_AUTH_OTP_ENABLED=false
     expect(profileHeading.style?.height, 1.20);
     expect(profileHeading.style?.letterSpacing, -0.25);
 
-    await tester.tap(find.text('Library'));
+    await tester.tap(find.text('Soon'));
     await tester.pumpAndSettle();
-    expect(find.byType(StorytimeScreen), findsOneWidget);
-    expect(find.text('Dreamy Tales'), findsOneWidget);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Coming Soon'), findsOneWidget);
 
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
@@ -277,17 +276,46 @@ DEV_AUTH_OTP_ENABLED=false
 
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Meera'), findsWidgets);
+    expect(find.byType(HomeScreen), findsOneWidget);
   });
 
-  testWidgets('two children blocks child creation with the limit message', (
+  testWidgets(
+    'profile screen hides add-profile actions once a profile exists',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+            companionsProvider.overrideWith((ref) async => const []),
+          ],
+          child: MaterialApp(
+            themeMode: ThemeMode.dark,
+            darkTheme: AppTheme.darkTheme,
+            home: const ProfileScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Aarav'), findsWidgets);
+      expect(find.text('Aarav'), findsOneWidget);
+      expect(find.text('Meera'), findsNothing);
+      expect(find.text('Add New profile'), findsNothing);
+      expect(find.text('Add Child'), findsNothing);
+      expect(find.byType(ProfileSetupScreen), findsNothing);
+    },
+  );
+
+  testWidgets('profile edit icon opens setup UI in edit mode', (
     WidgetTester tester,
   ) async {
+    final notifier = _TestProfileNotifier();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          profileNotifierProvider.overrideWith(_TestProfileNotifier.new),
+          profileNotifierProvider.overrideWith(() => notifier),
           companionsProvider.overrideWith((ref) async => const []),
+          appAssetsProvider.overrideWithValue(_testAssets),
         ],
         child: MaterialApp(
           themeMode: ThemeMode.dark,
@@ -298,12 +326,60 @@ DEV_AUTH_OTP_ENABLED=false
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Add Child'));
-    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Edit child profile'));
+    await tester.pumpAndSettle();
 
-    expect(find.text(childProfileLimitMessage), findsOneWidget);
-    expect(find.byType(ProfileSetupScreen), findsNothing);
+    expect(find.byType(ProfileSetupScreen), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+    expect(find.text('Start Storytime'), findsNothing);
+    expect(find.text('Aarav'), findsOneWidget);
+    expect(find.byKey(const ValueKey('choiceboySelected')), findsOneWidget);
   });
+
+  testWidgets(
+    'profile edit saves updated child details without adding a child',
+    (WidgetTester tester) async {
+      final notifier = _TestProfileNotifier();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            profileNotifierProvider.overrideWith(() => notifier),
+            companionsProvider.overrideWith((ref) async => const []),
+            appAssetsProvider.overrideWithValue(_testAssets),
+          ],
+          child: MaterialApp(
+            themeMode: ThemeMode.dark,
+            darkTheme: AppTheme.darkTheme,
+            home: const ProfileScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel('Edit child profile'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('childNameField')),
+        'Vashu',
+      );
+      await tester.tap(find.byKey(const ValueKey('choicegirlUnselected')));
+      await tester.pump();
+      await tester.tap(find.text('8'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Save'));
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(notifier.addChildCalls, 0);
+      expect(notifier.updateProfileCalls, 1);
+      expect(notifier.lastUpdatedName, 'Vashu');
+      expect(notifier.lastUpdatedGender, 'girl');
+      expect(notifier.lastUpdatedAge, 8);
+      expect(find.byType(ProfileSetupScreen), findsNothing);
+      expect(find.text('Vashu'), findsOneWidget);
+      expect(find.text('8 yrs'), findsOneWidget);
+    },
+  );
 
   testWidgets('stories header profile icon opens the profile page', (
     WidgetTester tester,
@@ -1294,10 +1370,15 @@ ChildProfileModel _child({required String name, required int age}) {
 }
 
 class _TestProfileNotifier extends ProfileNotifier {
+  int addChildCalls = 0;
+  int updateProfileCalls = 0;
+  String? lastUpdatedName;
+  String? lastUpdatedGender;
+  int? lastUpdatedAge;
+
   @override
   Future<ChildProfilesState> build() async {
     return ChildProfilesState(
-      selectedChildId: 'profile-1',
       children: [
         ChildProfileModel(
           id: 'profile-1',
@@ -1317,6 +1398,60 @@ class _TestProfileNotifier extends ProfileNotifier {
         ),
       ],
     );
+  }
+
+  @override
+  Future<ChildProfileModel> addChild({
+    required String name,
+    required String gender,
+    required int age,
+    String locale = defaultProfileLocale,
+  }) async {
+    addChildCalls++;
+    final child = ChildProfileModel(
+      id: 'profile-created',
+      parentId: 'parent-1',
+      childName: name,
+      age: age,
+      gender: gender,
+      locale: locale,
+      createdAt: DateTime.utc(2026, 6, 9),
+    );
+    state = AsyncData(ChildProfilesState(children: [child]));
+    return child;
+  }
+
+  @override
+  Future<ChildProfileModel> updateSelectedChildProfile({
+    String? name,
+    String? gender,
+    int? age,
+    String? locale,
+  }) async {
+    updateProfileCalls++;
+    lastUpdatedName = name;
+    lastUpdatedGender = gender;
+    lastUpdatedAge = age;
+
+    final current = state.valueOrNull?.selectedChild;
+    final updated =
+        (current ??
+                ChildProfileModel(
+                  id: 'profile-1',
+                  parentId: 'parent-1',
+                  childName: 'Aarav',
+                  age: 3,
+                  gender: 'boy',
+                  createdAt: DateTime.utc(2026, 6, 9),
+                ))
+            .copyWith(
+              childName: name,
+              gender: gender,
+              age: age,
+              locale: locale,
+            );
+    state = AsyncData(ChildProfilesState(children: [updated]));
+    return updated;
   }
 }
 
@@ -1363,9 +1498,7 @@ class _OnboardingProfileNotifier extends ProfileNotifier {
           locale: locale,
           createdAt: DateTime.utc(2026, 6, 9),
         );
-    state = AsyncData(
-      ChildProfilesState(children: [child], selectedChildId: child.id),
-    );
+    state = AsyncData(ChildProfilesState(children: [child]));
     return child;
   }
 }
