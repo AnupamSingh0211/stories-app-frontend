@@ -280,10 +280,10 @@ class ProfileRepository {
   }
 }
 
-const maxChildProfiles = 2;
+const maxChildProfiles = 1;
 const childProfileLimitMessage =
-    'You can add up to two child profiles. To add another, please update or '
-    'remove an existing profile.';
+    'This account already has a child profile. You can update the existing '
+    'profile for now.';
 
 class ChildProfileLimitException implements Exception {
   const ChildProfileLimitException();
