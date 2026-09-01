@@ -4,16 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics_service.dart';
-import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import '../auth/profile_notifier.dart';
 import '../auth/profile_repository.dart';
 
 const _figmaWidth = 390.0;
-const _glassColor = Color(0x2EFFFFFF);
-const _borderColor = Color(0x59FFFFFF);
-const _dividerColor = Color(0x59FFFFFF);
 const _buttonShadowColor = Color(0x2E000000);
 
 class StoryLanguageScreen extends ConsumerStatefulWidget {
@@ -94,6 +91,7 @@ class _StoryLanguageScreenState extends ConsumerState<StoryLanguageScreen> {
     final selectedLocale = normalizeProfileLocale(
       _selectedLocale ?? watchedLocale,
     );
+    final tokenStyles = _LanguageTokenStyles.fromRef(ref);
 
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
@@ -112,7 +110,7 @@ class _StoryLanguageScreenState extends ConsumerState<StoryLanguageScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _LanguageHeader(),
+                        _LanguageHeader(tokenStyles: tokenStyles),
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             horizontal,
@@ -124,12 +122,13 @@ class _StoryLanguageScreenState extends ConsumerState<StoryLanguageScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 12),
-                              const Text(
+                              Text(
                                 'Select Language',
-                                style: _LanguageTextStyles.sectionLabel,
+                                style: tokenStyles.sectionLabel,
                               ),
                               const SizedBox(height: 16),
                               _LanguageCard(
+                                tokenStyles: tokenStyles,
                                 selectedLocale: selectedLocale,
                                 onChanged: (locale) {
                                   setState(() => _selectedLocale = locale);
@@ -145,6 +144,7 @@ class _StoryLanguageScreenState extends ConsumerState<StoryLanguageScreen> {
                       right: horizontal,
                       bottom: 38 * scale,
                       child: _ContinueButton(
+                        tokenStyles: tokenStyles,
                         isSaving: _isSaving,
                         onTap: _continue,
                       ),
@@ -161,7 +161,9 @@ class _StoryLanguageScreenState extends ConsumerState<StoryLanguageScreen> {
 }
 
 class _LanguageHeader extends StatelessWidget {
-  const _LanguageHeader();
+  const _LanguageHeader({required this.tokenStyles});
+
+  final _LanguageTokenStyles tokenStyles;
 
   @override
   Widget build(BuildContext context) {
@@ -176,16 +178,16 @@ class _LanguageHeader extends StatelessWidget {
               child: InkResponse(
                 onTap: () => Navigator.of(context).maybePop(),
                 radius: 24,
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_rounded,
-                  color: AppColors.textOnPrimary,
+                  color: tokenStyles.contentColor,
                   size: 24,
                   applyTextScaling: false,
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            const Text('Story Language', style: _LanguageTextStyles.title),
+            Text('Story Language', style: tokenStyles.title),
           ],
         ),
       ),
@@ -194,8 +196,13 @@ class _LanguageHeader extends StatelessWidget {
 }
 
 class _LanguageCard extends StatelessWidget {
-  const _LanguageCard({required this.selectedLocale, required this.onChanged});
+  const _LanguageCard({
+    required this.tokenStyles,
+    required this.selectedLocale,
+    required this.onChanged,
+  });
 
+  final _LanguageTokenStyles tokenStyles;
   final String selectedLocale;
   final ValueChanged<String> onChanged;
 
@@ -205,13 +212,14 @@ class _LanguageCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: _glassColor,
+          color: tokenStyles.cardBackgroundColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _borderColor),
+          border: Border.all(color: tokenStyles.cardBorderColor),
         ),
         child: Column(
           children: [
             _LanguageOption(
+              tokenStyles: tokenStyles,
               locale: 'en-IN',
               label: 'English',
               selected: selectedLocale == 'en-IN',
@@ -219,6 +227,7 @@ class _LanguageCard extends StatelessWidget {
               onTap: onChanged,
             ),
             _LanguageOption(
+              tokenStyles: tokenStyles,
               locale: 'hi-IN',
               label: '\u{0939}\u{093F}\u{0902}\u{0926}\u{0940}',
               selected: selectedLocale == 'hi-IN',
@@ -235,6 +244,7 @@ class _LanguageCard extends StatelessWidget {
 
 class _LanguageOption extends StatelessWidget {
   const _LanguageOption({
+    required this.tokenStyles,
     required this.locale,
     required this.label,
     required this.selected,
@@ -243,6 +253,7 @@ class _LanguageOption extends StatelessWidget {
     this.showDivider = true,
   });
 
+  final _LanguageTokenStyles tokenStyles;
   final String locale;
   final String label;
   final bool selected;
@@ -263,22 +274,27 @@ class _LanguageOption extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 17),
           decoration: BoxDecoration(
             border: showDivider
-                ? const Border(bottom: BorderSide(color: _dividerColor))
+                ? Border(bottom: BorderSide(color: tokenStyles.cardBorderColor))
                 : null,
           ),
           child: Row(
             children: [
-              _LanguageIcon(label: iconText),
+              _LanguageIcon(
+                label: iconText,
+                color: tokenStyles.contentColor,
+                backgroundColor: tokenStyles.cardBackgroundColor,
+                borderColor: tokenStyles.cardBorderColor,
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: _LanguageTextStyles.option,
+                  style: tokenStyles.option,
                 ),
               ),
-              _RadioIcon(selected: selected),
+              _RadioIcon(selected: selected, color: tokenStyles.contentColor),
             ],
           ),
         ),
@@ -288,9 +304,17 @@ class _LanguageOption extends StatelessWidget {
 }
 
 class _LanguageIcon extends StatelessWidget {
-  const _LanguageIcon({required this.label});
+  const _LanguageIcon({
+    required this.label,
+    required this.color,
+    required this.backgroundColor,
+    required this.borderColor,
+  });
 
   final String label;
+  final Color color;
+  final Color backgroundColor;
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -298,36 +322,42 @@ class _LanguageIcon extends StatelessWidget {
       width: 39.993,
       height: 39.993,
       decoration: BoxDecoration(
-        color: AppColors.backgroundGlass,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: borderColor),
       ),
       alignment: Alignment.center,
       child: SizedBox.square(
         dimension: 24,
-        child: CustomPaint(painter: _LanguageGlyphPainter(label)),
+        child: CustomPaint(painter: _LanguageGlyphPainter(label, color)),
       ),
     );
   }
 }
 
 class _RadioIcon extends StatelessWidget {
-  const _RadioIcon({required this.selected});
+  const _RadioIcon({required this.selected, required this.color});
 
   final bool selected;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: 24,
-      child: CustomPaint(painter: _RadioPainter(selected)),
+      child: CustomPaint(painter: _RadioPainter(selected, color)),
     );
   }
 }
 
 class _ContinueButton extends StatelessWidget {
-  const _ContinueButton({required this.isSaving, required this.onTap});
+  const _ContinueButton({
+    required this.tokenStyles,
+    required this.isSaving,
+    required this.onTap,
+  });
 
+  final _LanguageTokenStyles tokenStyles;
   final bool isSaving;
   final VoidCallback onTap;
 
@@ -340,9 +370,9 @@ class _ContinueButton extends StatelessWidget {
         height: 52,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.backgroundGlass,
+          color: tokenStyles.cardBackgroundColor,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.borderLight, width: 0.8),
+          border: Border.all(color: tokenStyles.cardBorderColor, width: 0.8),
           boxShadow: const [
             BoxShadow(
               color: _buttonShadowColor,
@@ -352,28 +382,29 @@ class _ContinueButton extends StatelessWidget {
           ],
         ),
         child: isSaving
-            ? const SizedBox.square(
+            ? SizedBox.square(
                 dimension: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.textOnPrimary,
+                  color: tokenStyles.contentColor,
                 ),
               )
-            : const Text('Continue', style: _LanguageTextStyles.button),
+            : Text('Continue', style: tokenStyles.button),
       ),
     );
   }
 }
 
 class _LanguageGlyphPainter extends CustomPainter {
-  const _LanguageGlyphPainter(this.label);
+  const _LanguageGlyphPainter(this.label, this.color);
 
   final String label;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     final stroke = Paint()
-      ..color = AppColors.textOnPrimary
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.65
       ..strokeCap = StrokeCap.round
@@ -388,7 +419,7 @@ class _LanguageGlyphPainter extends CustomPainter {
       text: TextSpan(
         text: label,
         style: TextStyle(
-          color: AppColors.textOnPrimary,
+          color: color,
           fontFamily: AppTypography.fontFamily,
           fontSize: label == 'En' ? 8.5 : 13,
           fontWeight: FontWeight.w700,
@@ -408,20 +439,21 @@ class _LanguageGlyphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LanguageGlyphPainter oldDelegate) {
-    return oldDelegate.label != label;
+    return oldDelegate.label != label || oldDelegate.color != color;
   }
 }
 
 class _RadioPainter extends CustomPainter {
-  const _RadioPainter(this.selected);
+  const _RadioPainter(this.selected, this.color);
 
   final bool selected;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final stroke = Paint()
-      ..color = AppColors.textOnPrimary
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawCircle(center, 8.5, stroke);
@@ -429,49 +461,50 @@ class _RadioPainter extends CustomPainter {
     if (!selected) return;
 
     final fill = Paint()
-      ..color = AppColors.textOnPrimary
+      ..color = color
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, 4.5, fill);
   }
 
   @override
   bool shouldRepaint(covariant _RadioPainter oldDelegate) {
-    return oldDelegate.selected != selected;
+    return oldDelegate.selected != selected || oldDelegate.color != color;
   }
 }
 
-abstract final class _LanguageTextStyles {
-  static const title = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 20,
-    height: 24 / 20,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
+class _LanguageTokenStyles {
+  const _LanguageTokenStyles({
+    required this.contentColor,
+    required this.title,
+    required this.sectionLabel,
+    required this.option,
+    required this.button,
+    required this.cardBackgroundColor,
+    required this.cardBorderColor,
+  });
 
-  static const sectionLabel = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 12,
-    height: 16 / 12,
-    letterSpacing: 0.5,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
+  factory _LanguageTokenStyles.fromRef(WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+    final contentColor = tokenColors.profileTextPrimary;
+    return _LanguageTokenStyles(
+      contentColor: contentColor,
+      title: tokenTextStyles.profileHeaderTitle.copyWith(color: contentColor),
+      sectionLabel: tokenTextStyles.profileSectionLabel.copyWith(
+        color: contentColor,
+      ),
+      option: tokenTextStyles.profileRowTitle.copyWith(color: contentColor),
+      button: tokenTextStyles.onboardingCtaLabel.copyWith(color: contentColor),
+      cardBackgroundColor: tokenColors.profileCardBackground,
+      cardBorderColor: tokenColors.profileCardBorder,
+    );
+  }
 
-  static const option = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const button = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
+  final Color contentColor;
+  final TextStyle title;
+  final TextStyle sectionLabel;
+  final TextStyle option;
+  final TextStyle button;
+  final Color cardBackgroundColor;
+  final Color cardBorderColor;
 }

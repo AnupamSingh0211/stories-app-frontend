@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics_service.dart';
 import '../../core/backend_api_client.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import 'profile_notifier.dart';
@@ -231,6 +232,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         _isSubmitting ||
         ref.watch(profileNotifierProvider.select((state) => state.isLoading));
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final tokenStyles = _ProfileSetupTokenStyles.fromRef(ref);
 
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
@@ -266,9 +268,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const _HeaderCopy(),
+                              _HeaderCopy(tokenStyles: tokenStyles),
                               SizedBox(height: 32 * scale),
                               _ProfileForm(
+                                tokenStyles: tokenStyles,
                                 nameController: _nameController,
                                 nameFocusNode: _nameFocusNode,
                                 selectedGender: _selectedGender,
@@ -289,6 +292,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           right: 16 * scale,
                           bottom: 38 * scale,
                           child: _StartButton(
+                            tokenStyles: tokenStyles,
                             enabled: _isComplete && !isSaving,
                             isSaving: isSaving,
                             label: widget.isEditing
@@ -311,39 +315,28 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 }
 
 class _HeaderCopy extends StatelessWidget {
-  const _HeaderCopy();
+  const _HeaderCopy({required this.tokenStyles});
+
+  final _ProfileSetupTokenStyles tokenStyles;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
           child: Text(
             'Tell us about your little one',
             maxLines: 1,
-            style: TextStyle(
-              fontFamily: AppTypography.fontFamily,
-              fontSize: 24,
-              height: 28 / 24,
-              letterSpacing: -0.25,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
+            style: tokenStyles.headerTitle,
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           'We personalise every story to fit.',
-          style: TextStyle(
-            fontFamily: AppTypography.fontFamily,
-            fontSize: 14,
-            height: 20 / 14,
-            fontWeight: FontWeight.w500,
-            color: _secondaryTextColor,
-          ),
+          style: tokenStyles.headerSubtitle,
         ),
       ],
     );
@@ -352,6 +345,7 @@ class _HeaderCopy extends StatelessWidget {
 
 class _ProfileForm extends StatelessWidget {
   const _ProfileForm({
+    required this.tokenStyles,
     required this.nameController,
     required this.nameFocusNode,
     required this.selectedGender,
@@ -362,6 +356,7 @@ class _ProfileForm extends StatelessWidget {
     required this.onLocaleChanged,
   });
 
+  final _ProfileSetupTokenStyles tokenStyles;
   final TextEditingController nameController;
   final FocusNode nameFocusNode;
   final String? selectedGender;
@@ -377,16 +372,20 @@ class _ProfileForm extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _FormGroup(
+          tokenStyles: tokenStyles,
           label: 'Child\'s Name',
           child: _NameField(
+            tokenStyles: tokenStyles,
             controller: nameController,
             focusNode: nameFocusNode,
           ),
         ),
         const SizedBox(height: 24),
         _FormGroup(
+          tokenStyles: tokenStyles,
           label: 'Child\'s Gender',
           child: _ChoiceRow(
+            tokenStyles: tokenStyles,
             options: _genderOptions,
             selectedValue: selectedGender,
             onChanged: onGenderChanged,
@@ -394,16 +393,20 @@ class _ProfileForm extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _FormGroup(
+          tokenStyles: tokenStyles,
           label: 'Child\'s Age',
           child: _AgeSelector(
+            tokenStyles: tokenStyles,
             selectedAge: selectedAge,
             onAgeChanged: onAgeChanged,
           ),
         ),
         const SizedBox(height: 24),
         _FormGroup(
+          tokenStyles: tokenStyles,
           label: 'Story Language',
           child: _ChoiceRow(
+            tokenStyles: tokenStyles,
             options: _localeOptions,
             selectedValue: selectedLocale,
             onChanged: onLocaleChanged,
@@ -415,8 +418,13 @@ class _ProfileForm extends StatelessWidget {
 }
 
 class _FormGroup extends StatelessWidget {
-  const _FormGroup({required this.label, required this.child});
+  const _FormGroup({
+    required this.tokenStyles,
+    required this.label,
+    required this.child,
+  });
 
+  final _ProfileSetupTokenStyles tokenStyles;
   final String label;
   final Widget child;
 
@@ -425,7 +433,7 @@ class _FormGroup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: _ProfileSetupTextStyles.label),
+        Text(label, style: tokenStyles.label),
         const SizedBox(height: 8),
         child,
       ],
@@ -434,25 +442,31 @@ class _FormGroup extends StatelessWidget {
 }
 
 class _NameField extends StatelessWidget {
-  const _NameField({required this.controller, required this.focusNode});
+  const _NameField({
+    required this.tokenStyles,
+    required this.controller,
+    required this.focusNode,
+  });
 
+  final _ProfileSetupTokenStyles tokenStyles;
   final TextEditingController controller;
   final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
     return _GlassSurface(
+      tokenStyles: tokenStyles,
       height: 52,
       child: TextFormField(
         key: const ValueKey('childNameField'),
         controller: controller,
         focusNode: focusNode,
         textInputAction: TextInputAction.done,
-        cursorColor: Colors.white,
-        style: _ProfileSetupTextStyles.input,
-        decoration: const InputDecoration(
+        cursorColor: tokenStyles.contentColor,
+        style: tokenStyles.input,
+        decoration: InputDecoration(
           hintText: 'Enter here',
-          hintStyle: _ProfileSetupTextStyles.hint,
+          hintStyle: tokenStyles.hint,
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
@@ -465,7 +479,7 @@ class _NameField extends StatelessWidget {
           hoverColor: Colors.transparent,
           isCollapsed: true,
           contentPadding: EdgeInsets.zero,
-          errorStyle: TextStyle(height: 0.01, fontSize: 0),
+          errorStyle: const TextStyle(height: 0.01, fontSize: 0),
         ),
         validator: _validateChildName,
       ),
@@ -489,11 +503,13 @@ enum _ProfileIconType { boy, girl, en, hi }
 
 class _ChoiceRow extends StatelessWidget {
   const _ChoiceRow({
+    required this.tokenStyles,
     required this.options,
     required this.selectedValue,
     required this.onChanged,
   });
 
+  final _ProfileSetupTokenStyles tokenStyles;
   final List<_ChoiceOption> options;
   final String? selectedValue;
   final ValueChanged<String> onChanged;
@@ -505,6 +521,7 @@ class _ChoiceRow extends StatelessWidget {
         for (var index = 0; index < options.length; index += 1) ...[
           Expanded(
             child: _ChoiceButton(
+              tokenStyles: tokenStyles,
               option: options[index],
               isSelected: options[index].value == selectedValue,
               onTap: () => onChanged(options[index].value),
@@ -519,18 +536,20 @@ class _ChoiceRow extends StatelessWidget {
 
 class _ChoiceButton extends StatelessWidget {
   const _ChoiceButton({
+    required this.tokenStyles,
     required this.option,
     required this.isSelected,
     required this.onTap,
   });
 
+  final _ProfileSetupTokenStyles tokenStyles;
   final _ChoiceOption option;
   final bool isSelected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = isSelected ? _selectedTextColor : Colors.white;
+    final color = isSelected ? _selectedTextColor : tokenStyles.contentColor;
 
     return Semantics(
       button: true,
@@ -543,6 +562,7 @@ class _ChoiceButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: _GlassSurface(
+          tokenStyles: tokenStyles,
           height: 52,
           selected: isSelected,
           horizontalPadding: 16,
@@ -557,7 +577,7 @@ class _ChoiceButton extends StatelessWidget {
                   option.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: _ProfileSetupTextStyles.choice.copyWith(color: color),
+                  style: tokenStyles.choice.copyWith(color: color),
                 ),
               ),
             ],
@@ -569,8 +589,13 @@ class _ChoiceButton extends StatelessWidget {
 }
 
 class _AgeSelector extends StatelessWidget {
-  const _AgeSelector({required this.selectedAge, required this.onAgeChanged});
+  const _AgeSelector({
+    required this.tokenStyles,
+    required this.selectedAge,
+    required this.onAgeChanged,
+  });
 
+  final _ProfileSetupTokenStyles tokenStyles;
   final int? selectedAge;
   final ValueChanged<int> onAgeChanged;
 
@@ -607,6 +632,7 @@ class _AgeSelector extends StatelessWidget {
               final age = ageOptions[index];
               return Center(
                 child: _AgeChip(
+                  tokenStyles: tokenStyles,
                   age: age,
                   isSelected: age == selectedAge,
                   onTap: () => onAgeChanged(age),
@@ -622,11 +648,13 @@ class _AgeSelector extends StatelessWidget {
 
 class _AgeChip extends StatelessWidget {
   const _AgeChip({
+    required this.tokenStyles,
     required this.age,
     required this.isSelected,
     required this.onTap,
   });
 
+  final _ProfileSetupTokenStyles tokenStyles;
   final int age;
   final bool isSelected;
   final VoidCallback onTap;
@@ -650,7 +678,7 @@ class _AgeChip extends StatelessWidget {
             color: isSelected ? _selectedColor : _glassColor,
             shape: BoxShape.circle,
             border: Border.all(
-              color: _lightBorderColor,
+              color: tokenStyles.controlBorderColor,
               width: isSelected ? 1 : 0.8,
             ),
             boxShadow: [
@@ -669,8 +697,8 @@ class _AgeChip extends StatelessWidget {
           ),
           child: Text(
             '$age',
-            style: _ProfileSetupTextStyles.age.copyWith(
-              color: isSelected ? _selectedTextColor : Colors.white,
+            style: tokenStyles.choice.copyWith(
+              color: isSelected ? _selectedTextColor : tokenStyles.contentColor,
             ),
           ),
         ),
@@ -681,12 +709,14 @@ class _AgeChip extends StatelessWidget {
 
 class _GlassSurface extends StatelessWidget {
   const _GlassSurface({
+    required this.tokenStyles,
     required this.child,
     required this.height,
     this.selected = false,
     this.horizontalPadding = 20,
   });
 
+  final _ProfileSetupTokenStyles tokenStyles;
   final Widget child;
   final double height;
   final bool selected;
@@ -704,10 +734,10 @@ class _GlassSurface extends StatelessWidget {
       ),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: selected ? _selectedColor : _glassColor,
+        color: selected ? _selectedColor : tokenStyles.controlBackgroundColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: selected ? _lightBorderColor : _lightBorderColor,
+          color: selected ? _lightBorderColor : tokenStyles.controlBorderColor,
           width: selected ? 1 : 0.8,
         ),
         boxShadow: [
@@ -727,12 +757,14 @@ class _GlassSurface extends StatelessWidget {
 
 class _StartButton extends StatelessWidget {
   const _StartButton({
+    required this.tokenStyles,
     required this.enabled,
     required this.isSaving,
     required this.label,
     required this.onTap,
   });
 
+  final _ProfileSetupTokenStyles tokenStyles;
   final bool enabled;
   final bool isSaving;
   final String label;
@@ -747,9 +779,9 @@ class _StartButton extends StatelessWidget {
         height: 52,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _glassColor,
+          color: tokenStyles.controlBackgroundColor,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _lightBorderColor, width: 0.8),
+          border: Border.all(color: tokenStyles.controlBorderColor, width: 0.8),
           boxShadow: const [
             BoxShadow(
               color: _buttonShadowColor,
@@ -759,17 +791,19 @@ class _StartButton extends StatelessWidget {
           ],
         ),
         child: isSaving
-            ? const SizedBox.square(
+            ? SizedBox.square(
                 dimension: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: tokenStyles.contentColor,
                 ),
               )
             : Text(
                 label,
-                style: _ProfileSetupTextStyles.button.copyWith(
-                  color: enabled ? Colors.white : _disabledTextColor,
+                style: tokenStyles.button.copyWith(
+                  color: enabled
+                      ? tokenStyles.contentColor
+                      : _disabledTextColor,
                 ),
               ),
       ),
@@ -892,49 +926,54 @@ class _GlowPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-abstract final class _ProfileSetupTextStyles {
-  static const label = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w700,
-    color: Colors.white,
-  );
+class _ProfileSetupTokenStyles {
+  const _ProfileSetupTokenStyles({
+    required this.contentColor,
+    required this.headerTitle,
+    required this.headerSubtitle,
+    required this.label,
+    required this.hint,
+    required this.input,
+    required this.choice,
+    required this.button,
+    required this.controlBackgroundColor,
+    required this.controlBorderColor,
+  });
 
-  static const hint = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 12,
-    height: 16 / 12,
-    fontWeight: FontWeight.w600,
-    color: _secondaryTextColor,
-  );
+  factory _ProfileSetupTokenStyles.fromRef(WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+    final contentColor = tokenColors.homeCardTextPrimary;
+    return _ProfileSetupTokenStyles(
+      contentColor: contentColor,
+      headerTitle: tokenTextStyles.onboardingHeaderTitle.copyWith(
+        color: contentColor,
+      ),
+      headerSubtitle: tokenTextStyles.onboardingHeaderSubtitle.copyWith(
+        color: _secondaryTextColor,
+      ),
+      label: tokenTextStyles.onboardingFormLabel.copyWith(color: contentColor),
+      hint: tokenTextStyles.onboardingFormInput.copyWith(
+        color: _secondaryTextColor,
+      ),
+      input: tokenTextStyles.onboardingFormInput.copyWith(
+        color: _secondaryTextColor,
+      ),
+      choice: tokenTextStyles.onboardingChoiceLabel,
+      button: tokenTextStyles.onboardingCtaLabel,
+      controlBackgroundColor: tokenColors.onboardingControlBackground,
+      controlBorderColor: tokenColors.onboardingControlBorder,
+    );
+  }
 
-  static const input = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w700,
-    color: _secondaryTextColor,
-  );
-
-  static const choice = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-  );
-
-  static const age = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w600,
-  );
-
-  static const button = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w700,
-  );
+  final Color contentColor;
+  final TextStyle headerTitle;
+  final TextStyle headerSubtitle;
+  final TextStyle label;
+  final TextStyle hint;
+  final TextStyle input;
+  final TextStyle choice;
+  final TextStyle button;
+  final Color controlBackgroundColor;
+  final Color controlBorderColor;
 }

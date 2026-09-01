@@ -3,27 +3,29 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import 'membership_plans_screen.dart';
 import 'membership_side_banner.dart';
 
-class MembershipScreen extends StatefulWidget {
+class MembershipScreen extends ConsumerStatefulWidget {
   const MembershipScreen({super.key, this.onUnlock, this.onSeeAllPlans});
 
   final VoidCallback? onUnlock;
   final VoidCallback? onSeeAllPlans;
 
   @override
-  State<MembershipScreen> createState() => _MembershipScreenState();
+  ConsumerState<MembershipScreen> createState() => _MembershipScreenState();
 }
 
-class _MembershipScreenState extends State<MembershipScreen> {
+class _MembershipScreenState extends ConsumerState<MembershipScreen> {
   @override
   void initState() {
     super.initState();
@@ -46,6 +48,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokenColors = AppTokenColors.of(ref);
+    final contentColor = tokenColors.homeCardTextPrimary;
+
     return MediaQuery.withNoTextScaling(
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _MembershipSystemUi.style,
@@ -54,140 +59,157 @@ class _MembershipScreenState extends State<MembershipScreen> {
           body: AppScreenBackground(
             child: Stack(
               children: [
-                SafeArea(
-                  left: false,
-                  right: false,
-                  bottom: false,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final contentWidth = constraints.maxWidth;
-                      final scale =
-                          contentWidth / _MembershipLayout.designWidth;
-                      final canvasHeight = math.max(
-                        constraints.maxHeight / scale,
-                        _MembershipLayout.designHeight,
-                      );
+                _MembershipTokenScope(
+                  contentColor: contentColor,
+                  cardBackgroundColor: tokenColors.subscriptionCardBackground,
+                  cardBorderColor: tokenColors.subscriptionCardBorder,
+                  ctaBackgroundColor: tokenColors.subscriptionCtaBackground,
+                  ctaBorderColor: tokenColors.subscriptionCtaBorder,
+                  child: SafeArea(
+                    left: false,
+                    right: false,
+                    bottom: false,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final contentWidth = constraints.maxWidth;
+                        final scale =
+                            contentWidth / _MembershipLayout.designWidth;
+                        final canvasHeight = math.max(
+                          constraints.maxHeight / scale,
+                          _MembershipLayout.designHeight,
+                        );
 
-                      return Stack(
-                        children: [
-                          SingleChildScrollView(
-                            physics: const ClampingScrollPhysics(),
-                            child: Center(
-                              child: SizedBox(
-                                width: contentWidth,
-                                height: canvasHeight * scale,
-                                child: FittedBox(
-                                  fit: BoxFit.fill,
-                                  alignment: Alignment.topCenter,
-                                  child: SizedBox(
-                                    width: _MembershipLayout.designWidth,
-                                    height: canvasHeight,
-                                    child: ClipRect(
-                                      child: Stack(
-                                        clipBehavior: Clip.hardEdge,
-                                        children: [
-                                          const Positioned.fill(
-                                            child: _MembershipBackground(),
-                                          ),
-                                          const _HeroArtwork(),
-                                          const Positioned(
-                                            top: _MembershipLayout.offerTop,
-                                            left: 0,
-                                            right: 0,
-                                            child: _OfferDetails(),
-                                          ),
-                                          const Positioned(
-                                            top: _MembershipLayout.benefitsTop,
-                                            left: 0,
-                                            right: 0,
-                                            child: _MembershipBenefits(),
-                                          ),
-                                          Positioned(
-                                            top:
-                                                canvasHeight -
-                                                _MembershipLayout.ctaGap,
-                                            left: _MembershipLayout.ctaLeft,
-                                            child: _MembershipCta(
-                                              onPressed: () {
-                                                unawaited(
-                                                  PostHogAnalytics.instance
-                                                      .capture(
-                                                        'subscription_started',
-                                                        properties: {
-                                                          'screen_name':
-                                                              'membership_screen',
-                                                          'source':
-                                                              'membership_cta',
-                                                        },
-                                                      ),
-                                                );
-                                                unawaited(
-                                                  PostHogAnalytics.instance
-                                                      .buttonClicked(
-                                                        buttonName:
-                                                            'unlock_membership',
-                                                        screenName:
+                        return Stack(
+                          children: [
+                            SingleChildScrollView(
+                              physics: const ClampingScrollPhysics(),
+                              child: Center(
+                                child: SizedBox(
+                                  width: contentWidth,
+                                  height: canvasHeight * scale,
+                                  child: FittedBox(
+                                    fit: BoxFit.fill,
+                                    alignment: Alignment.topCenter,
+                                    child: SizedBox(
+                                      width: _MembershipLayout.designWidth,
+                                      height: canvasHeight,
+                                      child: ClipRect(
+                                        child: Stack(
+                                          clipBehavior: Clip.hardEdge,
+                                          children: [
+                                            const Positioned.fill(
+                                              child: _MembershipBackground(),
+                                            ),
+                                            const _HeroArtwork(),
+                                            const Positioned(
+                                              top: _MembershipLayout.offerTop,
+                                              left: 0,
+                                              right: 0,
+                                              child: _OfferDetails(),
+                                            ),
+                                            const Positioned(
+                                              top:
+                                                  _MembershipLayout.benefitsTop,
+                                              left: 0,
+                                              right: 0,
+                                              child: _MembershipBenefits(),
+                                            ),
+                                            Positioned(
+                                              top:
+                                                  canvasHeight -
+                                                  _MembershipLayout.ctaGap,
+                                              left: _MembershipLayout.ctaLeft,
+                                              child: _MembershipCta(
+                                                onPressed: () {
+                                                  unawaited(
+                                                    PostHogAnalytics.instance.capture(
+                                                      'subscription_started',
+                                                      properties: {
+                                                        'screen_name':
                                                             'membership_screen',
-                                                        properties: {
-                                                          'source':
-                                                              'membership_cta',
-                                                        },
-                                                      ),
-                                                );
-                                                widget.onUnlock?.call();
-                                              },
+                                                        'source':
+                                                            'membership_cta',
+                                                      },
+                                                    ),
+                                                  );
+                                                  unawaited(
+                                                    PostHogAnalytics.instance
+                                                        .buttonClicked(
+                                                          buttonName:
+                                                              'unlock_membership',
+                                                          screenName:
+                                                              'membership_screen',
+                                                          properties: {
+                                                            'source':
+                                                                'membership_cta',
+                                                          },
+                                                        ),
+                                                  );
+                                                  widget.onUnlock?.call();
+                                                },
+                                              ),
                                             ),
-                                          ),
-                                          Positioned(
-                                            top:
-                                                canvasHeight -
-                                                _MembershipLayout.plansGap,
-                                            left: 0,
-                                            right: 0,
-                                            child: _SeeAllPlansButton(
-                                              onPressed:
-                                                  widget.onSeeAllPlans ??
-                                                  () {
-                                                    unawaited(
-                                                      PostHogAnalytics.instance
-                                                          .buttonClicked(
-                                                            buttonName:
-                                                                'see_all_plans',
-                                                            screenName:
-                                                                'membership_screen',
-                                                            properties: {
-                                                              'source':
-                                                                  'membership_footer',
-                                                            },
-                                                          ),
-                                                    );
-                                                    Navigator.of(context).push(
-                                                      MaterialPageRoute<void>(
-                                                        builder: (_) =>
-                                                            const MembershipPlansScreen(),
-                                                      ),
-                                                    );
-                                                  },
+                                            Positioned(
+                                              top:
+                                                  canvasHeight -
+                                                  _MembershipLayout.plansGap,
+                                              left: 0,
+                                              right: 0,
+                                              child: _SeeAllPlansButton(
+                                                onPressed:
+                                                    widget.onSeeAllPlans ??
+                                                    () {
+                                                      unawaited(
+                                                        PostHogAnalytics
+                                                            .instance
+                                                            .buttonClicked(
+                                                              buttonName:
+                                                                  'see_all_plans',
+                                                              screenName:
+                                                                  'membership_screen',
+                                                              properties: {
+                                                                'source':
+                                                                    'membership_footer',
+                                                              },
+                                                            ),
+                                                      );
+                                                      Navigator.of(
+                                                        context,
+                                                      ).push(
+                                                        MaterialPageRoute<void>(
+                                                          builder: (_) =>
+                                                              const MembershipPlansScreen(),
+                                                        ),
+                                                      );
+                                                    },
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
-                const Positioned(
+                Positioned(
                   left: 0,
                   right: 0,
                   top: 0,
-                  child: _MembershipHeader(),
+                  child: _MembershipTokenScope(
+                    contentColor: contentColor,
+                    cardBackgroundColor: tokenColors.subscriptionCardBackground,
+                    cardBorderColor: tokenColors.subscriptionCardBorder,
+                    ctaBackgroundColor: tokenColors.subscriptionCtaBackground,
+                    ctaBorderColor: tokenColors.subscriptionCtaBorder,
+                    child: const _MembershipHeader(),
+                  ),
                 ),
               ],
             ),
@@ -207,12 +229,54 @@ class _MembershipBackground extends StatelessWidget {
   }
 }
 
+class _MembershipTokenScope extends InheritedWidget {
+  const _MembershipTokenScope({
+    required this.contentColor,
+    required this.cardBackgroundColor,
+    required this.cardBorderColor,
+    required this.ctaBackgroundColor,
+    required this.ctaBorderColor,
+    required super.child,
+  });
+
+  final Color contentColor;
+  final Color cardBackgroundColor;
+  final Color cardBorderColor;
+  final Color ctaBackgroundColor;
+  final Color ctaBorderColor;
+
+  Color get secondaryColor => contentColor.withAlpha(217);
+
+  static _MembershipTokenScope of(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<_MembershipTokenScope>() ??
+        const _MembershipTokenScope(
+          contentColor: AppColors.textOnPrimary,
+          cardBackgroundColor: _MembershipColors.glass,
+          cardBorderColor: _MembershipColors.glassBorder,
+          ctaBackgroundColor: _MembershipColors.glass,
+          ctaBorderColor: _MembershipColors.glassBorder,
+          child: SizedBox.shrink(),
+        );
+  }
+
+  @override
+  bool updateShouldNotify(_MembershipTokenScope oldWidget) {
+    return contentColor != oldWidget.contentColor ||
+        cardBackgroundColor != oldWidget.cardBackgroundColor ||
+        cardBorderColor != oldWidget.cardBorderColor ||
+        ctaBackgroundColor != oldWidget.ctaBackgroundColor ||
+        ctaBorderColor != oldWidget.ctaBorderColor;
+  }
+}
+
 class _MembershipHeader extends StatelessWidget {
   const _MembershipHeader();
 
   @override
   Widget build(BuildContext context) {
     final statusBarHeight = MediaQuery.paddingOf(context).top;
+    final contentColor = _MembershipTokenScope.of(context).contentColor;
 
     return Container(
       height: statusBarHeight + _MembershipLayout.headerHeight,
@@ -249,11 +313,11 @@ class _MembershipHeader extends StatelessWidget {
                     Navigator.of(context).maybePop();
                   },
                   radius: 24,
-                  child: const SizedBox.square(
+                  child: SizedBox.square(
                     dimension: 24,
                     child: Icon(
                       Icons.arrow_back_rounded,
-                      color: AppColors.textOnPrimary,
+                      color: contentColor,
                       size: 24,
                       applyTextScaling: false,
                     ),
@@ -261,7 +325,7 @@ class _MembershipHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
@@ -275,7 +339,7 @@ class _MembershipHeader extends StatelessWidget {
                       height: 24 / 20,
                       letterSpacing: -0.25,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textOnPrimary,
+                      color: contentColor,
                     ),
                   ),
                 ),
@@ -340,62 +404,85 @@ class _HeroArtwork extends StatelessWidget {
   }
 }
 
-class _OfferDetails extends StatelessWidget {
+class _OfferDetails extends ConsumerWidget {
   const _OfferDetails();
 
   @override
-  Widget build(BuildContext context) {
-    return const Column(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _MembershipTokenScope.of(context);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _PlusMemberBadge(),
-        SizedBox(height: 16),
+        const _PlusMemberBadge(),
+        const SizedBox(height: 16),
         Text(
           'Unlock the Magic',
           textAlign: TextAlign.center,
-          style: _MembershipTextStyles.magicTitle,
+          style: tokenTextStyles.subscriptionHeroTitle.copyWith(
+            color: tokenScope.secondaryColor,
+          ),
         ),
-        SizedBox(height: 20),
+        const SizedBox(height: 20),
         Text(
           'Premium Access for 5 Days',
           maxLines: 1,
           softWrap: false,
           textAlign: TextAlign.center,
-          style: _MembershipTextStyles.offerTitle,
+          style: tokenTextStyles.subscriptionHeroTitle.copyWith(
+            color: tokenScope.contentColor,
+          ),
         ),
-        SizedBox(height: 14),
-        Text('₹1', style: _MembershipTextStyles.price),
-        SizedBox(height: 12),
+        const SizedBox(height: 14),
+        Text(
+          '₹1',
+          style: tokenTextStyles.subscriptionPlanPrice.copyWith(
+            color: tokenScope.contentColor,
+          ),
+        ),
+        const SizedBox(height: 12),
         Text(
           'Then ₹149/month. Cancel anytime.',
           maxLines: 1,
           softWrap: false,
           textAlign: TextAlign.center,
-          style: _MembershipTextStyles.bodyMedium,
+          style: tokenTextStyles.subscriptionHeroSubtitle.copyWith(
+            color: tokenScope.secondaryColor,
+          ),
         ),
       ],
     );
   }
 }
 
-class _PlusMemberBadge extends StatelessWidget {
+class _PlusMemberBadge extends ConsumerWidget {
   const _PlusMemberBadge();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _MembershipTokenScope.of(context);
+    final contentColor = tokenScope.contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: _MembershipColors.glass,
+        color: tokenScope.cardBackgroundColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _MembershipColors.glassBorder),
+        border: Border.all(color: tokenScope.cardBorderColor),
       ),
-      child: const Text('PLUS MEMBER', style: _MembershipTextStyles.badge),
+      child: Text(
+        'PLUS MEMBER',
+        style: tokenTextStyles.subscriptionBadgeLabel.copyWith(
+          color: contentColor,
+        ),
+      ),
     );
   }
 }
 
-class _MembershipBenefits extends StatelessWidget {
+class _MembershipBenefits extends ConsumerWidget {
   const _MembershipBenefits();
 
   static const _benefits = [
@@ -414,13 +501,18 @@ class _MembershipBenefits extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _MembershipTokenScope.of(context);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Column(
       children: [
-        const Text(
+        Text(
           'Your Membership Includes',
           textAlign: TextAlign.center,
-          style: _MembershipTextStyles.benefitsHeading,
+          style: tokenTextStyles.subscriptionBenefitsHeading.copyWith(
+            color: tokenScope.secondaryColor,
+          ),
         ),
         const SizedBox(height: 16),
         Row(
@@ -438,20 +530,24 @@ class _MembershipBenefits extends StatelessWidget {
   }
 }
 
-class _BenefitCard extends StatelessWidget {
+class _BenefitCard extends ConsumerWidget {
   const _BenefitCard({required this.data});
 
   final _BenefitData data;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _MembershipTokenScope.of(context);
+    final contentColor = tokenScope.contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Container(
       width: _MembershipLayout.benefitCardWidth,
       padding: const EdgeInsets.all(12.738),
       decoration: BoxDecoration(
-        color: _MembershipColors.glass,
+        color: tokenScope.cardBackgroundColor,
         borderRadius: BorderRadius.circular(16.985),
-        border: Border.all(color: _MembershipColors.glassBorder),
+        border: Border.all(color: tokenScope.cardBorderColor),
         boxShadow: const [
           BoxShadow(
             color: Color(0x1A000000),
@@ -467,17 +563,16 @@ class _BenefitCard extends StatelessWidget {
             data.iconAsset,
             width: 33.969,
             height: 33.969,
-            colorFilter: const ColorFilter.mode(
-              AppColors.textOnPrimary,
-              BlendMode.srcIn,
-            ),
+            colorFilter: ColorFilter.mode(contentColor, BlendMode.srcIn),
           ),
           const SizedBox(height: 4.246),
           Text(
             data.label,
             maxLines: 2,
             textAlign: TextAlign.center,
-            style: _MembershipTextStyles.benefitLabel,
+            style: tokenTextStyles.subscriptionBenefitsLabel.copyWith(
+              color: contentColor,
+            ),
           ),
         ],
       ),
@@ -492,13 +587,17 @@ class _BenefitData {
   final String iconAsset;
 }
 
-class _MembershipCta extends StatelessWidget {
+class _MembershipCta extends ConsumerWidget {
   const _MembershipCta({required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _MembershipTokenScope.of(context);
+    final contentColor = tokenScope.contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Semantics(
       key: const ValueKey('membershipUnlockButton'),
       button: true,
@@ -509,9 +608,9 @@ class _MembershipCta extends StatelessWidget {
           width: _MembershipLayout.ctaWidth,
           height: _MembershipLayout.ctaHeight,
           decoration: BoxDecoration(
-            color: _MembershipColors.glass,
+            color: tokenScope.ctaBackgroundColor,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: _MembershipColors.glassBorder),
+            border: Border.all(color: tokenScope.ctaBorderColor),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x2E000000),
@@ -523,8 +622,13 @@ class _MembershipCta extends StatelessWidget {
           child: InkWell(
             onTap: onPressed,
             borderRadius: BorderRadius.circular(24),
-            child: const Center(
-              child: Text('Unlock for ₹1', style: _MembershipTextStyles.cta),
+            child: Center(
+              child: Text(
+                'Unlock for ₹1',
+                style: tokenTextStyles.subscriptionCtaLabel.copyWith(
+                  color: contentColor,
+                ),
+              ),
             ),
           ),
         ),
@@ -533,13 +637,16 @@ class _MembershipCta extends StatelessWidget {
   }
 }
 
-class _SeeAllPlansButton extends StatelessWidget {
+class _SeeAllPlansButton extends ConsumerWidget {
   const _SeeAllPlansButton({required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final secondaryColor = _MembershipTokenScope.of(context).secondaryColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Center(
       child: Semantics(
         button: true,
@@ -547,9 +654,14 @@ class _SeeAllPlansButton extends StatelessWidget {
           key: const ValueKey('membershipSeeAllPlansButton'),
           onTap: onPressed,
           borderRadius: BorderRadius.circular(20),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text('See All Plans', style: _MembershipTextStyles.seePlans),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Text(
+              'See All Plans',
+              style: tokenTextStyles.subscriptionPlanLabel.copyWith(
+                color: secondaryColor,
+              ),
+            ),
           ),
         ),
       ),
@@ -587,7 +699,6 @@ abstract final class _MembershipColors {
   static const headerOverlay = AppColors.backgroundGradientStart;
   static const glass = Color(0x2EFFFFFF);
   static const glassBorder = Color(0x66FFFFFF);
-  static const textSecondaryOpacity = Color(0xD9FFFFFF);
 }
 
 abstract final class _MembershipSystemUi {
@@ -599,83 +710,5 @@ abstract final class _MembershipSystemUi {
     systemNavigationBarDividerColor: Colors.transparent,
     systemStatusBarContrastEnforced: false,
     systemNavigationBarContrastEnforced: false,
-  );
-}
-
-abstract final class _MembershipTextStyles {
-  static const badge = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 16 / 14,
-    letterSpacing: 0.2,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const magicTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 20,
-    height: 24 / 20,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w700,
-    color: _MembershipColors.textSecondaryOpacity,
-  );
-
-  static const offerTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 24,
-    height: 28 / 24,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const price = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 56,
-    height: 75 / 56,
-    letterSpacing: -0.9375,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const bodyMedium = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-    color: _MembershipColors.textSecondaryOpacity,
-  );
-
-  static const benefitsHeading = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 18,
-    height: 20 / 18,
-    fontWeight: FontWeight.w700,
-    color: _MembershipColors.textSecondaryOpacity,
-  );
-
-  static const benefitLabel = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 12.738,
-    height: 16.985 / 12.738,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const cta = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const seePlans = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w500,
-    color: _MembershipColors.textSecondaryOpacity,
   );
 }

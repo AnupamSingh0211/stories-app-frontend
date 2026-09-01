@@ -54,13 +54,13 @@ void main() {
       tester
           .getSize(find.byKey(const ValueKey('membershipUnlockButton')))
           .width,
-      350,
+      358,
     );
     expect(
       tester
           .getTopLeft(find.byKey(const ValueKey('membershipUnlockButton')))
           .dy,
-      717,
+      745,
     );
     expect(tester.takeException(), isNull);
 
@@ -80,21 +80,17 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.lightTheme, home: const MembershipScreen()),
-    );
+    await tester.pumpWidget(_membershipTestApp(const MembershipScreen()));
     await tester.pump();
 
     expect(find.text('Premium Membership'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('membership status bar matches the top gradient color', (
+  testWidgets('membership status bar remains transparent over app background', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.lightTheme, home: const MembershipScreen()),
-    );
+    await tester.pumpWidget(_membershipTestApp(const MembershipScreen()));
     await tester.pump();
 
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
@@ -104,8 +100,8 @@ void main() {
         )
         .map((overlay) => overlay.value.statusBarColor);
 
-    expect(scaffold.backgroundColor, const Color(0xFF49A7F4));
-    expect(statusBarColors, contains(const Color(0xFF49A7F4)));
+    expect(scaffold.backgroundColor, Colors.transparent);
+    expect(statusBarColors, contains(Colors.transparent));
     expect(tester.takeException(), isNull);
   });
 
@@ -117,18 +113,19 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.lightTheme, home: const MembershipScreen()),
-    );
+    await tester.pumpWidget(_membershipTestApp(const MembershipScreen()));
     await tester.pump();
 
     final backButton = find.byKey(const ValueKey('membershipBackButton'));
     final initialHeaderTop = tester.getTopLeft(backButton).dy;
-    final initialOfferTop = tester.getTopLeft(
-      find.text('Premium Access for 5 Days'),
-    ).dy;
+    final initialOfferTop = tester
+        .getTopLeft(find.text('Premium Access for 5 Days'))
+        .dy;
 
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -180));
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -180),
+    );
     await tester.pump();
 
     expect(tester.getTopLeft(backButton).dy, initialHeaderTop);
@@ -147,21 +144,25 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.lightTheme, home: const MembershipScreen()),
-    );
+    await tester.pumpWidget(_membershipTestApp(const MembershipScreen()));
     await tester.pump();
 
     final cta = find.byKey(const ValueKey('membershipUnlockButton'));
     final back = find.byKey(const ValueKey('membershipBackButton'));
     final hero = find.byKey(const ValueKey('membershipHeroImage'));
 
-    expect(tester.getSize(cta).width, 460);
-    expect(tester.getTopLeft(cta).dy, 690);
+    expect(tester.getSize(cta).width, 358);
+    expect(tester.getTopLeft(cta).dy, closeTo(955.128, 0.01));
     expect(tester.getTopLeft(back).dx, 16);
-    expect(tester.getCenter(hero).dx, closeTo(257.7835, 0.01));
+    expect(tester.getCenter(hero).dx, closeTo(249.111, 0.01));
     expect(tester.takeException(), isNull);
   });
+}
+
+Widget _membershipTestApp(Widget home) {
+  return ProviderScope(
+    child: MaterialApp(theme: AppTheme.lightTheme, home: home),
+  );
 }
 
 class _EmptyProfileNotifier extends ProfileNotifier {

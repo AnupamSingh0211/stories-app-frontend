@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import '../../shared/widgets/glassy_bottom_nav_bar.dart';
@@ -540,11 +541,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-class _ProfileHeaderBar extends StatelessWidget {
+class _ProfileHeaderBar extends ConsumerWidget {
   const _ProfileHeaderBar();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contentColor = AppTokenColors.of(ref).profileTextPrimary;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Container(
       height: 80,
       color: Colors.transparent,
@@ -558,9 +562,9 @@ class _ProfileHeaderBar extends StatelessWidget {
             child: InkResponse(
               onTap: () => Navigator.of(context).maybePop(),
               radius: 24,
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_rounded,
-                color: AppColors.textOnPrimary,
+                color: contentColor,
                 size: 24,
                 applyTextScaling: false,
               ),
@@ -574,13 +578,8 @@ class _ProfileHeaderBar extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.visible,
               textScaler: TextScaler.noScaling,
-              style: const TextStyle(
-                color: AppColors.textOnPrimary,
-                fontSize: 20,
-                fontFamily: 'PlusJakartaSans',
-                fontWeight: FontWeight.w600,
-                height: 1.20,
-                letterSpacing: -0.25,
+              style: tokenTextStyles.profileHeaderTitle.copyWith(
+                color: contentColor,
               ),
             ),
           ),
@@ -590,7 +589,7 @@ class _ProfileHeaderBar extends StatelessWidget {
   }
 }
 
-class _ChildProfileCard extends StatelessWidget {
+class _ChildProfileCard extends ConsumerWidget {
   const _ChildProfileCard({
     required this.name,
     required this.age,
@@ -608,7 +607,10 @@ class _ChildProfileCard extends StatelessWidget {
   final VoidCallback? onEditTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+    final contentColor = tokenColors.profileTextPrimary;
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -618,7 +620,11 @@ class _ChildProfileCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Avatar(avatarBytes: avatarBytes, onCameraTap: onAvatarCameraTap),
+              _Avatar(
+                avatarBytes: avatarBytes,
+                onCameraTap: onAvatarCameraTap,
+                contentColor: contentColor,
+              ),
               const SizedBox(width: 20),
               Expanded(
                 child: Padding(
@@ -630,10 +636,17 @@ class _ChildProfileCard extends StatelessWidget {
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: _ProfileTextStyles.profileName,
+                        style: _ProfileTextStyles.profileName.copyWith(
+                          color: contentColor,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      Text(age, style: _ProfileTextStyles.profileAge),
+                      Text(
+                        age,
+                        style: _ProfileTextStyles.profileAge.copyWith(
+                          color: tokenColors.profileTextSecondary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -651,8 +664,8 @@ class _ChildProfileCard extends StatelessWidget {
                         'assets/icons/new_boopi/State=Default, Icon=Edit Square.svg',
                         width: 24,
                         height: 24,
-                        colorFilter: const ColorFilter.mode(
-                          AppColors.textOnPrimary,
+                        colorFilter: ColorFilter.mode(
+                          contentColor,
                           BlendMode.srcIn,
                         ),
                       ),
@@ -675,10 +688,15 @@ class _ChildProfileCard extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({this.avatarBytes, this.onCameraTap});
+  const _Avatar({
+    this.avatarBytes,
+    this.onCameraTap,
+    required this.contentColor,
+  });
 
   final Uint8List? avatarBytes;
   final VoidCallback? onCameraTap;
+  final Color contentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -716,8 +734,8 @@ class _Avatar extends StatelessWidget {
                     'assets/icons/new_boopi/majesticons_camera.svg',
                     width: 24,
                     height: 24,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.textOnPrimary,
+                    colorFilter: ColorFilter.mode(
+                      contentColor,
                       BlendMode.srcIn,
                     ),
                   ),
@@ -748,18 +766,26 @@ class _AvatarFallback extends StatelessWidget {
   }
 }
 
-class _ProfileSection extends StatelessWidget {
+class _ProfileSection extends ConsumerWidget {
   const _ProfileSection({required this.title, required this.children});
 
   final String title;
   final List<_ProfileMenuRow> children;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contentColor = AppTokenColors.of(ref).profileTextPrimary;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: _ProfileTextStyles.sectionLabel),
+        Text(
+          title,
+          style: tokenTextStyles.profileSectionLabel.copyWith(
+            color: contentColor,
+          ),
+        ),
         const SizedBox(height: 16),
         _ProfileCard(
           padding: EdgeInsets.zero,
@@ -777,13 +803,15 @@ class _ProfileSection extends StatelessWidget {
   }
 }
 
-class _LogoutButton extends StatelessWidget {
+class _LogoutButton extends ConsumerWidget {
   const _LogoutButton({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contentColor = AppTokenColors.of(ref).profileTextPrimary;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -792,7 +820,12 @@ class _LogoutButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Log Out', style: _ProfileTextStyles.logoutLabel),
+            Text(
+              'Log Out',
+              style: _ProfileTextStyles.logoutLabel.copyWith(
+                color: contentColor,
+              ),
+            ),
             const SizedBox(width: 4),
             SizedBox.square(
               dimension: 24,
@@ -801,10 +834,7 @@ class _LogoutButton extends StatelessWidget {
                   'assets/icons/new_boopi/Iconly/Light/Arrow - Right.svg',
                   width: 24,
                   height: 24,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.textOnPrimary,
-                    BlendMode.srcIn,
-                  ),
+                  colorFilter: ColorFilter.mode(contentColor, BlendMode.srcIn),
                 ),
               ),
             ),
@@ -815,7 +845,7 @@ class _LogoutButton extends StatelessWidget {
   }
 }
 
-class _ProfileMenuRow extends StatelessWidget {
+class _ProfileMenuRow extends ConsumerWidget {
   const _ProfileMenuRow({
     required this.iconAsset,
     required this.title,
@@ -847,20 +877,26 @@ class _ProfileMenuRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+    final contentColor = tokenColors.profileTextPrimary;
+    final effectiveTitleStyle = titleStyle == _ProfileTextStyles.rowTitle
+        ? tokenTextStyles.profileRowTitle
+        : titleStyle;
     final child = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 72.993),
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: showDivider
-              ? const Border(bottom: BorderSide(color: AppColors.glassBorder))
+              ? Border(bottom: BorderSide(color: tokenColors.profileRowDivider))
               : null,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Row(
             children: [
-              _MenuIcon(asset: iconAsset),
+              _MenuIcon(asset: iconAsset, color: contentColor),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -872,7 +908,7 @@ class _ProfileMenuRow extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: titleStyle,
+                      style: effectiveTitleStyle.copyWith(color: contentColor),
                     ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 4),
@@ -880,7 +916,9 @@ class _ProfileMenuRow extends StatelessWidget {
                         subtitle!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: _ProfileTextStyles.rowSubtitle,
+                        style: tokenTextStyles.profileRowSubtitle.copyWith(
+                          color: tokenColors.profileTextSecondary,
+                        ),
                       ),
                     ],
                   ],
@@ -888,9 +926,9 @@ class _ProfileMenuRow extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               trailing ??
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
-                    color: AppColors.textOnPrimary,
+                    color: contentColor,
                     size: 24,
                   ),
             ],
@@ -907,18 +945,19 @@ class _ProfileMenuRow extends StatelessWidget {
   }
 }
 
-class _MenuIcon extends StatelessWidget {
-  const _MenuIcon({required this.asset});
+class _MenuIcon extends ConsumerWidget {
+  const _MenuIcon({required this.asset, required this.color});
 
   final String asset;
+  final Color color;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       width: 39.993,
       height: 39.993,
       decoration: BoxDecoration(
-        color: AppColors.backgroundGlass,
+        color: AppTokenColors.of(ref).profileIconBackground,
         borderRadius: BorderRadius.circular(14),
       ),
       alignment: Alignment.center,
@@ -926,38 +965,38 @@ class _MenuIcon extends StatelessWidget {
         asset,
         width: 20,
         height: 20,
-        colorFilter: const ColorFilter.mode(
-          AppColors.textOnPrimary,
-          BlendMode.srcIn,
-        ),
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
       ),
     );
   }
 }
 
-class _ProfileSwitch extends StatelessWidget {
+class _ProfileSwitch extends ConsumerWidget {
   const _ProfileSwitch({required this.value, this.onChanged});
 
   final bool value;
   final VoidCallback? onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
     final switchControl = Container(
       width: 44,
       height: 24,
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        color: AppColors.backgroundGlass,
+        color: tokenColors.profileSwitchTrack,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: tokenColors.profileCardBorder),
       ),
       alignment: value ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         width: 18,
         height: 18,
         decoration: BoxDecoration(
-          color: value ? AppColors.textOnPrimary : AppColors.glassBackground,
+          color: value
+              ? tokenColors.profileSwitchThumbActive
+              : tokenColors.profileIconBackground,
           shape: BoxShape.circle,
         ),
       ),
@@ -975,13 +1014,17 @@ class _ProfileSwitch extends StatelessWidget {
   }
 }
 
-class _EmptyChildrenCard extends StatelessWidget {
+class _EmptyChildrenCard extends ConsumerWidget {
   const _EmptyChildrenCard({required this.onAddChild});
 
   final VoidCallback onAddChild;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+    final contentColor = tokenColors.profileTextPrimary;
+
     return _ProfileCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -992,12 +1035,20 @@ class _EmptyChildrenCard extends StatelessWidget {
             size: 34,
           ),
           const SizedBox(height: 12),
-          Text('No child profiles yet', style: _ProfileTextStyles.rowTitle),
+          Text(
+            'No child profiles yet',
+            style: tokenTextStyles.profileRowTitle.copyWith(
+              color: contentColor,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             'Add a child to personalize stories, lessons, and companions.',
             textAlign: TextAlign.center,
-            style: _ProfileTextStyles.rowSubtitle.copyWith(height: 1.45),
+            style: tokenTextStyles.profileRowSubtitle.copyWith(
+              height: 1.45,
+              color: tokenColors.profileTextSecondary,
+            ),
           ),
           const SizedBox(height: 18),
           FilledButton.icon(
@@ -1031,20 +1082,20 @@ class _LoadingPanel extends StatelessWidget {
   }
 }
 
-class _ShimmerLine extends StatelessWidget {
+class _ShimmerLine extends ConsumerWidget {
   const _ShimmerLine({required this.widthFactor});
 
   final double widthFactor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return FractionallySizedBox(
       widthFactor: widthFactor,
       alignment: Alignment.centerLeft,
       child: Container(
         height: 18,
         decoration: BoxDecoration(
-          color: AppColors.blue50,
+          color: AppTokenColors.of(ref).profileLoadingPlaceholder,
           borderRadius: BorderRadius.circular(12),
         ),
       ),
@@ -1052,7 +1103,7 @@ class _ShimmerLine extends StatelessWidget {
   }
 }
 
-class _ProfileCard extends StatelessWidget {
+class _ProfileCard extends ConsumerWidget {
   const _ProfileCard({
     required this.child,
     this.height,
@@ -1064,15 +1115,16 @@ class _ProfileCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
     return Container(
       width: double.infinity,
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        color: AppColors.backgroundGlass,
+        color: tokenColors.profileCardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: tokenColors.profileCardBorder),
       ),
       child: child,
     );
@@ -1096,15 +1148,6 @@ abstract final class _ProfileTextStyles {
     color: AppColors.textOnPrimary,
   );
 
-  static const sectionLabel = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 12,
-    height: 16 / 12,
-    letterSpacing: 0.5,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
   static const rowTitle = TextStyle(
     fontFamily: AppTypography.fontFamily,
     fontSize: 14,
@@ -1118,14 +1161,6 @@ abstract final class _ProfileTextStyles {
     fontSize: 14,
     height: 20 / 14,
     fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const rowSubtitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 10,
-    height: 12 / 10,
-    fontWeight: FontWeight.w400,
     color: AppColors.textOnPrimary,
   );
 }

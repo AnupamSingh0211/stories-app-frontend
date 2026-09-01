@@ -2,14 +2,38 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../theme/app_typography.dart';
+
 class GlassyBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final Color contentColor;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color activeBackgroundColor;
+  final Color activeBorderColor;
+  final Color selectedIconColor;
+  final Color defaultIconColor;
+  final Color selectedLabelColor;
+  final Color defaultLabelColor;
+  final TextStyle? selectedLabelStyle;
+  final TextStyle? defaultLabelStyle;
 
   const GlassyBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.contentColor = Colors.white,
+    this.backgroundColor = const Color(0x2EFFFFFF),
+    this.borderColor = const Color(0x3DFFFFFF),
+    this.activeBackgroundColor = const Color(0x29FFFFFF),
+    this.activeBorderColor = const Color(0x3DFFFFFF),
+    this.selectedIconColor = Colors.white,
+    this.defaultIconColor = Colors.white,
+    this.selectedLabelColor = Colors.white,
+    this.defaultLabelColor = Colors.white,
+    this.selectedLabelStyle,
+    this.defaultLabelStyle,
   });
 
   @override
@@ -33,6 +57,8 @@ class GlassyBottomNavBar extends StatelessWidget {
                   horizontal: 12,
                   vertical: 8,
                 ),
+                backgroundColor: backgroundColor,
+                borderColor: borderColor,
                 child: Row(
                   children: [
                     Expanded(
@@ -44,6 +70,7 @@ class GlassyBottomNavBar extends StatelessWidget {
                               'assets/icons/new_boopi/home_component.svg',
                           activeIconPath:
                               'assets/icons/new_boopi/home_component.svg',
+                          contentColor: contentColor,
                         ),
                       ),
                     ),
@@ -56,6 +83,7 @@ class GlassyBottomNavBar extends StatelessWidget {
                               'assets/icons/new_boopi/popular_component.svg',
                           activeIconPath:
                               'assets/icons/new_boopi/popular_component.svg',
+                          contentColor: contentColor,
                         ),
                       ),
                     ),
@@ -68,6 +96,7 @@ class GlassyBottomNavBar extends StatelessWidget {
                               'assets/icons/new_boopi/State=Default, Icon=Libaray.svg',
                           activeIconPath:
                               'assets/icons/new_boopi/soonfill_component.svg',
+                          contentColor: contentColor,
                         ),
                       ),
                     ),
@@ -81,6 +110,8 @@ class GlassyBottomNavBar extends StatelessWidget {
               height: 68,
               radius: 34,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              backgroundColor: backgroundColor,
+              borderColor: borderColor,
               child: _buildNavItem(
                 3,
                 'Profile',
@@ -88,6 +119,7 @@ class GlassyBottomNavBar extends StatelessWidget {
                 activeIconPath:
                     'assets/icons/new_boopi/State=Bold, Icon=Profile.svg',
                 compact: true,
+                contentColor: contentColor,
               ),
             ),
           ],
@@ -101,12 +133,24 @@ class GlassyBottomNavBar extends StatelessWidget {
     String label, {
     required String defaultIconPath,
     required String activeIconPath,
+    required Color contentColor,
     bool compact = false,
   }) {
     final isActive = currentIndex == index;
     final showActiveBackground = isActive && !compact;
     final iconPath = isActive ? activeIconPath : defaultIconPath;
     final preserveIconColors = iconPath.endsWith('soonfill_component.svg');
+    final iconColor = isActive
+        ? (selectedIconColor == Colors.white ? contentColor : selectedIconColor)
+        : (defaultIconColor == Colors.white ? contentColor : defaultIconColor);
+    final labelColor = isActive
+        ? (selectedLabelColor == Colors.white
+              ? contentColor
+              : selectedLabelColor)
+        : (defaultLabelColor == Colors.white
+              ? contentColor
+              : defaultLabelColor);
+    final labelStyle = isActive ? selectedLabelStyle : defaultLabelStyle;
 
     return GestureDetector(
       onTap: () => onTap(index),
@@ -121,11 +165,11 @@ class GlassyBottomNavBar extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: showActiveBackground
-              ? Colors.white.withValues(alpha: 0.16)
+              ? activeBackgroundColor
               : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
           border: showActiveBackground
-              ? Border.all(color: Colors.white.withValues(alpha: 0.24))
+              ? Border.all(color: activeBorderColor)
               : null,
         ),
         child: Column(
@@ -138,7 +182,7 @@ class GlassyBottomNavBar extends StatelessWidget {
                 iconPath,
                 colorFilter: preserveIconColors
                     ? null
-                    : const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                    : ColorFilter.mode(iconColor, BlendMode.srcIn),
                 width: 24,
                 height: 24,
               ),
@@ -148,12 +192,8 @@ class GlassyBottomNavBar extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.visible,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                height: 12 / 10,
-                letterSpacing: 1,
-                fontWeight: FontWeight.w700,
+              style: (labelStyle ?? AppTypography.captionBold).copyWith(
+                color: labelColor,
               ),
             ),
           ],
@@ -168,6 +208,8 @@ class _GlassNavSurface extends StatelessWidget {
     required this.child,
     required this.height,
     required this.radius,
+    required this.backgroundColor,
+    required this.borderColor,
     this.padding = EdgeInsets.zero,
     this.width,
   });
@@ -175,6 +217,8 @@ class _GlassNavSurface extends StatelessWidget {
   final Widget child;
   final double height;
   final double radius;
+  final Color backgroundColor;
+  final Color borderColor;
   final EdgeInsetsGeometry padding;
   final double? width;
 
@@ -185,7 +229,7 @@ class _GlassNavSurface extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF007AFF).withValues(alpha: 0.1),
@@ -199,7 +243,7 @@ class _GlassNavSurface extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: ColoredBox(
-            color: Colors.white.withValues(alpha: 0.18),
+            color: backgroundColor,
             child: Padding(padding: padding, child: child),
           ),
         ),

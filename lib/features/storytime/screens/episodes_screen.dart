@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/analytics_service.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/app_screen_background.dart';
 import '../models/story_model.dart';
@@ -103,6 +104,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
         ? null
         : ref.watch(storyCardStoriesProvider(selectedCard.id));
     final history = ref.watch(sessionStoryHistoryProvider);
+    final contentColor = AppTokenColors.of(ref).homeCardTextPrimary;
     final episodes = _episodeItems(
       selectedCard,
       cmsStoriesState?.valueOrNull ?? const [],
@@ -130,6 +132,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                     bottom: false,
                     child: _TopBar(
                       scale: scale,
+                      contentColor: contentColor,
                       onBack: () {
                         unawaited(
                           PostHogAnalytics.instance.capture(
@@ -162,6 +165,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                       scale: scale,
                       width: heroWidth,
                       height: _episodeHeroHeight * scale,
+                      contentColor: contentColor,
                     ),
                   ),
                 ),
@@ -172,7 +176,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                     child: Text(
                       'Episodes',
                       style: AppTypography.bodySmallBold.copyWith(
-                        color: AppColors.textOnPrimary,
+                        color: contentColor,
                         fontSize: 12 * scale,
                         height: 16 / 12,
                         letterSpacing: 0.5,
@@ -185,7 +189,10 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: horizontal),
-                      child: _EmptyEpisodesMessage(scale: scale),
+                      child: _EmptyEpisodesMessage(
+                        scale: scale,
+                        contentColor: contentColor,
+                      ),
                     ),
                   )
                 else
@@ -198,6 +205,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                       child: _EpisodeTile(
                         episode: episodes[index],
                         scale: scale,
+                        contentColor: contentColor,
                         onTap: () => _openEpisode(context, episodes[index]),
                       ),
                     ),
@@ -260,9 +268,14 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.scale, required this.onBack});
+  const _TopBar({
+    required this.scale,
+    required this.contentColor,
+    required this.onBack,
+  });
 
   final double scale;
+  final Color contentColor;
   final VoidCallback onBack;
 
   @override
@@ -289,7 +302,7 @@ class _TopBar extends StatelessWidget {
                 child: Center(
                   child: Icon(
                     Icons.arrow_back_rounded,
-                    color: AppColors.textOnPrimary,
+                    color: contentColor,
                     size: 24 * scale,
                   ),
                 ),
@@ -302,7 +315,7 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-class _HeroCard extends StatelessWidget {
+class _HeroCard extends ConsumerWidget {
   const _HeroCard({
     required this.imageUrl,
     required this.title,
@@ -310,6 +323,7 @@ class _HeroCard extends StatelessWidget {
     required this.scale,
     required this.width,
     required this.height,
+    required this.contentColor,
   });
 
   final String imageUrl;
@@ -318,9 +332,13 @@ class _HeroCard extends StatelessWidget {
   final double scale;
   final double width;
   final double height;
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return SizedBox(
       key: const ValueKey('episodesHeroBanner'),
       width: width,
@@ -331,7 +349,7 @@ class _HeroCard extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20 * scale),
-                border: Border.all(color: AppColors.blue400),
+                border: Border.all(color: tokenColors.episodesHeroBorder),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.surfaceBlack.withValues(alpha: 0.10),
@@ -353,7 +371,7 @@ class _HeroCard extends StatelessWidget {
                           end: Alignment.bottomCenter,
                           colors: [
                             AppColors.transparent,
-                            AppColors.surfaceBlack.withValues(alpha: 0.30),
+                            tokenColors.episodesHeroOverlay,
                           ],
                         ),
                       ),
@@ -379,8 +397,8 @@ class _HeroCard extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.titleSemiBold.copyWith(
-                          color: AppColors.textOnPrimary,
+                        style: tokenTextStyles.episodesHeroTitle.copyWith(
+                          color: contentColor,
                           fontSize: 18 * scale,
                           height: 24 / 18,
                         ),
@@ -388,8 +406,8 @@ class _HeroCard extends StatelessWidget {
                       SizedBox(height: 4 * scale),
                       Text(
                         '$episodeCount Episodes',
-                        style: AppTypography.bodySmallBold.copyWith(
-                          color: AppColors.textOnPrimary,
+                        style: tokenTextStyles.episodesHeroMeta.copyWith(
+                          color: contentColor,
                           fontSize: 12 * scale,
                           height: 16 / 12,
                           letterSpacing: 0.5,
@@ -409,21 +427,23 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-class _HeroHeartButton extends StatelessWidget {
+class _HeroHeartButton extends ConsumerWidget {
   const _HeroHeartButton({required this.scale});
 
   final double scale;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+
     return Container(
       width: 44 * scale,
       height: 44 * scale,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.glassBackground,
+        color: tokenColors.playerOverlayButtonBackground,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.borderGlass),
+        border: Border.all(color: tokenColors.playerOverlayButtonBorder),
       ),
       child: SvgPicture.asset(
         'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
@@ -435,9 +455,13 @@ class _HeroHeartButton extends StatelessWidget {
 }
 
 class _EmptyEpisodesMessage extends StatelessWidget {
-  const _EmptyEpisodesMessage({required this.scale});
+  const _EmptyEpisodesMessage({
+    required this.scale,
+    required this.contentColor,
+  });
 
   final double scale;
+  final Color contentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -447,7 +471,7 @@ class _EmptyEpisodesMessage extends StatelessWidget {
         'No episodes available yet.',
         textAlign: TextAlign.center,
         style: AppTypography.bodyMediumSemiBold.copyWith(
-          color: AppColors.textOnPrimary,
+          color: contentColor,
           fontSize: 14 * scale,
           height: 20 / 14,
         ),
@@ -456,19 +480,23 @@ class _EmptyEpisodesMessage extends StatelessWidget {
   }
 }
 
-class _EpisodeTile extends StatelessWidget {
+class _EpisodeTile extends ConsumerWidget {
   const _EpisodeTile({
     required this.episode,
     required this.scale,
+    required this.contentColor,
     required this.onTap,
   });
 
   final _EpisodeItem episode;
   final double scale;
+  final Color contentColor;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+
     return Semantics(
       button: true,
       container: true,
@@ -484,9 +512,9 @@ class _EpisodeTile extends StatelessWidget {
             ),
             height: 64 * scale,
             decoration: BoxDecoration(
-              color: AppColors.backgroundGlass,
+              color: tokenColors.episodesTileBackground,
               borderRadius: BorderRadius.circular(16 * scale),
-              border: Border.all(color: AppColors.borderGlass),
+              border: Border.all(color: tokenColors.episodesTileBorder),
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -501,7 +529,7 @@ class _EpisodeTile extends StatelessWidget {
                       '${episode.index}',
                       textAlign: TextAlign.center,
                       style: AppTypography.bodyLargeBold.copyWith(
-                        color: AppColors.textOnPrimary,
+                        color: contentColor,
                         fontSize: 16 * scale,
                         height: 20 / 16,
                       ),
@@ -517,10 +545,18 @@ class _EpisodeTile extends StatelessWidget {
                   ),
                   SizedBox(width: 8 * scale),
                   Expanded(
-                    child: _EpisodeText(episode: episode, scale: scale),
+                    child: _EpisodeText(
+                      episode: episode,
+                      scale: scale,
+                      contentColor: contentColor,
+                    ),
                   ),
                   SizedBox(width: 10 * scale),
-                  _EpisodeActionIcon(state: episode.state, scale: scale),
+                  _EpisodeActionIcon(
+                    state: episode.state,
+                    scale: scale,
+                    contentColor: contentColor,
+                  ),
                 ],
               ),
             ),
@@ -531,14 +567,21 @@ class _EpisodeTile extends StatelessWidget {
   }
 }
 
-class _EpisodeText extends StatelessWidget {
-  const _EpisodeText({required this.episode, required this.scale});
+class _EpisodeText extends ConsumerWidget {
+  const _EpisodeText({
+    required this.episode,
+    required this.scale,
+    required this.contentColor,
+  });
 
   final _EpisodeItem episode;
   final double scale;
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -548,8 +591,8 @@ class _EpisodeText extends StatelessWidget {
           episode.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTypography.bodyMediumSemiBold.copyWith(
-            color: AppColors.textOnPrimary,
+          style: tokenTextStyles.episodesTileTitle.copyWith(
+            color: contentColor,
             fontSize: 14 * scale,
             height: 20 / 14,
           ),
@@ -565,8 +608,8 @@ class _EpisodeText extends StatelessWidget {
               children: [
                 Text(
                   episode.durationLabel,
-                  style: AppTypography.captionSemiBold.copyWith(
-                    color: AppColors.textOnPrimary,
+                  style: tokenTextStyles.episodesTileMeta.copyWith(
+                    color: contentColor,
                     fontSize: 10 * scale,
                     height: 12 / 10,
                   ),
@@ -575,8 +618,8 @@ class _EpisodeText extends StatelessWidget {
                   SizedBox(width: 10 * scale),
                   Text(
                     'Watched',
-                    style: AppTypography.captionSemiBold.copyWith(
-                      color: AppColors.textOnPrimary,
+                    style: tokenTextStyles.episodesTileMeta.copyWith(
+                      color: contentColor,
                       fontSize: 10 * scale,
                       height: 12 / 10,
                     ),
@@ -587,12 +630,13 @@ class _EpisodeText extends StatelessWidget {
                   _EpisodeProgress(
                     scale: scale,
                     progress: episode.progressValue,
+                    contentColor: contentColor,
                   ),
                   SizedBox(width: 4 * scale),
                   Text(
                     episode.remainingLabel,
-                    style: AppTypography.captionRegular.copyWith(
-                      color: AppColors.textOnPrimary,
+                    style: tokenTextStyles.episodesTileMeta.copyWith(
+                      color: contentColor,
                       fontSize: 10 * scale,
                       height: 12 / 10,
                     ),
@@ -607,14 +651,21 @@ class _EpisodeText extends StatelessWidget {
   }
 }
 
-class _EpisodeProgress extends StatelessWidget {
-  const _EpisodeProgress({required this.scale, required this.progress});
+class _EpisodeProgress extends ConsumerWidget {
+  const _EpisodeProgress({
+    required this.scale,
+    required this.progress,
+    required this.contentColor,
+  });
 
   final double scale;
   final double progress;
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+
     return SizedBox(
       width: 59 * scale,
       height: 2 * scale,
@@ -623,7 +674,7 @@ class _EpisodeProgress extends StatelessWidget {
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.glassShadow,
+                color: tokenColors.episodesProgressTrack,
                 borderRadius: BorderRadius.circular(200 * scale),
               ),
             ),
@@ -635,7 +686,7 @@ class _EpisodeProgress extends StatelessWidget {
             width: 59 * progress.clamp(0.0, 1.0) * scale,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.textOnPrimary,
+                color: tokenColors.episodesActionContinuingIcon,
                 borderRadius: BorderRadius.circular(200 * scale),
               ),
             ),
@@ -646,36 +697,43 @@ class _EpisodeProgress extends StatelessWidget {
   }
 }
 
-class _EpisodeActionIcon extends StatelessWidget {
-  const _EpisodeActionIcon({required this.state, required this.scale});
+class _EpisodeActionIcon extends ConsumerWidget {
+  const _EpisodeActionIcon({
+    required this.state,
+    required this.scale,
+    required this.contentColor,
+  });
 
   final _EpisodeState state;
   final double scale;
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+
     return SizedBox.square(
       dimension: 24 * scale,
       child: switch (state) {
         _EpisodeState.completed => DecoratedBox(
-          decoration: const BoxDecoration(
-            color: AppColors.textOnPrimary,
+          decoration: BoxDecoration(
+            color: tokenColors.episodesActionCompletedBackground,
             shape: BoxShape.circle,
           ),
           child: Icon(
             Icons.check_rounded,
-            color: AppColors.blue500,
+            color: tokenColors.episodesActionCompletedIcon,
             size: 18 * scale,
           ),
         ),
         _EpisodeState.continuing => DecoratedBox(
-          decoration: const BoxDecoration(
-            color: AppColors.textOnPrimary,
+          decoration: BoxDecoration(
+            color: tokenColors.episodesActionContinuingBackground,
             shape: BoxShape.circle,
           ),
           child: Icon(
             Icons.play_arrow_rounded,
-            color: AppColors.blue500,
+            color: tokenColors.episodesActionContinuingIcon,
             size: 19 * scale,
           ),
         ),
@@ -684,13 +742,13 @@ class _EpisodeActionIcon extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: AppColors.textOnPrimary,
+              color: tokenColors.episodesActionLeftBorder,
               width: 2 * scale,
             ),
           ),
           child: Icon(
             Icons.play_arrow_rounded,
-            color: AppColors.textOnPrimary,
+            color: tokenColors.episodesActionLeftIcon,
             size: 14 * scale,
           ),
         ),

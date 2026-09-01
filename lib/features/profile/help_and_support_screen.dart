@@ -2,24 +2,25 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/analytics_service.dart';
-import '../../shared/theme/app_colors.dart';
-import '../../shared/theme/app_typography.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/widgets/app_screen_background.dart';
 
 const _figmaWidth = 390.0;
 const _arrowUpAsset = 'assets/icons/new_boopi/Iconly/Light/Arrow - Up 2.svg';
 
-class HelpAndSupportScreen extends StatefulWidget {
+class HelpAndSupportScreen extends ConsumerStatefulWidget {
   const HelpAndSupportScreen({super.key});
 
   @override
-  State<HelpAndSupportScreen> createState() => _HelpAndSupportScreenState();
+  ConsumerState<HelpAndSupportScreen> createState() =>
+      _HelpAndSupportScreenState();
 }
 
-class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
+class _HelpAndSupportScreenState extends ConsumerState<HelpAndSupportScreen> {
   int? _expandedIndex;
 
   @override
@@ -35,6 +36,8 @@ class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokenStyles = _HelpTokenStyles.fromRef(ref);
+
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
         body: LayoutBuilder(
@@ -52,13 +55,13 @@ class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
                     right: 0,
                     top: safeTop,
                     height: 56 * scale,
-                    child: _HelpHeader(scale: scale),
+                    child: _HelpHeader(scale: scale, tokenStyles: tokenStyles),
                   ),
                   Positioned(
                     left: 16 * scale,
                     top: safeTop + (65 * scale),
                     width: 338 * scale,
-                    child: const _IntroText(),
+                    child: _IntroText(tokenStyles: tokenStyles),
                   ),
                   Positioned(
                     left: 16 * scale,
@@ -68,6 +71,7 @@ class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _FaqList(
+                          tokenStyles: tokenStyles,
                           expandedIndex: _expandedIndex,
                           onToggle: (index) {
                             unawaited(
@@ -88,7 +92,7 @@ class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
                           },
                         ),
                         const SizedBox(height: 29),
-                        const _SupportContact(),
+                        _SupportContact(tokenStyles: tokenStyles),
                       ],
                     ),
                   ),
@@ -96,9 +100,9 @@ class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
                     left: 16 * scale,
                     right: 33 * scale,
                     bottom: 44 * scale,
-                    child: const Text(
+                    child: Text(
                       'App Version v1.0.0',
-                      style: _HelpTextStyles.sectionTitle,
+                      style: tokenStyles.sectionTitle,
                     ),
                   ),
                 ],
@@ -112,9 +116,10 @@ class _HelpAndSupportScreenState extends State<HelpAndSupportScreen> {
 }
 
 class _HelpHeader extends StatelessWidget {
-  const _HelpHeader({required this.scale});
+  const _HelpHeader({required this.scale, required this.tokenStyles});
 
   final double scale;
+  final _HelpTokenStyles tokenStyles;
 
   @override
   Widget build(BuildContext context) {
@@ -147,14 +152,14 @@ class _HelpHeader extends StatelessWidget {
               radius: 24 * scale,
               child: Icon(
                 Icons.arrow_back_rounded,
-                color: AppColors.textOnPrimary,
+                color: tokenStyles.contentColor,
                 size: 24 * scale,
                 applyTextScaling: false,
               ),
             ),
           ),
           SizedBox(width: 12 * scale),
-          const Text('Help & Support', style: _HelpTextStyles.headerTitle),
+          Text('Help & Support', style: tokenStyles.headerTitle),
         ],
       ),
     );
@@ -162,15 +167,17 @@ class _HelpHeader extends StatelessWidget {
 }
 
 class _IntroText extends StatelessWidget {
-  const _IntroText();
+  const _IntroText({required this.tokenStyles});
+
+  final _HelpTokenStyles tokenStyles;
 
   @override
   Widget build(BuildContext context) {
-    return const Text.rich(
+    return Text.rich(
       TextSpan(
         children: [
-          TextSpan(text: 'Need a hand?\n', style: _HelpTextStyles.sectionTitle),
-          TextSpan(text: "We're here to help.", style: _HelpTextStyles.body),
+          TextSpan(text: 'Need a hand?\n', style: tokenStyles.sectionTitle),
+          TextSpan(text: "We're here to help.", style: tokenStyles.body),
         ],
       ),
     );
@@ -178,8 +185,13 @@ class _IntroText extends StatelessWidget {
 }
 
 class _FaqList extends StatelessWidget {
-  const _FaqList({required this.expandedIndex, required this.onToggle});
+  const _FaqList({
+    required this.tokenStyles,
+    required this.expandedIndex,
+    required this.onToggle,
+  });
 
+  final _HelpTokenStyles tokenStyles;
   final int? expandedIndex;
   final ValueChanged<int> onToggle;
 
@@ -189,6 +201,7 @@ class _FaqList extends StatelessWidget {
       children: [
         for (var index = 0; index < 5; index += 1) ...[
           _FaqTile(
+            tokenStyles: tokenStyles,
             expanded: expandedIndex == index,
             onTap: () => onToggle(index),
           ),
@@ -200,8 +213,13 @@ class _FaqList extends StatelessWidget {
 }
 
 class _FaqTile extends StatelessWidget {
-  const _FaqTile({required this.expanded, required this.onTap});
+  const _FaqTile({
+    required this.tokenStyles,
+    required this.expanded,
+    required this.onTap,
+  });
 
+  final _HelpTokenStyles tokenStyles;
   final bool expanded;
   final VoidCallback onTap;
 
@@ -214,9 +232,9 @@ class _FaqTile extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.backgroundGlass,
+          color: tokenStyles.cardBackgroundColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.borderLight, width: 1),
+          border: Border.all(color: tokenStyles.cardBorderColor, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,23 +242,23 @@ class _FaqTile extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'How do I start a story?',
-                    style: _HelpTextStyles.question,
+                    style: tokenStyles.question,
                   ),
                 ),
-                _FaqArrow(expanded: expanded),
+                _FaqArrow(expanded: expanded, color: tokenStyles.contentColor),
               ],
             ),
             if (expanded) ...[
               const SizedBox(height: 4),
-              const SizedBox(
+              SizedBox(
                 width: 329,
                 child: Text(
                   'Select a story from the Home screen and tap the Play '
                   'button to begin listening.',
-                  style: _HelpTextStyles.answer,
+                  style: tokenStyles.answer,
                 ),
               ),
             ],
@@ -252,9 +270,10 @@ class _FaqTile extends StatelessWidget {
 }
 
 class _FaqArrow extends StatelessWidget {
-  const _FaqArrow({required this.expanded});
+  const _FaqArrow({required this.expanded, required this.color});
 
   final bool expanded;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -262,10 +281,7 @@ class _FaqArrow extends StatelessWidget {
       _arrowUpAsset,
       width: 24,
       height: 24,
-      colorFilter: const ColorFilter.mode(
-        AppColors.textOnPrimary,
-        BlendMode.srcIn,
-      ),
+      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
     );
 
     return SizedBox.square(
@@ -276,20 +292,22 @@ class _FaqArrow extends StatelessWidget {
 }
 
 class _SupportContact extends StatelessWidget {
-  const _SupportContact();
+  const _SupportContact({required this.tokenStyles});
+
+  final _HelpTokenStyles tokenStyles;
 
   @override
   Widget build(BuildContext context) {
-    return const Text.rich(
+    return Text.rich(
       TextSpan(
         children: [
           TextSpan(
             text: 'Questions, Ideas and feedback?\n',
-            style: _HelpTextStyles.sectionTitle,
+            style: tokenStyles.sectionTitle,
           ),
           TextSpan(
             text: 'Drop us a note at hello@boopikids.com.',
-            style: _HelpTextStyles.body,
+            style: tokenStyles.body,
           ),
         ],
       ),
@@ -297,45 +315,46 @@ class _SupportContact extends StatelessWidget {
   }
 }
 
-abstract final class _HelpTextStyles {
-  static const headerTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 20,
-    height: 24 / 20,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
+class _HelpTokenStyles {
+  const _HelpTokenStyles({
+    required this.contentColor,
+    required this.headerTitle,
+    required this.sectionTitle,
+    required this.body,
+    required this.question,
+    required this.answer,
+    required this.cardBackgroundColor,
+    required this.cardBorderColor,
+  });
 
-  static const sectionTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
+  factory _HelpTokenStyles.fromRef(WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+    final contentColor = tokenColors.profileTextPrimary;
+    return _HelpTokenStyles(
+      contentColor: contentColor,
+      headerTitle: tokenTextStyles.profileHeaderTitle.copyWith(
+        color: contentColor,
+      ),
+      sectionTitle: tokenTextStyles.profileSectionLabel.copyWith(
+        color: contentColor,
+      ),
+      body: tokenTextStyles.profileRowSubtitle.copyWith(color: contentColor),
+      question: tokenTextStyles.profileRowTitle.copyWith(color: contentColor),
+      answer: tokenTextStyles.profileRowSubtitle.copyWith(
+        color: tokenColors.profileTextSecondary,
+      ),
+      cardBackgroundColor: tokenColors.profileCardBackground,
+      cardBorderColor: tokenColors.profileCardBorder,
+    );
+  }
 
-  static const body = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const question = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const answer = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 12,
-    height: 16 / 12,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
+  final Color contentColor;
+  final TextStyle headerTitle;
+  final TextStyle sectionTitle;
+  final TextStyle body;
+  final TextStyle question;
+  final TextStyle answer;
+  final Color cardBackgroundColor;
+  final Color cardBorderColor;
 }

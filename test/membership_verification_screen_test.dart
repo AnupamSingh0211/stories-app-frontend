@@ -2,6 +2,7 @@ import 'package:dharma_app/features/membership/membership_plans_screen.dart';
 import 'package:dharma_app/features/membership/membership_verification_screen.dart';
 import 'package:dharma_app/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -9,12 +10,7 @@ void main() {
     tester,
   ) async {
     await _setViewport(tester, const Size(390, 868));
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.lightTheme,
-        home: const MembershipPlansScreen(),
-      ),
-    );
+    await tester.pumpWidget(_membershipTestApp(const MembershipPlansScreen()));
     await tester.pump();
 
     await tester.tap(
@@ -25,7 +21,10 @@ void main() {
     expect(find.byType(MembershipVerificationScreen), findsOneWidget);
     expect(find.text('For Parents Only'), findsOneWidget);
     expect(find.text('Please enter the year you were born.'), findsOneWidget);
-    expect(find.byKey(const ValueKey('membershipVerificationDigit0')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('membershipVerificationDigit0')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('verification screen matches the Figma panel geometry', (
@@ -33,10 +32,7 @@ void main() {
   ) async {
     await _setViewport(tester, const Size(390, 868));
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.lightTheme,
-        home: const MembershipVerificationScreen(),
-      ),
+      _membershipTestApp(const MembershipVerificationScreen()),
     );
     await tester.pump();
 
@@ -58,10 +54,7 @@ void main() {
     addTearDown(() => tester.view.padding = FakeViewPadding.zero);
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.lightTheme,
-        home: const MembershipVerificationScreen(),
-      ),
+      _membershipTestApp(const MembershipVerificationScreen()),
     );
     await tester.pump();
 
@@ -81,15 +74,14 @@ void main() {
   testWidgets('verification keypad fills four year boxes', (tester) async {
     await _setViewport(tester, const Size(390, 868));
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.lightTheme,
-        home: const MembershipVerificationScreen(),
-      ),
+      _membershipTestApp(const MembershipVerificationScreen()),
     );
     await tester.pump();
 
     for (final digit in ['1', '9', '8', '0', '7']) {
-      await tester.tap(find.byKey(ValueKey('membershipVerificationDigit$digit')));
+      await tester.tap(
+        find.byKey(ValueKey('membershipVerificationDigit$digit')),
+      );
       await tester.pump();
     }
 
@@ -99,6 +91,12 @@ void main() {
     expect(find.text('0'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+}
+
+Widget _membershipTestApp(Widget home) {
+  return ProviderScope(
+    child: MaterialApp(theme: AppTheme.lightTheme, home: home),
+  );
 }
 
 Future<void> _setViewport(WidgetTester tester, Size size) async {
