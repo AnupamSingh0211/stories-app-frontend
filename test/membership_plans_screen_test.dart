@@ -4,6 +4,7 @@ import 'package:dharma_app/features/membership/membership_plans_screen.dart';
 import 'package:dharma_app/features/membership/membership_screen.dart';
 import 'package:dharma_app/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,9 +12,7 @@ void main() {
     tester,
   ) async {
     await _setViewport(tester, const Size(390, 844));
-    await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.lightTheme, home: const MembershipScreen()),
-    );
+    await tester.pumpWidget(_membershipTestApp(const MembershipScreen()));
     await tester.pump();
 
     await tester.tap(find.byKey(const ValueKey('membershipSeeAllPlansButton')));
@@ -60,9 +59,8 @@ void main() {
 
     await _setViewport(tester, const Size(390, 844));
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.lightTheme,
-        home: MembershipPlansScreen(
+      _membershipTestApp(
+        MembershipPlansScreen(
           onContinue: (plan) => continuedPlan = plan,
           onPromoCode: () => promoTaps++,
         ),
@@ -165,13 +163,14 @@ void main() {
 
 Future<void> _pumpPlans(WidgetTester tester, Size size) async {
   await _setViewport(tester, size);
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: AppTheme.lightTheme,
-      home: const MembershipPlansScreen(),
-    ),
-  );
+  await tester.pumpWidget(_membershipTestApp(const MembershipPlansScreen()));
   await tester.pump();
+}
+
+Widget _membershipTestApp(Widget home) {
+  return ProviderScope(
+    child: MaterialApp(theme: AppTheme.lightTheme, home: home),
+  );
 }
 
 Future<void> _setViewport(WidgetTester tester, Size size) async {

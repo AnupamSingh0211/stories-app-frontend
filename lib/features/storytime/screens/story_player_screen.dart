@@ -11,6 +11,7 @@ import '../../../core/analytics_service.dart';
 import '../../../shared/theme/app_border_radius.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_shadows.dart';
+import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/app_screen_background.dart';
 import '../../auth/profile_notifier.dart';
@@ -941,6 +942,7 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
         (stories) => stories.any((item) => item.id == favoriteStory.id),
       ),
     );
+    final contentColor = AppTokenColors.of(ref).playerOverlayIcon;
     final notifier = ref.read(provider.notifier);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -985,6 +987,7 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
                       height: _episodeHeaderHeight,
                       child: _EpisodePlayerHeader(
                         isFavorite: isFavorite,
+                        contentColor: contentColor,
                         onBack: onBack,
                         onToggleFavorite: () {
                           unawaited(
@@ -1015,6 +1018,7 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
                     const SizedBox(height: _episodePlayerGap),
                     _EpisodePlayerControls(
                       width: playerWidth,
+                      contentColor: contentColor,
                       isPlaying: state.isPlaying,
                       isEnabled: state.isEnabled,
                       position: state.audioPosition,
@@ -1091,11 +1095,13 @@ class _EpisodeStoryPlayerScaffold extends ConsumerWidget {
 class _EpisodePlayerHeader extends StatelessWidget {
   const _EpisodePlayerHeader({
     required this.isFavorite,
+    required this.contentColor,
     required this.onBack,
     required this.onToggleFavorite,
   });
 
   final bool isFavorite;
+  final Color contentColor;
   final VoidCallback onBack;
   final VoidCallback onToggleFavorite;
 
@@ -1118,11 +1124,11 @@ class _EpisodePlayerHeader extends StatelessWidget {
                   child: InkResponse(
                     onTap: onBack,
                     radius: 24,
-                    child: const SizedBox.square(
+                    child: SizedBox.square(
                       dimension: 28,
                       child: Icon(
                         Icons.arrow_back_rounded,
-                        color: AppColors.textOnPrimary,
+                        color: contentColor,
                         size: 24,
                       ),
                     ),
@@ -1148,7 +1154,7 @@ class _EpisodePlayerHeader extends StatelessWidget {
   }
 }
 
-class _EpisodeStoryImage extends StatelessWidget {
+class _EpisodeStoryImage extends ConsumerWidget {
   const _EpisodeStoryImage({
     required this.imageUrl,
     required this.width,
@@ -1160,7 +1166,7 @@ class _EpisodeStoryImage extends StatelessWidget {
   final double height;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SizedBox(
       width: width,
       height: height,
@@ -1180,7 +1186,9 @@ class _EpisodeStoryImage extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: AppColors.borderStrong),
+                border: Border.all(
+                  color: AppTokenColors.of(ref).playerImageBorder,
+                ),
               ),
             ),
           ),
@@ -1193,6 +1201,7 @@ class _EpisodeStoryImage extends StatelessWidget {
 class _EpisodePlayerControls extends StatelessWidget {
   const _EpisodePlayerControls({
     required this.width,
+    required this.contentColor,
     required this.isPlaying,
     required this.isEnabled,
     required this.position,
@@ -1204,6 +1213,7 @@ class _EpisodePlayerControls extends StatelessWidget {
   });
 
   final double width;
+  final Color contentColor;
   final bool isPlaying;
   final bool isEnabled;
   final Duration position;
@@ -1223,6 +1233,7 @@ class _EpisodePlayerControls extends StatelessWidget {
           _EpisodeTimeline(
             position: position,
             duration: duration,
+            contentColor: contentColor,
             onSeek: onSeek,
           ),
           const SizedBox(height: 16),
@@ -1263,26 +1274,29 @@ class _EpisodePlayerControls extends StatelessWidget {
   }
 }
 
-class _EpisodeTimeline extends StatefulWidget {
+class _EpisodeTimeline extends ConsumerStatefulWidget {
   const _EpisodeTimeline({
     required this.position,
     required this.duration,
+    required this.contentColor,
     required this.onSeek,
   });
 
   final Duration position;
   final Duration duration;
+  final Color contentColor;
   final ValueChanged<Duration> onSeek;
 
   @override
-  State<_EpisodeTimeline> createState() => _EpisodeTimelineState();
+  ConsumerState<_EpisodeTimeline> createState() => _EpisodeTimelineState();
 }
 
-class _EpisodeTimelineState extends State<_EpisodeTimeline> {
+class _EpisodeTimelineState extends ConsumerState<_EpisodeTimeline> {
   Duration? _dragPosition;
 
   @override
   Widget build(BuildContext context) {
+    final tokenColors = AppTokenColors.of(ref);
     final displayPosition = _dragPosition ?? widget.position;
     final duration = widget.duration;
     final progress = duration.inMilliseconds <= 0
@@ -1304,7 +1318,9 @@ class _EpisodeTimelineState extends State<_EpisodeTimeline> {
               alignment: Alignment.centerLeft,
               child: Text(
                 _formatDuration(displayPosition),
-                style: _timelineTextStyle,
+                style: _timelineTextStyle.copyWith(
+                  color: tokenColors.playerTimelineLabel,
+                ),
               ),
             ),
           ),
@@ -1367,9 +1383,9 @@ class _EpisodeTimelineState extends State<_EpisodeTimeline> {
                           child: LinearProgressIndicator(
                             minHeight: 6,
                             value: progress.toDouble(),
-                            backgroundColor: AppColors.backgroundGlass,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              AppColors.textOnPrimary,
+                            backgroundColor: tokenColors.playerTimelineTrack,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              tokenColors.playerTimelineFill,
                             ),
                           ),
                         ),
@@ -1388,7 +1404,9 @@ class _EpisodeTimelineState extends State<_EpisodeTimeline> {
               alignment: Alignment.centerRight,
               child: Text(
                 _formatDuration(widget.duration),
-                style: _timelineTextStyle,
+                style: _timelineTextStyle.copyWith(
+                  color: tokenColors.playerTimelineLabel,
+                ),
               ),
             ),
           ),
@@ -1431,7 +1449,7 @@ class _EpisodeTimelineState extends State<_EpisodeTimeline> {
   }
 }
 
-class _EpisodeGlassIconButton extends StatelessWidget {
+class _EpisodeGlassIconButton extends ConsumerWidget {
   const _EpisodeGlassIconButton({
     required this.size,
     required this.iconSize,
@@ -1447,8 +1465,9 @@ class _EpisodeGlassIconButton extends StatelessWidget {
   final String asset;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final enabled = onPressed != null;
+    final tokenColors = AppTokenColors.of(ref);
 
     return Semantics(
       button: true,
@@ -1465,16 +1484,18 @@ class _EpisodeGlassIconButton extends StatelessWidget {
             height: size,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.glassBackground,
+              color: tokenColors.playerOverlayButtonBackground,
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.borderLight),
+              border: Border.all(color: tokenColors.playerOverlayButtonBorder),
             ),
             child: SvgPicture.asset(
               asset,
               width: iconSize,
               height: iconSize,
-              colorFilter: const ColorFilter.mode(
-                AppColors.textOnPrimary,
+              colorFilter: ColorFilter.mode(
+                enabled
+                    ? tokenColors.playerOverlayIcon
+                    : tokenColors.playerSheetControlDisabled,
                 BlendMode.srcIn,
               ),
             ),

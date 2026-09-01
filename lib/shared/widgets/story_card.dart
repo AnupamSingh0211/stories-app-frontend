@@ -15,6 +15,16 @@ class StoryCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteTap;
   final bool isFavorite;
+  final Color contentColor;
+  final Color backgroundColor;
+  final Color shadowColor;
+  final Color imagePlaceholderColor;
+  final Color favoriteBackgroundColor;
+  final Color favoriteBorderColor;
+  final Color badgeBackgroundColor;
+  final Color badgeBorderColor;
+  final TextStyle? titleStyle;
+  final TextStyle? metaStyle;
 
   const StoryCard({
     super.key,
@@ -26,6 +36,16 @@ class StoryCard extends StatelessWidget {
     this.onTap,
     this.onFavoriteTap,
     this.isFavorite = false,
+    this.contentColor = AppColors.textOnPrimary,
+    this.backgroundColor = AppColors.backgroundGlass,
+    this.shadowColor = const Color(0x1A000000),
+    this.imagePlaceholderColor = const Color(0x3DFFFFFF),
+    this.favoriteBackgroundColor = const Color(0x38FFFFFF),
+    this.favoriteBorderColor = const Color(0x5CFFFFFF),
+    this.badgeBackgroundColor = const Color(0x66000000),
+    this.badgeBorderColor = const Color(0x33FFFFFF),
+    this.titleStyle,
+    this.metaStyle,
   });
 
   @override
@@ -36,11 +56,11 @@ class StoryCard extends StatelessWidget {
         width: width,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.backgroundGlass,
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
+              color: shadowColor,
               offset: const Offset(0, 4),
               blurRadius: 4,
             ),
@@ -58,7 +78,7 @@ class StoryCard extends StatelessWidget {
                     key: const ValueKey('story-card-thumbnail'),
                     height: imageHeight,
                     width: double.infinity,
-                    color: Colors.white.withValues(alpha: 0.24),
+                    color: imagePlaceholderColor,
                     child: imageUrl != null
                         ? Image.network(
                             imageUrl!,
@@ -87,18 +107,16 @@ class StoryCard extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.22),
+                              color: favoriteBackgroundColor,
                               shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.36),
-                              ),
+                              border: Border.all(color: favoriteBorderColor),
                             ),
                             child: SvgPicture.asset(
                               isFavorite
                                   ? 'assets/icons/new_boopi/State=Bold, Icon=Heart.svg'
                                   : 'assets/icons/new_boopi/State=Default, Icon=Heart.svg',
-                              colorFilter: const ColorFilter.mode(
-                                Colors.white,
+                              colorFilter: ColorFilter.mode(
+                                contentColor,
                                 BlendMode.srcIn,
                               ),
                               width: 16,
@@ -123,19 +141,14 @@ class StoryCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
+                          color: badgeBackgroundColor,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
+                          border: Border.all(color: badgeBorderColor),
                         ),
                         child: Text(
                           episodeCount,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: (metaStyle ?? AppTypography.bodySmallSemiBold)
+                              .copyWith(color: contentColor),
                         ),
                       ),
                     ),
@@ -148,11 +161,8 @@ class StoryCard extends StatelessWidget {
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                height: 20 / 14,
-                fontWeight: FontWeight.w600,
+              style: (titleStyle ?? AppTypography.bodyMediumSemiBold).copyWith(
+                color: contentColor,
               ),
             ),
           ],
@@ -169,6 +179,19 @@ class ComingSoonStoryCard extends StatelessWidget {
     required this.imageUrl,
     this.width,
     this.scale = 1,
+    this.contentColor = AppColors.textOnPrimary,
+    this.backgroundColor = AppColors.backgroundGlass,
+    this.borderColor = const Color(0x3DFFFFFF),
+    this.shadowColor = const Color(0x1A000000),
+    this.imagePlaceholderColor = const Color(0x2EFFFFFF),
+    this.badgeBackgroundStart = AppColors.interactivePrimaryPressed,
+    this.badgeBackgroundEnd = const Color(0xFF040F21),
+    this.badgeTextColor,
+    this.voteIconDefaultColor,
+    this.voteIconSelectedColor,
+    this.voteIconDisabledColor,
+    this.titleStyle,
+    this.badgeStyle,
     this.isLiked = false,
     this.isDisliked = false,
     this.onLikeTap,
@@ -179,6 +202,19 @@ class ComingSoonStoryCard extends StatelessWidget {
   final String imageUrl;
   final double? width;
   final double scale;
+  final Color contentColor;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color shadowColor;
+  final Color imagePlaceholderColor;
+  final Color badgeBackgroundStart;
+  final Color badgeBackgroundEnd;
+  final Color? badgeTextColor;
+  final Color? voteIconDefaultColor;
+  final Color? voteIconSelectedColor;
+  final Color? voteIconDisabledColor;
+  final TextStyle? titleStyle;
+  final TextStyle? badgeStyle;
   final bool isLiked;
   final bool isDisliked;
   final VoidCallback? onLikeTap;
@@ -198,12 +234,12 @@ class ComingSoonStoryCard extends StatelessWidget {
       height: designHeight * scale,
       padding: EdgeInsets.all(12 * scale),
       decoration: BoxDecoration(
-        color: AppColors.backgroundGlass,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(8 * scale),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
+            color: shadowColor,
             offset: Offset(0, 4 * scale),
             blurRadius: 4 * scale,
           ),
@@ -226,9 +262,7 @@ class ComingSoonStoryCard extends StatelessWidget {
                       height: thumbnailHeight * scale,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return ColoredBox(
-                          color: Colors.white.withValues(alpha: 0.18),
-                        );
+                        return ColoredBox(color: imagePlaceholderColor);
                       },
                     ),
                   ),
@@ -236,7 +270,13 @@ class ComingSoonStoryCard extends StatelessWidget {
                 Positioned(
                   left: 0,
                   top: 0,
-                  child: _WantThisBadge(scale: scale),
+                  child: _WantThisBadge(
+                    scale: scale,
+                    contentColor: badgeTextColor ?? contentColor,
+                    textStyle: badgeStyle,
+                    backgroundStart: badgeBackgroundStart,
+                    backgroundEnd: badgeBackgroundEnd,
+                  ),
                 ),
               ],
             ),
@@ -248,8 +288,8 @@ class ComingSoonStoryCard extends StatelessWidget {
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: AppTypography.bodyMediumSemiBold.copyWith(
-                color: AppColors.textOnPrimary,
+              style: (titleStyle ?? AppTypography.bodyMediumSemiBold).copyWith(
+                color: contentColor,
                 fontSize: 14 * scale,
                 height: 20 / 14,
               ),
@@ -269,6 +309,11 @@ class ComingSoonStoryCard extends StatelessWidget {
                         : 'assets/icons/new_boopi/State=Default, Icon=Like.svg',
                     semanticLabel: 'Vote yes',
                     scale: scale,
+                    contentColor: onLikeTap == null
+                        ? voteIconDisabledColor ?? contentColor
+                        : isLiked
+                        ? voteIconSelectedColor ?? contentColor
+                        : voteIconDefaultColor ?? contentColor,
                     onTap: onLikeTap,
                   ),
                   _ThumbActionIcon(
@@ -277,6 +322,11 @@ class ComingSoonStoryCard extends StatelessWidget {
                         : 'assets/icons/new_boopi/State=Default, Icon=Dislike.svg',
                     semanticLabel: 'Vote no',
                     scale: scale,
+                    contentColor: onDislikeTap == null
+                        ? voteIconDisabledColor ?? contentColor
+                        : isDisliked
+                        ? voteIconSelectedColor ?? contentColor
+                        : voteIconDefaultColor ?? contentColor,
                     onTap: onDislikeTap,
                   ),
                 ],
@@ -290,18 +340,28 @@ class ComingSoonStoryCard extends StatelessWidget {
 }
 
 class _WantThisBadge extends StatelessWidget {
-  const _WantThisBadge({required this.scale});
+  const _WantThisBadge({
+    required this.scale,
+    required this.contentColor,
+    this.textStyle,
+    required this.backgroundStart,
+    required this.backgroundEnd,
+  });
 
   final double scale;
+  final Color contentColor;
+  final TextStyle? textStyle;
+  final Color backgroundStart;
+  final Color backgroundEnd;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [AppColors.interactivePrimaryPressed, Color(0xFF040F21)],
+          colors: [backgroundStart, backgroundEnd],
         ),
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(3 * scale),
@@ -309,12 +369,15 @@ class _WantThisBadge extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 4 * scale),
+        padding: EdgeInsets.symmetric(
+          horizontal: 8 * scale,
+          vertical: 4 * scale,
+        ),
         child: Text(
           'Want This?',
           maxLines: 1,
-          style: AppTypography.captionBold.copyWith(
-            color: AppColors.textOnPrimary,
+          style: (textStyle ?? AppTypography.captionBold).copyWith(
+            color: contentColor,
             fontSize: 10 * scale,
             height: 12 / 10,
             letterSpacing: 1,
@@ -330,12 +393,14 @@ class _ThumbActionIcon extends StatelessWidget {
     required this.assetPath,
     required this.semanticLabel,
     required this.scale,
+    required this.contentColor,
     this.onTap,
   });
 
   final String assetPath;
   final String semanticLabel;
   final double scale;
+  final Color contentColor;
   final VoidCallback? onTap;
 
   @override
@@ -350,10 +415,7 @@ class _ThumbActionIcon extends StatelessWidget {
           dimension: 24 * scale,
           child: SvgPicture.asset(
             assetPath,
-            colorFilter: const ColorFilter.mode(
-              AppColors.textOnPrimary,
-              BlendMode.srcIn,
-            ),
+            colorFilter: ColorFilter.mode(contentColor, BlendMode.srcIn),
           ),
         ),
       ),

@@ -17,7 +17,9 @@ abstract final class DesignTokenParser {
       return null;
     }
 
-    final argbValue = normalized.length == 6 ? 'FF$normalized' : normalized;
+    final argbValue = normalized.length == 6
+        ? 'FF$normalized'
+        : '${normalized.substring(6, 8)}${normalized.substring(0, 6)}';
     return Color(int.parse(argbValue, radix: 16));
   }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:dharma_app/core/backend_api_client.dart';
+import 'package:dharma_app/core/design_system/design_system_config.dart';
 import 'package:dharma_app/core/design_system/design_system_provider.dart';
 import 'package:dharma_app/core/design_system/design_system_repository.dart';
 import 'package:dharma_app/core/design_system/design_token.dart';
@@ -246,8 +248,12 @@ void main() {
   });
 
   test('repository returns local default design tokens', () async {
+    final config = await const DesignSystemRepository()
+        .fetchDesignSystemConfig();
     final tokens = await const DesignSystemRepository().fetchDesignTokens();
 
+    expect(config.version, 1);
+    expect(config.tokens, defaultDesignTokens);
     expect(tokens, defaultDesignTokens);
     expect(
       tokens.where((token) => token.tokenType == DesignTokenType.color),
@@ -263,6 +269,115 @@ void main() {
     );
   });
 
+  test('repository parses design tokens from public App Config API', () async {
+    final transport = _FakeBackendTransport(
+      response: const BackendTransportResponse(
+        statusCode: 200,
+        headers: {},
+        body:
+            '{"success":true,"data":{"userProperties":null,"ui_config":{"designSystem":{"version":3,"tokens":[{"token_key":"color.primary","theme":"dark","token_value":"#D0BCFF","token_type":"color","group_name":"boopi","sort_order":0,"is_active":true}]}}}}',
+      ),
+    );
+    final repository = DesignSystemRepository(
+      apiClient: BackendApiClient(
+        baseUrl: 'https://backend.example',
+        sessionReader: const _FakeSessionReader(null),
+        transport: transport,
+      ),
+    );
+
+    final config = await repository.fetchDesignSystemConfig();
+    final tokens = await repository.fetchDesignTokens();
+
+    expect(config.version, 3);
+    expect(config.tokens, hasLength(1));
+    expect(tokens, hasLength(1));
+    expect(tokens.single.tokenKey, 'color.primary');
+    expect(tokens.single.theme, DesignTokenTheme.dark);
+    expect(tokens.single.tokenValue, '#D0BCFF');
+    expect(transport.requests, hasLength(2));
+    expect(transport.requests.first.method, 'GET');
+    expect(
+      transport.requests.first.uri.toString(),
+      'https://backend.example/api/v1/public-app-config',
+    );
+    expect(
+      transport.requests.first.headers.containsKey('Authorization'),
+      isFalse,
+    );
+  });
+
+  test(
+    'repository falls back to version 1 when API version is invalid',
+    () async {
+      final transport = _FakeBackendTransport(
+        response: const BackendTransportResponse(
+          statusCode: 200,
+          headers: {},
+          body:
+              '{"success":true,"data":{"userProperties":null,"ui_config":{"designSystem":{"version":0,"tokens":[{"token_key":"color.primary","theme":"light","token_value":"#6750A4","token_type":"color","group_name":"boopi","sort_order":0,"is_active":true}]}}}}',
+        ),
+      );
+      final repository = DesignSystemRepository(
+        apiClient: BackendApiClient(
+          baseUrl: 'https://backend.example',
+          sessionReader: const _FakeSessionReader(null),
+          transport: transport,
+        ),
+      );
+
+      final config = await repository.fetchDesignSystemConfig();
+
+      expect(config.version, 1);
+      expect(config.tokens, hasLength(1));
+    },
+  );
+
+  test(
+    'repository falls back to defaults when App Config response is invalid',
+    () async {
+      final transport = _FakeBackendTransport(
+        response: const BackendTransportResponse(
+          statusCode: 200,
+          headers: {},
+          body: '{"success":true,"data":{"ui_config":{"designSystem":{}}}}',
+        ),
+      );
+      final repository = DesignSystemRepository(
+        apiClient: BackendApiClient(
+          baseUrl: 'https://backend.example',
+          sessionReader: const _FakeSessionReader(null),
+          transport: transport,
+        ),
+      );
+
+      final tokens = await repository.fetchDesignTokens();
+
+      expect(tokens, defaultDesignTokens);
+    },
+  );
+
+  test('repository falls back to defaults when App Config API fails', () async {
+    final transport = _FakeBackendTransport(
+      response: const BackendTransportResponse(
+        statusCode: 500,
+        headers: {},
+        body: '{"success":false,"message":"Internal server error"}',
+      ),
+    );
+    final repository = DesignSystemRepository(
+      apiClient: BackendApiClient(
+        baseUrl: 'https://backend.example',
+        sessionReader: const _FakeSessionReader(null),
+        transport: transport,
+      ),
+    );
+
+    final tokens = await repository.fetchDesignTokens();
+
+    expect(tokens, defaultDesignTokens);
+  });
+
   test('provider returns defaults when token fetch fails', () async {
     final container = ProviderContainer(
       overrides: [
@@ -274,8 +389,10 @@ void main() {
     addTearDown(container.dispose);
 
     final tokens = await container.read(designTokensProvider.future);
+    final config = await container.read(designSystemConfigProvider.future);
     final resolver = container.read(designTokenResolverProvider);
 
+    expect(config.version, 1);
     expect(tokens, defaultDesignTokens);
     expect(
       resolver.color('color.primary', fallback: Colors.black),
@@ -284,7 +401,13 @@ void main() {
   });
 
   test('provider can resolve dark theme tokens', () async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [
+        designSystemRepositoryProvider.overrideWithValue(
+          const DesignSystemRepository(),
+        ),
+      ],
+    );
     addTearDown(container.dispose);
 
     container.read(designTokenThemeProvider.notifier).state =
@@ -303,6 +426,11 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          designSystemRepositoryProvider.overrideWithValue(
+            const DesignSystemRepository(),
+          ),
+        ],
         child: MaterialApp(
           home: Consumer(
             builder: (context, ref, child) {
@@ -344,7 +472,27 @@ class _FailingDesignSystemRepository extends DesignSystemRepository {
   const _FailingDesignSystemRepository();
 
   @override
-  Future<List<DesignToken>> fetchDesignTokens() async {
+  Future<DesignSystemConfig> fetchDesignSystemConfig() async {
     throw StateError('App Config API is not ready');
+  }
+}
+
+class _FakeSessionReader implements BackendSessionReader {
+  const _FakeSessionReader(this.currentAccessToken);
+
+  @override
+  final String? currentAccessToken;
+}
+
+class _FakeBackendTransport implements BackendTransport {
+  _FakeBackendTransport({required this.response});
+
+  BackendTransportResponse response;
+  final List<BackendTransportRequest> requests = [];
+
+  @override
+  Future<BackendTransportResponse> send(BackendTransportRequest request) async {
+    requests.add(request);
+    return response;
   }
 }

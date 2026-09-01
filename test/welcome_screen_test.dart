@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dharma_app/features/auth/assets_provider.dart';
@@ -13,6 +14,15 @@ import 'package:dharma_app/main.dart';
 import 'package:dharma_app/shared/theme/app_theme.dart';
 
 void main() {
+  setUpAll(() {
+    dotenv.testLoad(
+      fileInput: '''
+DEV_AUTH_OTP_ENABLED=false
+APP_ENV=test
+''',
+    );
+  });
+
   testWidgets('renders Figma welcome mobile form', (tester) async {
     await _pumpWelcomeScreen(tester);
 
@@ -28,6 +38,33 @@ void main() {
     expect(find.text('Enter your mobile number'), findsOneWidget);
     expect(find.byKey(const Key('mobile-continue-button')), findsOneWidget);
     expect(find.text('Send OTP'), findsOneWidget);
+  });
+
+  testWidgets('login CTA labels stay vertically inside their buttons', (
+    tester,
+  ) async {
+    final authService = _FakeAuthService();
+    await _pumpWelcomeScreen(tester, authService: authService);
+
+    _expectTextInsideButton(
+      tester,
+      buttonKey: const Key('mobile-continue-button'),
+      label: 'Send OTP',
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('mobile-number-field')),
+      '1234567890',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('mobile-continue-button')));
+    await tester.pumpAndSettle();
+
+    _expectTextInsideButton(
+      tester,
+      buttonKey: const Key('otp-submit-button'),
+      label: 'Submit',
+    );
   });
 
   testWidgets('send OTP button uses Material ink tap feedback', (tester) async {
@@ -583,6 +620,21 @@ Future<void> _pumpWelcomeScreen(
     ),
   );
   await tester.pump();
+}
+
+void _expectTextInsideButton(
+  WidgetTester tester, {
+  required Key buttonKey,
+  required String label,
+}) {
+  final buttonFinder = find.byKey(buttonKey);
+  final buttonRect = tester.getRect(buttonFinder);
+  final textRect = tester.getRect(
+    find.descendant(of: buttonFinder, matching: find.text(label)),
+  );
+
+  expect(textRect.top, greaterThanOrEqualTo(buttonRect.top));
+  expect(textRect.bottom, lessThanOrEqualTo(buttonRect.bottom));
 }
 
 class _FakeAuthService implements AppAuthService {

@@ -3,11 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import 'membership_side_banner.dart';
@@ -15,7 +17,7 @@ import 'membership_verification_screen.dart';
 
 enum MembershipPlan { monthly, annual }
 
-class MembershipPlansScreen extends StatefulWidget {
+class MembershipPlansScreen extends ConsumerStatefulWidget {
   const MembershipPlansScreen({
     super.key,
     this.initialPlan = MembershipPlan.monthly,
@@ -28,10 +30,11 @@ class MembershipPlansScreen extends StatefulWidget {
   final VoidCallback? onPromoCode;
 
   @override
-  State<MembershipPlansScreen> createState() => _MembershipPlansScreenState();
+  ConsumerState<MembershipPlansScreen> createState() =>
+      _MembershipPlansScreenState();
 }
 
-class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
+class _MembershipPlansScreenState extends ConsumerState<MembershipPlansScreen> {
   late MembershipPlan _selectedPlan;
 
   @override
@@ -110,110 +113,129 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokenColors = AppTokenColors.of(ref);
+    final contentColor = tokenColors.homeCardTextPrimary;
+
     return MediaQuery.withNoTextScaling(
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _PlansSystemUi.style,
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: AppScreenBackground(
-            child: Stack(
-              children: [
-                SafeArea(
-                  left: false,
-                  right: false,
-                  bottom: false,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final contentWidth = constraints.maxWidth;
-                      final scale = contentWidth / _PlansLayout.designWidth;
-                      final canvasHeight = math.max(
-                        constraints.maxHeight / scale,
-                        _PlansLayout.designHeight,
-                      );
+            child: _PlansTokenScope(
+              contentColor: contentColor,
+              cardBackgroundColor: tokenColors.subscriptionCardBackground,
+              cardBorderColor: tokenColors.subscriptionCardBorder,
+              ctaBackgroundColor: tokenColors.subscriptionCtaBackground,
+              ctaBorderColor: tokenColors.subscriptionCtaBorder,
+              selectedBorderColor: tokenColors.subscriptionPlanSelectedBorder,
+              unselectedBorderColor:
+                  tokenColors.subscriptionPlanUnselectedBorder,
+              radioSelectedFillColor:
+                  tokenColors.subscriptionPlanRadioSelectedFill,
+              radioCheckColor: tokenColors.subscriptionPlanRadioCheck,
+              radioUnselectedBorderColor:
+                  tokenColors.subscriptionPlanRadioUnselectedBorder,
+              child: Stack(
+                children: [
+                  SafeArea(
+                    left: false,
+                    right: false,
+                    bottom: false,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final contentWidth = constraints.maxWidth;
+                        final scale = contentWidth / _PlansLayout.designWidth;
+                        final canvasHeight = math.max(
+                          constraints.maxHeight / scale,
+                          _PlansLayout.designHeight,
+                        );
 
-                      return Stack(
-                        children: [
-                          SingleChildScrollView(
-                            physics: const ClampingScrollPhysics(),
-                            child: Center(
-                              child: SizedBox(
-                                width: contentWidth,
-                                height: canvasHeight * scale,
-                                child: FittedBox(
-                                  fit: BoxFit.fill,
-                                  alignment: Alignment.topCenter,
-                                  child: SizedBox(
-                                    width: _PlansLayout.designWidth,
-                                    height: canvasHeight,
-                                    child: ClipRect(
-                                      child: Stack(
-                                        clipBehavior: Clip.hardEdge,
-                                        children: [
-                                          const Positioned.fill(
-                                            child: _PlansBackground(),
-                                          ),
-                                          const _PlansArtwork(),
-                                          const Positioned(
-                                            top: _PlansLayout.heroGroupTop,
-                                            left: 0,
-                                            right: 0,
-                                            child: _PlansHeroCopy(),
-                                          ),
-                                          const Positioned(
-                                            top: _PlansLayout.benefitsTop,
-                                            left: 0,
-                                            right: 0,
-                                            child: _MembershipBenefits(),
-                                          ),
-                                          Positioned(
-                                            top: _PlansLayout.planSelectorTop,
-                                            left: _PlansLayout.planSelectorLeft,
-                                            child: _PlanSelector(
-                                              selectedPlan: _selectedPlan,
-                                              onSelected: _selectPlan,
-                                              onPromoCode:
-                                                  widget.onPromoCode ?? () {},
+                        return Stack(
+                          children: [
+                            SingleChildScrollView(
+                              physics: const ClampingScrollPhysics(),
+                              child: Center(
+                                child: SizedBox(
+                                  width: contentWidth,
+                                  height: canvasHeight * scale,
+                                  child: FittedBox(
+                                    fit: BoxFit.fill,
+                                    alignment: Alignment.topCenter,
+                                    child: SizedBox(
+                                      width: _PlansLayout.designWidth,
+                                      height: canvasHeight,
+                                      child: ClipRect(
+                                        child: Stack(
+                                          clipBehavior: Clip.hardEdge,
+                                          children: [
+                                            const Positioned.fill(
+                                              child: _PlansBackground(),
                                             ),
-                                          ),
-                                          Positioned(
-                                            top:
-                                                canvasHeight -
-                                                _PlansLayout.ctaGap,
-                                            left: _PlansLayout.ctaLeft,
-                                            child: _SubscribeButton(
-                                              plan: _selectedPlan,
-                                              onPressed: () =>
-                                                  _continue(context),
+                                            const _PlansArtwork(),
+                                            const Positioned(
+                                              top: _PlansLayout.heroGroupTop,
+                                              left: 0,
+                                              right: 0,
+                                              child: _PlansHeroCopy(),
                                             ),
-                                          ),
-                                          Positioned(
-                                            top:
-                                                canvasHeight -
-                                                _PlansLayout.trustGap,
-                                            left: 0,
-                                            right: 0,
-                                            child: const _TrustIndicators(),
-                                          ),
-                                        ],
+                                            const Positioned(
+                                              top: _PlansLayout.benefitsTop,
+                                              left: 0,
+                                              right: 0,
+                                              child: _MembershipBenefits(),
+                                            ),
+                                            Positioned(
+                                              top: _PlansLayout.planSelectorTop,
+                                              left:
+                                                  _PlansLayout.planSelectorLeft,
+                                              child: _PlanSelector(
+                                                selectedPlan: _selectedPlan,
+                                                onSelected: _selectPlan,
+                                                onPromoCode:
+                                                    widget.onPromoCode ?? () {},
+                                              ),
+                                            ),
+                                            Positioned(
+                                              top:
+                                                  canvasHeight -
+                                                  _PlansLayout.ctaGap,
+                                              left: _PlansLayout.ctaLeft,
+                                              child: _SubscribeButton(
+                                                plan: _selectedPlan,
+                                                onPressed: () =>
+                                                    _continue(context),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              top:
+                                                  canvasHeight -
+                                                  _PlansLayout.trustGap,
+                                              left: 0,
+                                              right: 0,
+                                              child: const _TrustIndicators(),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-                const Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  child: _PlansHeader(),
-                ),
-              ],
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: _PlansHeader(),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -231,12 +253,73 @@ class _PlansBackground extends StatelessWidget {
   }
 }
 
+class _PlansTokenScope extends InheritedWidget {
+  const _PlansTokenScope({
+    required this.contentColor,
+    required this.cardBackgroundColor,
+    required this.cardBorderColor,
+    required this.ctaBackgroundColor,
+    required this.ctaBorderColor,
+    required this.selectedBorderColor,
+    required this.unselectedBorderColor,
+    required this.radioSelectedFillColor,
+    required this.radioCheckColor,
+    required this.radioUnselectedBorderColor,
+    required super.child,
+  });
+
+  final Color contentColor;
+  final Color cardBackgroundColor;
+  final Color cardBorderColor;
+  final Color ctaBackgroundColor;
+  final Color ctaBorderColor;
+  final Color selectedBorderColor;
+  final Color unselectedBorderColor;
+  final Color radioSelectedFillColor;
+  final Color radioCheckColor;
+  final Color radioUnselectedBorderColor;
+
+  Color get secondaryColor => contentColor.withAlpha(217);
+
+  static _PlansTokenScope of(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<_PlansTokenScope>() ??
+        const _PlansTokenScope(
+          contentColor: AppColors.textOnPrimary,
+          cardBackgroundColor: _PlansColors.glass,
+          cardBorderColor: _PlansColors.glassBorder,
+          ctaBackgroundColor: _PlansColors.glass,
+          ctaBorderColor: _PlansColors.glassBorder,
+          selectedBorderColor: _PlansColors.selectedBorder,
+          unselectedBorderColor: _PlansColors.glassBorder,
+          radioSelectedFillColor: AppColors.textOnPrimary,
+          radioCheckColor: AppColors.blue500,
+          radioUnselectedBorderColor: _PlansColors.glassBorder,
+          child: SizedBox.shrink(),
+        );
+  }
+
+  @override
+  bool updateShouldNotify(_PlansTokenScope oldWidget) {
+    return contentColor != oldWidget.contentColor ||
+        cardBackgroundColor != oldWidget.cardBackgroundColor ||
+        cardBorderColor != oldWidget.cardBorderColor ||
+        ctaBackgroundColor != oldWidget.ctaBackgroundColor ||
+        ctaBorderColor != oldWidget.ctaBorderColor ||
+        selectedBorderColor != oldWidget.selectedBorderColor ||
+        unselectedBorderColor != oldWidget.unselectedBorderColor ||
+        radioSelectedFillColor != oldWidget.radioSelectedFillColor ||
+        radioCheckColor != oldWidget.radioCheckColor ||
+        radioUnselectedBorderColor != oldWidget.radioUnselectedBorderColor;
+  }
+}
+
 class _PlansHeader extends StatelessWidget {
   const _PlansHeader();
 
   @override
   Widget build(BuildContext context) {
     final statusBarHeight = MediaQuery.paddingOf(context).top;
+    final contentColor = _PlansTokenScope.of(context).contentColor;
 
     return Container(
       height: statusBarHeight + _PlansLayout.headerHeight,
@@ -273,11 +356,11 @@ class _PlansHeader extends StatelessWidget {
                     Navigator.of(context).maybePop();
                   },
                   radius: 24,
-                  child: const SizedBox.square(
+                  child: SizedBox.square(
                     dimension: 24,
                     child: Icon(
                       Icons.arrow_back_rounded,
-                      color: AppColors.textOnPrimary,
+                      color: contentColor,
                       size: 24,
                       applyTextScaling: false,
                     ),
@@ -285,7 +368,7 @@ class _PlansHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
@@ -299,7 +382,7 @@ class _PlansHeader extends StatelessWidget {
                       height: 24 / 20,
                       letterSpacing: -0.25,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textOnPrimary,
+                      color: contentColor,
                     ),
                   ),
                 ),
@@ -332,12 +415,14 @@ class _PlansArtwork extends StatelessWidget {
   }
 }
 
-class _PlansHeroCopy extends StatelessWidget {
+class _PlansHeroCopy extends ConsumerWidget {
   const _PlansHeroCopy();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final mascotUrl = _membershipMascotUrl();
+    final tokenScope = _PlansTokenScope.of(context);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
 
     return Column(
       key: const ValueKey('membershipPlansIntro'),
@@ -364,20 +449,24 @@ class _PlansHeroCopy extends StatelessWidget {
         const SizedBox(height: 20),
         const _PlusMemberBadge(),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Unlock the Magic',
           maxLines: 1,
           softWrap: false,
           textAlign: TextAlign.center,
-          style: _PlansTextStyles.heroTitle,
+          style: tokenTextStyles.subscriptionHeroTitle.copyWith(
+            color: tokenScope.contentColor,
+          ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Unlimited stories to inspire, learn, and dream.',
           maxLines: 1,
           softWrap: false,
           textAlign: TextAlign.center,
-          style: _PlansTextStyles.heroSubtitle,
+          style: tokenTextStyles.subscriptionHeroSubtitle.copyWith(
+            color: tokenScope.secondaryColor,
+          ),
         ),
       ],
     );
@@ -394,24 +483,33 @@ class _PlansHeroCopy extends StatelessWidget {
   }
 }
 
-class _PlusMemberBadge extends StatelessWidget {
+class _PlusMemberBadge extends ConsumerWidget {
   const _PlusMemberBadge();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _PlansTokenScope.of(context);
+    final contentColor = tokenScope.contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: _PlansColors.glass,
+        color: tokenScope.cardBackgroundColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _PlansColors.glassBorder),
+        border: Border.all(color: tokenScope.cardBorderColor),
       ),
-      child: const Text('PLUS MEMBER', style: _PlansTextStyles.badge),
+      child: Text(
+        'PLUS MEMBER',
+        style: tokenTextStyles.subscriptionBadgeLabel.copyWith(
+          color: contentColor,
+        ),
+      ),
     );
   }
 }
 
-class _MembershipBenefits extends StatelessWidget {
+class _MembershipBenefits extends ConsumerWidget {
   const _MembershipBenefits();
 
   static const _benefits = [
@@ -430,14 +528,19 @@ class _MembershipBenefits extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _PlansTokenScope.of(context);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Column(
       children: [
-        const Text(
+        Text(
           'Your Membership Includes',
           key: ValueKey('membershipPlansBenefits'),
           textAlign: TextAlign.center,
-          style: _PlansTextStyles.benefitsHeading,
+          style: tokenTextStyles.subscriptionBenefitsHeading.copyWith(
+            color: tokenScope.secondaryColor,
+          ),
         ),
         const SizedBox(height: 16),
         Row(
@@ -455,20 +558,24 @@ class _MembershipBenefits extends StatelessWidget {
   }
 }
 
-class _BenefitCard extends StatelessWidget {
+class _BenefitCard extends ConsumerWidget {
   const _BenefitCard({required this.data});
 
   final _BenefitData data;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _PlansTokenScope.of(context);
+    final contentColor = tokenScope.contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Container(
       width: _PlansLayout.benefitCardWidth,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _PlansColors.glass,
+        color: tokenScope.cardBackgroundColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _PlansColors.glassBorder),
+        border: Border.all(color: tokenScope.cardBorderColor),
         boxShadow: const [
           BoxShadow(
             color: Color(0x1A000000),
@@ -484,17 +591,16 @@ class _BenefitCard extends StatelessWidget {
             data.iconAsset,
             width: 32,
             height: 32,
-            colorFilter: const ColorFilter.mode(
-              AppColors.textOnPrimary,
-              BlendMode.srcIn,
-            ),
+            colorFilter: ColorFilter.mode(contentColor, BlendMode.srcIn),
           ),
           const SizedBox(height: 4),
           Text(
             data.label,
             maxLines: 2,
             textAlign: TextAlign.center,
-            style: _PlansTextStyles.benefitLabel,
+            style: tokenTextStyles.subscriptionBenefitsLabel.copyWith(
+              color: contentColor,
+            ),
           ),
         ],
       ),
@@ -555,7 +661,7 @@ class _PlanSelector extends StatelessWidget {
   }
 }
 
-class _PlanOptionCard extends StatelessWidget {
+class _PlanOptionCard extends ConsumerWidget {
   const _PlanOptionCard({
     required this.label,
     required this.price,
@@ -573,7 +679,11 @@ class _PlanOptionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _PlansTokenScope.of(context);
+    final contentColor = tokenScope.contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Semantics(
       key: semanticKey,
       container: true,
@@ -587,12 +697,12 @@ class _PlanOptionCard extends StatelessWidget {
           width: _PlansLayout.planCardWidth,
           height: _PlansLayout.planCardHeight,
           decoration: BoxDecoration(
-            color: _PlansColors.glass,
+            color: tokenScope.cardBackgroundColor,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: selected
-                  ? _PlansColors.selectedBorder
-                  : _PlansColors.glassBorder,
+                  ? tokenScope.selectedBorderColor
+                  : tokenScope.unselectedBorderColor,
             ),
             boxShadow: const [
               BoxShadow(
@@ -617,12 +727,16 @@ class _PlanOptionCard extends StatelessWidget {
                     children: [
                       _PlanTextLine(
                         text: label,
-                        style: _PlansTextStyles.planLabel,
+                        style: tokenTextStyles.subscriptionPlanLabel.copyWith(
+                          color: contentColor,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       _PlanTextLine(
                         text: price,
-                        style: _PlansTextStyles.planPrice,
+                        style: tokenTextStyles.subscriptionPlanPrice.copyWith(
+                          color: contentColor,
+                        ),
                       ),
                     ],
                   ),
@@ -663,13 +777,18 @@ class _PlanRadio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokenScope = _PlansTokenScope.of(context);
+
     if (!selected) {
       return Container(
         width: 24,
         height: 24,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: _PlansColors.glassBorder, width: 2),
+          border: Border.all(
+            color: tokenScope.radioUnselectedBorderColor,
+            width: 2,
+          ),
         ),
       );
     }
@@ -677,13 +796,13 @@ class _PlanRadio extends StatelessWidget {
     return Container(
       width: 24,
       height: 24,
-      decoration: const BoxDecoration(
-        color: AppColors.textOnPrimary,
+      decoration: BoxDecoration(
+        color: tokenScope.radioSelectedFillColor,
         shape: BoxShape.circle,
       ),
-      child: const Icon(
+      child: Icon(
         Icons.check_rounded,
-        color: AppColors.blue500,
+        color: tokenScope.radioCheckColor,
         size: 18,
         applyTextScaling: false,
       ),
@@ -691,26 +810,32 @@ class _PlanRadio extends StatelessWidget {
   }
 }
 
-class _PromoCodeAction extends StatelessWidget {
+class _PromoCodeAction extends ConsumerWidget {
   const _PromoCodeAction({required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _PlansTokenScope.of(context);
+    final contentColor = tokenScope.contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Semantics(
       button: true,
       child: InkWell(
         key: const ValueKey('membershipPromoCodeButton'),
         onTap: onPressed,
         borderRadius: BorderRadius.circular(22),
-        child: const SizedBox(
+        child: SizedBox(
           height: _PlansLayout.minimumTouchTarget,
           child: Center(
             child: Text(
               'Have a promo code?',
-              key: ValueKey('membershipPromoCodeText'),
-              style: _PlansTextStyles.promo,
+              key: const ValueKey('membershipPromoCodeText'),
+              style: tokenTextStyles.subscriptionPlanLabel.copyWith(
+                color: contentColor,
+              ),
             ),
           ),
         ),
@@ -719,7 +844,7 @@ class _PromoCodeAction extends StatelessWidget {
   }
 }
 
-class _SubscribeButton extends StatelessWidget {
+class _SubscribeButton extends ConsumerWidget {
   const _SubscribeButton({required this.plan, required this.onPressed});
 
   final MembershipPlan plan;
@@ -731,7 +856,11 @@ class _SubscribeButton extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _PlansTokenScope.of(context);
+    final contentColor = tokenScope.contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Semantics(
       key: const ValueKey('membershipPlansContinueButton'),
       button: true,
@@ -742,9 +871,9 @@ class _SubscribeButton extends StatelessWidget {
           width: _PlansLayout.ctaWidth,
           height: _PlansLayout.ctaHeight,
           decoration: BoxDecoration(
-            color: _PlansColors.glass,
+            color: tokenScope.ctaBackgroundColor,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: _PlansColors.glassBorder),
+            border: Border.all(color: tokenScope.ctaBorderColor),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x2E000000),
@@ -756,7 +885,14 @@ class _SubscribeButton extends StatelessWidget {
           child: InkWell(
             onTap: onPressed,
             borderRadius: BorderRadius.circular(24),
-            child: Center(child: Text(_label, style: _PlansTextStyles.cta)),
+            child: Center(
+              child: Text(
+                _label,
+                style: tokenTextStyles.subscriptionCtaLabel.copyWith(
+                  color: contentColor,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -769,7 +905,7 @@ class _TrustIndicators extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       key: ValueKey('membershipTrustIndicators'),
       height: _PlansLayout.trustHeight,
       child: Center(
@@ -781,23 +917,23 @@ class _TrustIndicators extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _TrustIndicator(
+                const _TrustIndicator(
                   iconAsset:
                       'assets/icons/new_boopi/State=Default, Icon=Shield Done.svg',
                   iconWidth: 10.5,
                   iconHeight: 14,
                   label: 'Secure Payment',
                 ),
-                SizedBox(width: 24),
-                _TrustIndicator(
+                const SizedBox(width: 24),
+                const _TrustIndicator(
                   iconAsset:
                       'assets/icons/new_boopi/State=Default, Icon=Close Square.svg',
                   iconWidth: 13.417,
                   iconHeight: 14,
                   label: 'Cancel anytime',
                 ),
-                SizedBox(width: 24),
-                _TrustIndicator(
+                const SizedBox(width: 24),
+                const _TrustIndicator(
                   iconAsset:
                       'assets/icons/new_boopi/State=Default, Icon=3 User.svg',
                   iconWidth: 13.089,
@@ -837,6 +973,8 @@ class _TrustIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokenScope = _PlansTokenScope.of(context);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -845,8 +983,8 @@ class _TrustIndicator extends StatelessWidget {
           iconAsset,
           width: iconWidth,
           height: iconHeight,
-          colorFilter: const ColorFilter.mode(
-            AppColors.textOnPrimary,
+          colorFilter: ColorFilter.mode(
+            tokenScope.contentColor,
             BlendMode.srcIn,
           ),
         ),
@@ -860,7 +998,7 @@ class _TrustIndicator extends StatelessWidget {
             fontSize: fontSize,
             height: lineHeight / fontSize,
             fontWeight: FontWeight.w400,
-            color: _PlansColors.textSecondaryOpacity,
+            color: tokenScope.secondaryColor,
           ),
         ),
       ],
@@ -906,7 +1044,6 @@ abstract final class _PlansColors {
   static const glass = Color(0x2EFFFFFF);
   static const glassBorder = Color(0x66FFFFFF);
   static const selectedBorder = Color(0xFF99E1FA);
-  static const textSecondaryOpacity = Color(0xD9FFFFFF);
 }
 
 abstract final class _PlansSystemUi {
@@ -918,81 +1055,5 @@ abstract final class _PlansSystemUi {
     systemNavigationBarDividerColor: Colors.transparent,
     systemStatusBarContrastEnforced: false,
     systemNavigationBarContrastEnforced: false,
-  );
-}
-
-abstract final class _PlansTextStyles {
-  static const badge = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 16 / 14,
-    letterSpacing: 0.2,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const heroTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 24,
-    height: 28 / 24,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const heroSubtitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-    color: _PlansColors.textSecondaryOpacity,
-  );
-
-  static const benefitsHeading = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 18,
-    height: 20 / 18,
-    fontWeight: FontWeight.w700,
-    color: _PlansColors.textSecondaryOpacity,
-  );
-
-  static const benefitLabel = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 12,
-    height: 16 / 12,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const planLabel = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const planPrice = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const promo = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const cta = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
   );
 }

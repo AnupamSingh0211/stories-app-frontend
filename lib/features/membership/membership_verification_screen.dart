@@ -3,24 +3,26 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import 'membership_side_banner.dart';
 
-class MembershipVerificationScreen extends StatefulWidget {
+class MembershipVerificationScreen extends ConsumerStatefulWidget {
   const MembershipVerificationScreen({super.key});
 
   @override
-  State<MembershipVerificationScreen> createState() =>
+  ConsumerState<MembershipVerificationScreen> createState() =>
       _MembershipVerificationScreenState();
 }
 
 class _MembershipVerificationScreenState
-    extends State<MembershipVerificationScreen> {
+    extends ConsumerState<MembershipVerificationScreen> {
   final List<String> _digits = [];
   bool _didTrackCompletion = false;
 
@@ -62,88 +64,99 @@ class _MembershipVerificationScreenState
 
   @override
   Widget build(BuildContext context) {
+    final tokenColors = AppTokenColors.of(ref);
+    final contentColor = tokenColors.homeCardTextPrimary;
+
     return MediaQuery.withNoTextScaling(
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _VerificationSystemUi.style,
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: AppScreenBackground(
-            child: Stack(
-              children: [
-                SafeArea(
-                  left: false,
-                  right: false,
-                  bottom: false,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final contentWidth = constraints.maxWidth;
-                      final scale =
-                          contentWidth / _VerificationLayout.designWidth;
-                      final canvasHeight = math.max(
-                        constraints.maxHeight / scale,
-                        _VerificationLayout.designHeight,
-                      );
+            child: _VerificationTokenScope(
+              contentColor: contentColor,
+              badgeBackgroundColor: tokenColors.subscriptionCardBackground,
+              badgeBorderColor: tokenColors.subscriptionCardBorder,
+              panelBackgroundColor: tokenColors.subscriptionPanelBackground,
+              panelBorderColor: tokenColors.subscriptionPanelBorder,
+              controlBackgroundColor: tokenColors.subscriptionControlBackground,
+              controlBorderColor: tokenColors.subscriptionControlBorder,
+              child: Stack(
+                children: [
+                  SafeArea(
+                    left: false,
+                    right: false,
+                    bottom: false,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final contentWidth = constraints.maxWidth;
+                        final scale =
+                            contentWidth / _VerificationLayout.designWidth;
+                        final canvasHeight = math.max(
+                          constraints.maxHeight / scale,
+                          _VerificationLayout.designHeight,
+                        );
 
-                      return Stack(
-                        children: [
-                          SingleChildScrollView(
-                            physics: const ClampingScrollPhysics(),
-                            child: Center(
-                              child: SizedBox(
-                                width: contentWidth,
-                                height: canvasHeight * scale,
-                                child: FittedBox(
-                                  fit: BoxFit.fill,
-                                  alignment: Alignment.topCenter,
-                                  child: SizedBox(
-                                    width: _VerificationLayout.designWidth,
-                                    height: canvasHeight,
-                                    child: ClipRect(
-                                      child: Stack(
-                                        clipBehavior: Clip.hardEdge,
-                                        children: [
-                                          const Positioned.fill(
-                                            child: _VerificationBackground(),
-                                          ),
-                                          const _VerificationArtwork(),
-                                          const Positioned(
-                                            top:
-                                                _VerificationLayout
-                                                    .heroGroupTop,
-                                            left: 0,
-                                            right: 0,
-                                            child: _VerificationHeroCopy(),
-                                          ),
-                                          Positioned(
-                                            top: _VerificationLayout.panelTop,
-                                            left: 0,
-                                            right: 0,
-                                            bottom: 0,
-                                            child: _VerificationPanel(
-                                              digits: _digits,
-                                              onDigitPressed: _enterDigit,
+                        return Stack(
+                          children: [
+                            SingleChildScrollView(
+                              physics: const ClampingScrollPhysics(),
+                              child: Center(
+                                child: SizedBox(
+                                  width: contentWidth,
+                                  height: canvasHeight * scale,
+                                  child: FittedBox(
+                                    fit: BoxFit.fill,
+                                    alignment: Alignment.topCenter,
+                                    child: SizedBox(
+                                      width: _VerificationLayout.designWidth,
+                                      height: canvasHeight,
+                                      child: ClipRect(
+                                        child: Stack(
+                                          clipBehavior: Clip.hardEdge,
+                                          children: [
+                                            const Positioned.fill(
+                                              child: _VerificationBackground(),
                                             ),
-                                          ),
-                                        ],
+                                            const _VerificationArtwork(),
+                                            const Positioned(
+                                              top: _VerificationLayout
+                                                  .heroGroupTop,
+                                              left: 0,
+                                              right: 0,
+                                              child: _VerificationHeroCopy(),
+                                            ),
+                                            Positioned(
+                                              top: _VerificationLayout.panelTop,
+                                              left: 0,
+                                              right: 0,
+                                              bottom: 0,
+                                              child: _VerificationPanel(
+                                                digits: _digits,
+                                                onDigitPressed: _enterDigit,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-                const Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  child: _VerificationHeader(),
-                ),
-              ],
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: _VerificationHeader(),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -161,12 +174,62 @@ class _VerificationBackground extends StatelessWidget {
   }
 }
 
+class _VerificationTokenScope extends InheritedWidget {
+  const _VerificationTokenScope({
+    required this.contentColor,
+    required this.badgeBackgroundColor,
+    required this.badgeBorderColor,
+    required this.panelBackgroundColor,
+    required this.panelBorderColor,
+    required this.controlBackgroundColor,
+    required this.controlBorderColor,
+    required super.child,
+  });
+
+  final Color contentColor;
+  final Color badgeBackgroundColor;
+  final Color badgeBorderColor;
+  final Color panelBackgroundColor;
+  final Color panelBorderColor;
+  final Color controlBackgroundColor;
+  final Color controlBorderColor;
+
+  Color get secondaryColor => contentColor.withAlpha(217);
+
+  static _VerificationTokenScope of(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<_VerificationTokenScope>() ??
+        const _VerificationTokenScope(
+          contentColor: AppColors.textOnPrimary,
+          badgeBackgroundColor: _VerificationColors.glass,
+          badgeBorderColor: _VerificationColors.glassBorder,
+          panelBackgroundColor: _VerificationColors.glass,
+          panelBorderColor: _VerificationColors.glassEdge,
+          controlBackgroundColor: _VerificationColors.glass,
+          controlBorderColor: _VerificationColors.controlEdge,
+          child: SizedBox.shrink(),
+        );
+  }
+
+  @override
+  bool updateShouldNotify(_VerificationTokenScope oldWidget) {
+    return contentColor != oldWidget.contentColor ||
+        badgeBackgroundColor != oldWidget.badgeBackgroundColor ||
+        badgeBorderColor != oldWidget.badgeBorderColor ||
+        panelBackgroundColor != oldWidget.panelBackgroundColor ||
+        panelBorderColor != oldWidget.panelBorderColor ||
+        controlBackgroundColor != oldWidget.controlBackgroundColor ||
+        controlBorderColor != oldWidget.controlBorderColor;
+  }
+}
+
 class _VerificationHeader extends StatelessWidget {
   const _VerificationHeader();
 
   @override
   Widget build(BuildContext context) {
     final statusBarHeight = MediaQuery.paddingOf(context).top;
+    final contentColor = _VerificationTokenScope.of(context).contentColor;
 
     return Container(
       key: const ValueKey('membershipVerificationHeader'),
@@ -204,11 +267,11 @@ class _VerificationHeader extends StatelessWidget {
                     Navigator.of(context).maybePop();
                   },
                   radius: 24,
-                  child: const SizedBox.square(
+                  child: SizedBox.square(
                     dimension: 24,
                     child: Icon(
                       Icons.arrow_back_rounded,
-                      color: AppColors.textOnPrimary,
+                      color: contentColor,
                       size: 24,
                       applyTextScaling: false,
                     ),
@@ -216,7 +279,7 @@ class _VerificationHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
@@ -230,7 +293,7 @@ class _VerificationHeader extends StatelessWidget {
                       height: 24 / 20,
                       letterSpacing: -0.25,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textOnPrimary,
+                      color: contentColor,
                     ),
                   ),
                 ),
@@ -263,12 +326,14 @@ class _VerificationArtwork extends StatelessWidget {
   }
 }
 
-class _VerificationHeroCopy extends StatelessWidget {
+class _VerificationHeroCopy extends ConsumerWidget {
   const _VerificationHeroCopy();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final mascotUrl = _membershipMascotUrl();
+    final tokenScope = _VerificationTokenScope.of(context);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
 
     return Column(
       key: const ValueKey('membershipVerificationIntro'),
@@ -295,20 +360,24 @@ class _VerificationHeroCopy extends StatelessWidget {
         const SizedBox(height: 20),
         const _PlusMemberBadge(),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Unlock the Magic',
           maxLines: 1,
           softWrap: false,
           textAlign: TextAlign.center,
-          style: _VerificationTextStyles.heroTitle,
+          style: tokenTextStyles.subscriptionHeroTitle.copyWith(
+            color: tokenScope.contentColor,
+          ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Unlimited stories to inspire, learn, and dream.',
           maxLines: 1,
           softWrap: false,
           textAlign: TextAlign.center,
-          style: _VerificationTextStyles.heroSubtitle,
+          style: tokenTextStyles.subscriptionHeroSubtitle.copyWith(
+            color: tokenScope.secondaryColor,
+          ),
         ),
       ],
     );
@@ -325,19 +394,28 @@ class _VerificationHeroCopy extends StatelessWidget {
   }
 }
 
-class _PlusMemberBadge extends StatelessWidget {
+class _PlusMemberBadge extends ConsumerWidget {
   const _PlusMemberBadge();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _VerificationTokenScope.of(context);
+    final contentColor = tokenScope.contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: _VerificationColors.glass,
+        color: tokenScope.badgeBackgroundColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _VerificationColors.glassBorder),
+        border: Border.all(color: tokenScope.badgeBorderColor),
       ),
-      child: const Text('PLUS MEMBER', style: _VerificationTextStyles.badge),
+      child: Text(
+        'PLUS MEMBER',
+        style: tokenTextStyles.subscriptionBadgeLabel.copyWith(
+          color: contentColor,
+        ),
+      ),
     );
   }
 }
@@ -360,11 +438,13 @@ class _VerificationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokenScope = _VerificationTokenScope.of(context);
+
     return DecoratedBox(
       key: const ValueKey('membershipVerificationPanel'),
-      decoration: const BoxDecoration(
-        color: _VerificationColors.glass,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: tokenScope.panelBackgroundColor,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(32),
           topRight: Radius.circular(32),
         ),
@@ -403,6 +483,8 @@ class _PanelGlassHighlight extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokenScope = _VerificationTokenScope.of(context);
+
     return IgnorePointer(
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -410,19 +492,22 @@ class _PanelGlassHighlight extends StatelessWidget {
             topLeft: Radius.circular(32),
             topRight: Radius.circular(32),
           ),
-          border: Border.all(color: _VerificationColors.glassEdge),
+          border: Border.all(color: tokenScope.panelBorderColor),
         ),
       ),
     );
   }
 }
 
-class _VerificationPrompt extends StatelessWidget {
+class _VerificationPrompt extends ConsumerWidget {
   const _VerificationPrompt();
 
   @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenScope = _VerificationTokenScope.of(context);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
+    return SizedBox(
       width: 267,
       child: Column(
         children: [
@@ -431,15 +516,19 @@ class _VerificationPrompt extends StatelessWidget {
             maxLines: 1,
             softWrap: false,
             textAlign: TextAlign.center,
-            style: _VerificationTextStyles.panelTitle,
+            style: tokenTextStyles.subscriptionVerificationTitle.copyWith(
+              color: tokenScope.contentColor,
+            ),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
             'Please enter the year you were born.',
             maxLines: 1,
             softWrap: false,
             textAlign: TextAlign.center,
-            style: _VerificationTextStyles.panelSubtitle,
+            style: tokenTextStyles.subscriptionVerificationSubtitle.copyWith(
+              color: tokenScope.secondaryColor,
+            ),
           ),
         ],
       ),
@@ -471,20 +560,28 @@ class _YearDigits extends StatelessWidget {
   }
 }
 
-class _YearDigitBox extends StatelessWidget {
+class _YearDigitBox extends ConsumerWidget {
   const _YearDigitBox({required this.digit});
 
   final String digit;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contentColor = _VerificationTokenScope.of(context).contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return _GlassControlSurface(
       width: _VerificationLayout.yearBoxWidth,
       height: _VerificationLayout.yearBoxHeight,
       radius: 12,
       shadowBlur: 4,
       shadowOffset: const Offset(0, 2),
-      child: Text(digit, style: _VerificationTextStyles.digit),
+      child: Text(
+        digit,
+        style: tokenTextStyles.subscriptionVerificationDigit.copyWith(
+          color: contentColor,
+        ),
+      ),
     );
   }
 }
@@ -536,14 +633,17 @@ class _NumberPad extends StatelessWidget {
   }
 }
 
-class _NumberKey extends StatelessWidget {
+class _NumberKey extends ConsumerWidget {
   const _NumberKey({required this.digit, required this.onPressed});
 
   final String digit;
   final ValueChanged<String> onPressed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contentColor = _VerificationTokenScope.of(context).contentColor;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Semantics(
       button: true,
       label: digit,
@@ -560,7 +660,12 @@ class _NumberKey extends StatelessWidget {
             onTap: () => onPressed(digit),
             borderRadius: BorderRadius.circular(8),
             child: Center(
-              child: Text(digit, style: _VerificationTextStyles.digit),
+              child: Text(
+                digit,
+                style: tokenTextStyles.subscriptionVerificationDigit.copyWith(
+                  color: contentColor,
+                ),
+              ),
             ),
           ),
         ),
@@ -589,14 +694,16 @@ class _GlassControlSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokenScope = _VerificationTokenScope.of(context);
+
     return Container(
       width: width,
       height: height,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: _VerificationColors.glass,
+        color: tokenScope.controlBackgroundColor,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: _VerificationColors.controlEdge),
+        border: Border.all(color: tokenScope.controlBorderColor),
         boxShadow: [
           BoxShadow(
             color: _VerificationColors.controlDropShadow,
@@ -654,7 +761,6 @@ abstract final class _VerificationColors {
   static const controlDropShadow = Color(0x33000000);
   static const controlShineStart = Color(0x26FFFFFF);
   static const controlShineEnd = Color(0x00FFFFFF);
-  static const textSecondaryOpacity = Color(0xD9FFFFFF);
 }
 
 abstract final class _VerificationSystemUi {
@@ -664,58 +770,5 @@ abstract final class _VerificationSystemUi {
     systemNavigationBarColor: _VerificationColors.bottomBlue,
     systemNavigationBarIconBrightness: Brightness.light,
     systemNavigationBarDividerColor: Colors.transparent,
-  );
-}
-
-abstract final class _VerificationTextStyles {
-  static const badge = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 16 / 14,
-    letterSpacing: 0.2,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const heroTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 24,
-    height: 28 / 24,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const heroSubtitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-    color: _VerificationColors.textSecondaryOpacity,
-  );
-
-  static const panelTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 24,
-    height: 28 / 24,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const panelSubtitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-    color: _VerificationColors.textSecondaryOpacity,
-  );
-
-  static const digit = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
   );
 }

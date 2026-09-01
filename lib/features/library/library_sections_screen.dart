@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/analytics_service.dart';
 import '../../core/supabase_config.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_bottom_navigation.dart';
 import '../../shared/widgets/app_screen_background.dart';
@@ -296,6 +297,8 @@ class _FavouritesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final contentColor = AppTokenColors.of(ref).favoritesIconButtonForeground;
+
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
         body: AppScreenBackground(
@@ -312,7 +315,7 @@ class _FavouritesScreen extends ConsumerWidget {
 
                   return Stack(
                     children: [
-                      const _FavouritesHeader(),
+                      _FavouritesHeader(contentColor: contentColor),
                       Positioned.fill(
                         top: 56 * scale,
                         child: Padding(
@@ -330,6 +333,7 @@ class _FavouritesScreen extends ConsumerWidget {
                                   child: _FavouritesSectionHeader(
                                     title: 'Your Favourite Story Cards',
                                     scale: scale,
+                                    contentColor: contentColor,
                                   ),
                                 ),
                                 SliverToBoxAdapter(
@@ -352,13 +356,12 @@ class _FavouritesScreen extends ConsumerWidget {
                                       title: card.title,
                                       imageUrl: card.thumbnailUrl,
                                       scale: scale,
+                                      contentColor: contentColor,
                                       onTap: () {
                                         Navigator.of(context).push(
                                           MaterialPageRoute<void>(
                                             builder: (context) =>
-                                                EpisodesScreen(
-                                                  storyCard: card,
-                                                ),
+                                                EpisodesScreen(storyCard: card),
                                           ),
                                         );
                                       },
@@ -368,8 +371,7 @@ class _FavouritesScreen extends ConsumerWidget {
                                             'favorite_removed',
                                             properties: {
                                               'screen_name': 'favorites_screen',
-                                              'source':
-                                                  'favorites_story_card',
+                                              'source': 'favorites_story_card',
                                               'target_type': 'story_card',
                                               'target_id': card.id,
                                             },
@@ -407,6 +409,7 @@ class _FavouritesScreen extends ConsumerWidget {
                                   child: _FavouritesSectionHeader(
                                     title: 'Your Favourite Episodes',
                                     scale: scale,
+                                    contentColor: contentColor,
                                   ),
                                 ),
                                 SliverToBoxAdapter(
@@ -429,6 +432,7 @@ class _FavouritesScreen extends ConsumerWidget {
                                       title: story.title,
                                       imageUrl: story.thumbnailUrl,
                                       scale: scale,
+                                      contentColor: contentColor,
                                       onTap: () {
                                         Navigator.of(context).push(
                                           MaterialPageRoute<void>(
@@ -501,14 +505,21 @@ class _FavouritesScreen extends ConsumerWidget {
   }
 }
 
-class _FavouritesSectionHeader extends StatelessWidget {
-  const _FavouritesSectionHeader({required this.title, required this.scale});
+class _FavouritesSectionHeader extends ConsumerWidget {
+  const _FavouritesSectionHeader({
+    required this.title,
+    required this.scale,
+    required this.contentColor,
+  });
 
   final String title;
   final double scale;
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return SizedBox(
       height: 20 * scale,
       child: Row(
@@ -518,7 +529,8 @@ class _FavouritesSectionHeader extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: _FavouritesTextStyles.sectionTitle.copyWith(
+              style: tokenTextStyles.favoritesSectionTitle.copyWith(
+                color: contentColor,
                 fontSize: 16 * scale,
               ),
             ),
@@ -526,7 +538,10 @@ class _FavouritesSectionHeader extends StatelessWidget {
           SizedBox(width: 12 * scale),
           Text(
             'See all',
-            style: _FavouritesTextStyles.seeAll.copyWith(fontSize: 14 * scale),
+            style: tokenTextStyles.favoritesSectionAction.copyWith(
+              color: contentColor,
+              fontSize: 14 * scale,
+            ),
           ),
         ],
       ),
@@ -540,11 +555,15 @@ void _showFavoriteError(BuildContext context, String message) {
     ..showSnackBar(SnackBar(content: Text(message)));
 }
 
-class _FavouritesHeader extends StatelessWidget {
-  const _FavouritesHeader();
+class _FavouritesHeader extends ConsumerWidget {
+  const _FavouritesHeader({required this.contentColor});
+
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return SizedBox(
       height: 56,
       child: Padding(
@@ -556,16 +575,21 @@ class _FavouritesHeader extends StatelessWidget {
               child: InkResponse(
                 onTap: () => Navigator.of(context).maybePop(),
                 radius: 24,
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_rounded,
-                  color: AppColors.textOnPrimary,
+                  color: contentColor,
                   size: 24,
                   applyTextScaling: false,
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            const Text('Favourites', style: _FavouritesTextStyles.headerTitle),
+            Text(
+              'Favourites',
+              style: tokenTextStyles.favoritesHeaderTitle.copyWith(
+                color: contentColor,
+              ),
+            ),
           ],
         ),
       ),
@@ -573,11 +597,12 @@ class _FavouritesHeader extends StatelessWidget {
   }
 }
 
-class _FavouriteStoryCardTile extends StatelessWidget {
+class _FavouriteStoryCardTile extends ConsumerWidget {
   const _FavouriteStoryCardTile({
     required this.title,
     required this.imageUrl,
     required this.scale,
+    required this.contentColor,
     required this.onTap,
     required this.onFavoriteTap,
   });
@@ -585,23 +610,30 @@ class _FavouriteStoryCardTile extends StatelessWidget {
   final String title;
   final String imageUrl;
   final double scale;
+  final Color contentColor;
   final VoidCallback onTap;
   final VoidCallback onFavoriteTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.all(12 * scale),
         decoration: BoxDecoration(
-          color: AppColors.backgroundGlass,
+          color: tokenColors.favoritesCardBackground,
           borderRadius: BorderRadius.circular(8 * scale),
-          border: Border.all(color: AppColors.borderLight, width: 0.8),
+          border: Border.all(
+            color: tokenColors.favoritesCardBorder,
+            width: 0.8,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
+              color: tokenColors.favoritesCardShadow,
               offset: const Offset(0, 4),
               blurRadius: 4,
             ),
@@ -613,6 +645,7 @@ class _FavouriteStoryCardTile extends StatelessWidget {
             _FavouriteStoryImage(
               imageUrl: imageUrl,
               scale: scale,
+              contentColor: contentColor,
               onFavoriteTap: onFavoriteTap,
             ),
             SizedBox(height: 8 * scale),
@@ -621,7 +654,8 @@ class _FavouriteStoryCardTile extends StatelessWidget {
                 title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: _FavouritesTextStyles.cardTitle.copyWith(
+                style: tokenTextStyles.favoritesCardTitle.copyWith(
+                  color: contentColor,
                   fontSize: 14 * scale,
                 ),
               ),
@@ -633,19 +667,23 @@ class _FavouriteStoryCardTile extends StatelessWidget {
   }
 }
 
-class _FavouriteStoryImage extends StatelessWidget {
+class _FavouriteStoryImage extends ConsumerWidget {
   const _FavouriteStoryImage({
     required this.imageUrl,
     required this.scale,
+    required this.contentColor,
     required this.onFavoriteTap,
   });
 
   final String imageUrl;
   final double scale;
+  final Color contentColor;
   final VoidCallback onFavoriteTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+
     return SizedBox(
       width: 147 * scale,
       height: 181 * scale,
@@ -658,12 +696,16 @@ class _FavouriteStoryImage extends StatelessWidget {
               imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>
-                  const ColoredBox(color: AppColors.backgroundGlass),
+                  ColoredBox(color: tokenColors.favoritesCardBackground),
             ),
             Positioned(
               top: 8 * scale,
               right: 8 * scale,
-              child: _FavouriteHeartButton(scale: scale, onTap: onFavoriteTap),
+              child: _FavouriteHeartButton(
+                scale: scale,
+                contentColor: contentColor,
+                onTap: onFavoriteTap,
+              ),
             ),
           ],
         ),
@@ -672,14 +714,21 @@ class _FavouriteStoryImage extends StatelessWidget {
   }
 }
 
-class _FavouriteHeartButton extends StatelessWidget {
-  const _FavouriteHeartButton({required this.scale, required this.onTap});
+class _FavouriteHeartButton extends ConsumerWidget {
+  const _FavouriteHeartButton({
+    required this.scale,
+    required this.contentColor,
+    required this.onTap,
+  });
 
   final double scale;
+  final Color contentColor;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+
     return Semantics(
       button: true,
       label: 'Remove from favorites',
@@ -691,13 +740,13 @@ class _FavouriteHeartButton extends StatelessWidget {
           height: 28 * scale,
           padding: EdgeInsets.all(6.36 * scale),
           decoration: BoxDecoration(
-            color: AppColors.glassBackground,
+            color: tokenColors.favoritesIconButtonBackground,
             shape: BoxShape.circle,
           ),
           child: SvgPicture.asset(
             'assets/icons/new_boopi/State=Bold, Icon=Heart.svg',
-            colorFilter: const ColorFilter.mode(
-              AppColors.textOnPrimary,
+            colorFilter: ColorFilter.mode(
+              tokenColors.favoritesIconButtonForeground,
               BlendMode.srcIn,
             ),
           ),
@@ -707,41 +756,7 @@ class _FavouriteHeartButton extends StatelessWidget {
   }
 }
 
-abstract final class _FavouritesTextStyles {
-  static const headerTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 20,
-    height: 24 / 20,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const sectionTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const seeAll = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const cardTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-}
-
-class _NoFavouritesScreen extends StatelessWidget {
+class _NoFavouritesScreen extends ConsumerWidget {
   const _NoFavouritesScreen({
     required this.childName,
     required this.childAge,
@@ -753,7 +768,9 @@ class _NoFavouritesScreen extends StatelessWidget {
   final String mascotUrl;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contentColor = AppTokenColors.of(ref).favoritesIconButtonForeground;
+
     return MediaQuery.withNoTextScaling(
       child: Scaffold(
         body: AppScreenBackground(
@@ -769,7 +786,7 @@ class _NoFavouritesScreen extends StatelessWidget {
 
                   return Stack(
                     children: [
-                      const _NoFavouritesHeader(),
+                      _NoFavouritesHeader(contentColor: contentColor),
                       Positioned(
                         left: 0,
                         right: 0,
@@ -777,6 +794,7 @@ class _NoFavouritesScreen extends StatelessWidget {
                         child: _NoFavouritesContent(
                           mascotUrl: mascotUrl,
                           scale: scale,
+                          contentColor: contentColor,
                         ),
                       ),
                       Positioned(
@@ -784,6 +802,7 @@ class _NoFavouritesScreen extends StatelessWidget {
                         right: horizontal,
                         bottom: 38 * scale,
                         child: _ExploreStoriesButton(
+                          contentColor: contentColor,
                           onTap: () => _openHome(context),
                         ),
                       ),
@@ -809,11 +828,15 @@ class _NoFavouritesScreen extends StatelessWidget {
   }
 }
 
-class _NoFavouritesHeader extends StatelessWidget {
-  const _NoFavouritesHeader();
+class _NoFavouritesHeader extends ConsumerWidget {
+  const _NoFavouritesHeader({required this.contentColor});
+
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return SizedBox(
       height: 56,
       child: Padding(
@@ -825,18 +848,20 @@ class _NoFavouritesHeader extends StatelessWidget {
               child: InkResponse(
                 onTap: () => Navigator.of(context).maybePop(),
                 radius: 24,
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_rounded,
-                  color: AppColors.textOnPrimary,
+                  color: contentColor,
                   size: 24,
                   applyTextScaling: false,
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
+            Text(
               'Favourites',
-              style: _NoFavouritesTextStyles.headerTitle,
+              style: tokenTextStyles.favoritesHeaderTitle.copyWith(
+                color: contentColor,
+              ),
             ),
           ],
         ),
@@ -845,14 +870,21 @@ class _NoFavouritesHeader extends StatelessWidget {
   }
 }
 
-class _NoFavouritesContent extends StatelessWidget {
-  const _NoFavouritesContent({required this.mascotUrl, required this.scale});
+class _NoFavouritesContent extends ConsumerWidget {
+  const _NoFavouritesContent({
+    required this.mascotUrl,
+    required this.scale,
+    required this.contentColor,
+  });
 
   final String mascotUrl;
   final double scale;
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -874,16 +906,20 @@ class _NoFavouritesContent extends StatelessWidget {
           width: 341 * scale,
           child: Column(
             children: [
-              const Text(
+              Text(
                 'No Favourites Yet',
                 textAlign: TextAlign.center,
-                style: _NoFavouritesTextStyles.title,
+                style: tokenTextStyles.favoritesEmptyTitle.copyWith(
+                  color: contentColor,
+                ),
               ),
               const SizedBox(height: 0),
               Text(
                 'Save the stories you love and find them\nhere anytime.',
                 textAlign: TextAlign.center,
-                style: _NoFavouritesTextStyles.subtitle,
+                style: tokenTextStyles.favoritesEmptySubtitle.copyWith(
+                  color: contentColor.withAlpha(217),
+                ),
               ),
             ],
           ),
@@ -893,21 +929,23 @@ class _NoFavouritesContent extends StatelessWidget {
   }
 }
 
-class _FavoriteMascotFallback extends StatelessWidget {
+class _FavoriteMascotFallback extends ConsumerWidget {
   const _FavoriteMascotFallback();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.backgroundGlass,
+        color: tokenColors.favoritesCardBackground,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: tokenColors.favoritesCardBorder),
       ),
-      child: const Center(
+      child: Center(
         child: Icon(
           Icons.favorite_border_rounded,
-          color: AppColors.textOnPrimary,
+          color: tokenColors.favoritesIconButtonForeground,
           size: 56,
         ),
       ),
@@ -915,13 +953,20 @@ class _FavoriteMascotFallback extends StatelessWidget {
   }
 }
 
-class _ExploreStoriesButton extends StatelessWidget {
-  const _ExploreStoriesButton({required this.onTap});
+class _ExploreStoriesButton extends ConsumerWidget {
+  const _ExploreStoriesButton({
+    required this.contentColor,
+    required this.onTap,
+  });
 
+  final Color contentColor;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenColors = AppTokenColors.of(ref);
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Semantics(
       button: true,
       label: 'Explore Stories',
@@ -932,9 +977,12 @@ class _ExploreStoriesButton extends StatelessWidget {
           height: 52,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: AppColors.backgroundGlass,
+            color: tokenColors.favoritesEmptyCtaBackground,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.borderLight, width: 0.8),
+            border: Border.all(
+              color: tokenColors.favoritesEmptyCtaBorder,
+              width: 0.8,
+            ),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x2E000000),
@@ -943,50 +991,16 @@ class _ExploreStoriesButton extends StatelessWidget {
               ),
             ],
           ),
-          child: const Text(
+          child: Text(
             'Explore Stories',
-            style: _NoFavouritesTextStyles.button,
+            style: tokenTextStyles.favoritesEmptyCtaLabel.copyWith(
+              color: contentColor,
+            ),
           ),
         ),
       ),
     );
   }
-}
-
-abstract final class _NoFavouritesTextStyles {
-  static const headerTitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 20,
-    height: 24 / 20,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const title = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 20,
-    height: 24 / 20,
-    letterSpacing: -0.25,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
-
-  static const subtitle = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w500,
-    color: Color(0xD9FFFFFF),
-  );
-
-  static const button = TextStyle(
-    fontFamily: AppTypography.fontFamily,
-    fontSize: 16,
-    height: 20 / 16,
-    fontWeight: FontWeight.w700,
-    color: AppColors.textOnPrimary,
-  );
 }
 
 String _greeting() {

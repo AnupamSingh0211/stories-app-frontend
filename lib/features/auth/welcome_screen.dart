@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/analytics_service.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_screen_background.dart';
 import 'assets_provider.dart';
@@ -485,10 +486,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     unawaited(
       PostHogAnalytics.instance.screenOpened(
         'otp_verification_screen',
-        properties: {
-          'source': 'phone_auth',
-          'auth_provider': 'phone_otp',
-        },
+        properties: {'source': 'phone_auth', 'auth_provider': 'phone_otp'},
       ),
     );
   }
@@ -499,6 +497,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     final mascotUrl = appAssets['mascot_character'];
     final showOtpStep = _authStep == _WelcomeAuthStep.otp;
     final mediaQuery = MediaQuery.of(context);
+    final contentColor = AppTokenColors.of(ref).homeCardTextPrimary;
     final safeScreenHeight =
         mediaQuery.size.height -
         mediaQuery.padding.top -
@@ -591,9 +590,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                                             mobileNumber: _sentMobileNumber,
                                             onEdit: _editMobileNumber,
                                             showInvalidOtp: _showInvalidOtp,
+                                            contentColor: contentColor,
                                           )
                                         : _WelcomeTitleBlock(
                                             compact: isMobileKeyboardOpen,
+                                            contentColor: contentColor,
                                           ),
                                     const SizedBox(height: 36),
                                     Form(
@@ -621,21 +622,20 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 
   Widget _buildMobileNumberStep() {
+    final contentColor = AppTokenColors.of(ref).homeCardTextPrimary;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'Mobile Number',
-                style: TextStyle(
-                  fontFamily: AppTypography.fontFamily,
-                  fontSize: 12,
-                  height: 16 / 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textOnPrimary,
-                  fontFeatures: [
+                style: tokenTextStyles.onboardingFormLabel.copyWith(
+                  color: contentColor,
+                  fontFeatures: const [
                     FontFeature.disable('liga'),
                     FontFeature.disable('clig'),
                   ],
@@ -700,21 +700,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(10),
                     ],
-                    style: const TextStyle(
-                      fontFamily: AppTypography.fontFamily,
-                      fontSize: 14,
-                      height: 20 / 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textOnPrimary,
+                    style: tokenTextStyles.onboardingFormInput.copyWith(
+                      color: contentColor,
                     ),
-                    cursorColor: Colors.white,
-                    decoration: const InputDecoration(
+                    cursorColor: contentColor,
+                    decoration: InputDecoration(
                       hintText: 'Enter your mobile number',
-                      hintStyle: TextStyle(
-                        fontFamily: AppTypography.fontFamily,
-                        fontSize: 12,
-                        height: 16 / 12,
-                        fontWeight: FontWeight.w600,
+                      hintStyle: tokenTextStyles.onboardingFormInput.copyWith(
                         color: AppColors.blue200,
                       ),
                       border: InputBorder.none,
@@ -727,7 +719,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                       filled: false,
                       fillColor: Colors.transparent,
                       contentPadding: EdgeInsets.zero,
-                      errorStyle: TextStyle(
+                      errorStyle: const TextStyle(
                         height: 0,
                         color: Colors.transparent,
                       ),
@@ -746,24 +738,24 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           height: 52,
           borderRadius: _controlBorderRadius,
           shadow: _buttonShadow,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           onTap: _isMobileNumberValid && !_isBusy
               ? _continueWithMobileNumber
               : null,
           child: Text(
             _isRequestingOtp ? 'Sending...' : 'Send OTP',
-            style: TextStyle(
-              fontFamily: AppTypography.fontFamily,
-              fontSize: 16,
-              height: 20 / 16,
-              fontWeight: FontWeight.w700,
+            style: tokenTextStyles.onboardingCtaLabel.copyWith(
               color: _isMobileNumberValid
-                  ? Colors.white
+                  ? contentColor
                   : AppColors.textDisabled,
               fontFeatures: const [
                 FontFeature.disable('liga'),
                 FontFeature.disable('clig'),
               ],
+            ),
+            textHeightBehavior: const TextHeightBehavior(
+              applyHeightToFirstAscent: false,
+              applyHeightToLastDescent: false,
             ),
           ),
         ),
@@ -774,6 +766,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   Widget _buildOtpStep() {
     final canSubmitOtp =
         _isOtpComplete && !_showInvalidOtp && !_isBusy && !_hasAuthenticated;
+    final contentColor = AppTokenColors.of(ref).homeCardTextPrimary;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -829,7 +823,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           child: Container(
             height: 52,
             alignment: Alignment.center,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: AppColors.backgroundGlass,
               borderRadius: BorderRadius.circular(24),
@@ -842,23 +836,23 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
               children: [
                 Text(
                   'Submit',
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontFamily,
-                    fontSize: 16,
-                    height: 20 / 16,
-                    fontWeight: FontWeight.w700,
+                  style: tokenTextStyles.onboardingCtaLabel.copyWith(
                     color: canSubmitOtp || _isVerifyingOtp
-                        ? Colors.white
+                        ? contentColor
                         : AppColors.textDisabled,
+                  ),
+                  textHeightBehavior: const TextHeightBehavior(
+                    applyHeightToFirstAscent: false,
+                    applyHeightToLastDescent: false,
                   ),
                 ),
                 if (_isVerifyingOtp) ...[
                   const SizedBox(width: 10),
-                  const SizedBox.square(
+                  SizedBox.square(
                     dimension: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(contentColor),
                     ),
                   ),
                 ],
@@ -882,12 +876,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                 ),
                 child: Text(
                   _otpResendLabel,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontFamily,
-                    fontSize: 12,
-                    height: 16 / 12,
-                    fontWeight: FontWeight.w600,
-                    color: _resendTextColor,
+                  style: tokenTextStyles.onboardingOtpCaption.copyWith(
+                    color: _resendTextColor(contentColor),
                   ),
                 ),
               ),
@@ -899,6 +889,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 
   Widget _buildOtpCodeBox(String? digit) {
+    final contentColor = AppTokenColors.of(ref).homeCardTextPrimary;
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return GestureDetector(
       onTap: () => _focusAndShowKeyboard(_otpFocusNode),
       child: Container(
@@ -913,12 +906,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
         ),
         child: Text(
           digit ?? '',
-          style: const TextStyle(
-            fontFamily: "Plus Jakarta Sans",
-            fontSize: 16,
-            height: 20 / 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+          style: tokenTextStyles.onboardingFormInput.copyWith(
+            color: contentColor,
           ),
         ),
       ),
@@ -937,11 +926,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     return 'Resend OTP';
   }
 
-  Color get _resendTextColor {
+  Color _resendTextColor(Color contentColor) {
     if (_otpValue.isEmpty && _resendSecondsRemaining > 0) {
       return AppColors.textDisabled;
     }
-    return Colors.white.withAlpha(217);
+    return contentColor.withAlpha(217);
   }
 }
 
@@ -1001,32 +990,31 @@ class _GlassControl extends StatelessWidget {
   }
 }
 
-class _OtpTitleBlock extends StatelessWidget {
+class _OtpTitleBlock extends ConsumerWidget {
   const _OtpTitleBlock({
     required this.mobileNumber,
     required this.onEdit,
     required this.showInvalidOtp,
+    required this.contentColor,
   });
 
   final String mobileNumber;
   final VoidCallback onEdit;
   final bool showInvalidOtp;
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
+        Text(
           'Enter your OTP',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: AppTypography.fontFamily,
-            fontSize: 24,
-            height: 28 / 24,
-            letterSpacing: -0.25,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textOnPrimary,
+          style: tokenTextStyles.onboardingOtpTitle.copyWith(
+            color: contentColor,
           ),
         ),
         const SizedBox(height: 7),
@@ -1037,23 +1025,15 @@ class _OtpTitleBlock extends StatelessWidget {
             children: [
               Text(
                 'Sent to',
-                style: TextStyle(
-                  fontFamily: AppTypography.fontFamily,
-                  fontSize: 14,
-                  height: 20 / 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withAlpha(217),
+                style: tokenTextStyles.onboardingOtpCaption.copyWith(
+                  color: contentColor.withAlpha(217),
                 ),
               ),
               const SizedBox(width: 7),
               Text(
                 mobileNumber,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontFamily,
-                  fontSize: 14,
-                  height: 20 / 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withAlpha(217),
+                style: tokenTextStyles.onboardingOtpCaption.copyWith(
+                  color: contentColor.withAlpha(217),
                 ),
               ),
               const SizedBox(width: 4),
@@ -1061,12 +1041,12 @@ class _OtpTitleBlock extends StatelessWidget {
                 key: const Key('otp-edit-mobile-button'),
                 onTap: onEdit,
                 behavior: HitTestBehavior.opaque,
-                child: const Padding(
-                  padding: EdgeInsets.all(2),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
                   child: Icon(
                     Icons.edit_outlined,
                     size: 16,
-                    color: Colors.white,
+                    color: contentColor,
                   ),
                 ),
               ),
@@ -1095,26 +1075,27 @@ class _OtpTitleBlock extends StatelessWidget {
   }
 }
 
-class _WelcomeTitleBlock extends StatelessWidget {
-  const _WelcomeTitleBlock({required this.compact});
+class _WelcomeTitleBlock extends ConsumerWidget {
+  const _WelcomeTitleBlock({required this.compact, required this.contentColor});
 
   final bool compact;
+  final Color contentColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenTextStyles = AppTokenTextStyles.of(ref);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           'Boopi',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: AppTypography.fontFamily,
+          style: tokenTextStyles.onboardingHeaderTitle.copyWith(
             fontSize: compact ? 24 : 28,
             height: compact ? 28 / 24 : 32 / 28,
             letterSpacing: compact ? -0.25 : -0.5,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textOnPrimary,
+            color: contentColor,
             fontFeatures: [
               FontFeature.disable('liga'),
               FontFeature.disable('clig'),
@@ -1122,18 +1103,14 @@ class _WelcomeTitleBlock extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 7),
-        const SizedBox(
+        SizedBox(
           width: 299,
           child: Text(
             'Where every story ends in sweet dreams.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: AppTypography.fontFamily,
-              fontSize: 14,
-              height: 20 / 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xD9FFFFFF),
-              fontFeatures: [
+            style: tokenTextStyles.onboardingHeaderSubtitle.copyWith(
+              color: const Color(0xD9FFFFFF),
+              fontFeatures: const [
                 FontFeature.disable('liga'),
                 FontFeature.disable('clig'),
               ],
