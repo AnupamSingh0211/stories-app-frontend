@@ -1,6 +1,6 @@
-import 'package:dharma_app/features/storytime/models/story_model.dart';
-import 'package:dharma_app/features/storytime/models/story_page.dart';
-import 'package:dharma_app/features/storytime/repositories/story_repository.dart';
+import 'package:boopi_app/features/storytime/models/story_model.dart';
+import 'package:boopi_app/features/storytime/models/story_page.dart';
+import 'package:boopi_app/features/storytime/repositories/story_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

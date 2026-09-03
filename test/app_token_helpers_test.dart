@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dharma_app/core/design_system/design_system_provider.dart';
-import 'package:dharma_app/core/design_system/design_system_repository.dart';
-import 'package:dharma_app/core/design_system/design_token.dart';
-import 'package:dharma_app/core/design_system/design_token_parser.dart';
-import 'package:dharma_app/core/design_system/design_token_resolver.dart';
-import 'package:dharma_app/shared/theme/app_colors.dart';
-import 'package:dharma_app/shared/theme/app_token_colors.dart';
-import 'package:dharma_app/shared/theme/app_token_presets.dart';
-import 'package:dharma_app/shared/theme/app_token_text_styles.dart';
-import 'package:dharma_app/shared/theme/app_typography.dart';
+import 'package:boopi_app/core/design_system/design_system_provider.dart';
+import 'package:boopi_app/core/design_system/design_system_repository.dart';
+import 'package:boopi_app/core/design_system/design_token.dart';
+import 'package:boopi_app/core/design_system/design_token_parser.dart';
+import 'package:boopi_app/core/design_system/design_token_resolver.dart';
+import 'package:boopi_app/shared/theme/app_colors.dart';
+import 'package:boopi_app/shared/theme/app_token_colors.dart';
+import 'package:boopi_app/shared/theme/app_token_presets.dart';
+import 'package:boopi_app/shared/theme/app_token_text_styles.dart';
+import 'package:boopi_app/shared/theme/app_typography.dart';
 
 void main() {
   test('token color helper returns resolved token color', () {

@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -8,6 +11,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/analytics_service.dart';
+import 'core/notifications/notification_deeplink_router.dart';
+import 'core/notifications/notification_service.dart';
+import 'core/notifications/notification_token_repository.dart';
 import 'core/supabase_config.dart';
 import 'core/theme.dart';
 import 'features/auth/auth_provider.dart';
@@ -18,6 +24,8 @@ import 'features/auth/profile_notifier.dart';
 import 'features/auth/profile_setup_screen.dart';
 import 'features/auth/welcome_screen.dart';
 import 'features/home/home_screen.dart';
+import 'features/storytime/providers/story_player_provider.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +33,11 @@ Future<void> main() async {
 
   try {
     await dotenv.load();
+    await _initializeConfiguredFirebase();
+    if (_isAndroidFirebaseTarget) {
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      await NotificationService.instance.initializeMessageHandlers();
+    }
 
     await Supabase.initialize(
       url: SupabaseConfig.url,
@@ -40,6 +53,17 @@ Future<void> main() async {
   FlutterNativeSplash.remove();
 }
 
+Future<void> _initializeConfiguredFirebase() async {
+  if (!_isAndroidFirebaseTarget) {
+    return;
+  }
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+}
+
+bool get _isAndroidFirebaseTarget =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
@@ -54,6 +78,7 @@ class MyApp extends ConsumerWidget {
       next.whenData((identity) {
         if (identity == null) {
           unawaited(PostHogAnalytics.instance.resetUser());
+          unawaited(NotificationService.instance.resetUser());
           return;
         }
 
@@ -67,10 +92,21 @@ class MyApp extends ConsumerWidget {
             },
           ),
         );
+        NotificationDeepLinkRouter.instance.setStoryRepository(
+          ref.read(storyRepositoryProvider),
+        );
+        unawaited(
+          NotificationService.instance.registerDeviceForUser(
+            identity.userId,
+            tokenRepository: ref.read(notificationTokenRepositoryProvider),
+          ),
+        );
+        unawaited(NotificationDeepLinkRouter.instance.flushPending());
       });
     });
 
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _AppScrollBehavior(),
       theme: AppTheme.lightTheme,
@@ -153,6 +189,7 @@ class AppSessionGate extends ConsumerWidget {
           data: (state) {
             if (state.children.isEmpty) {
               if (DevOtpAuthConfig.enabled) {
+                _flushPendingNotificationDeepLink();
                 return const HomeScreen();
               }
 
@@ -173,6 +210,7 @@ class AppSessionGate extends ConsumerWidget {
               );
             }
 
+            _flushPendingNotificationDeepLink();
             return HomeScreen(
               childName: selectedChild?.childName,
               childAge: selectedChild?.age,
@@ -182,6 +220,12 @@ class AppSessionGate extends ConsumerWidget {
       },
     );
   }
+}
+
+void _flushPendingNotificationDeepLink() {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(NotificationDeepLinkRouter.instance.flushPending());
+  });
 }
 
 class _StartupErrorScreen extends StatelessWidget {

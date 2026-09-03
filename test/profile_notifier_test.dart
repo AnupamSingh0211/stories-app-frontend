@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dharma_app/core/backend_api_client.dart';
-import 'package:dharma_app/features/auth/auth_provider.dart';
-import 'package:dharma_app/features/auth/profile_notifier.dart';
-import 'package:dharma_app/features/auth/profile_repository.dart';
+import 'package:boopi_app/core/backend_api_client.dart';
+import 'package:boopi_app/features/auth/auth_provider.dart';
+import 'package:boopi_app/features/auth/profile_notifier.dart';
+import 'package:boopi_app/features/auth/profile_repository.dart';
 
 void main() {
   test('returning parent loads only their active child profile', () async {

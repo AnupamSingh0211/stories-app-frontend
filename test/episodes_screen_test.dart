@@ -1,8 +1,8 @@
-import 'package:dharma_app/features/storytime/models/story_model.dart';
-import 'package:dharma_app/features/storytime/providers/continue_listening_provider.dart';
-import 'package:dharma_app/features/storytime/providers/story_player_provider.dart';
-import 'package:dharma_app/features/storytime/screens/episodes_screen.dart';
-import 'package:dharma_app/features/storytime/widgets/story_image_view.dart';
+import 'package:boopi_app/features/storytime/models/story_model.dart';
+import 'package:boopi_app/features/storytime/providers/continue_listening_provider.dart';
+import 'package:boopi_app/features/storytime/providers/story_player_provider.dart';
+import 'package:boopi_app/features/storytime/screens/episodes_screen.dart';
+import 'package:boopi_app/features/storytime/widgets/story_image_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

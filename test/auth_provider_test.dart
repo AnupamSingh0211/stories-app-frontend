@@ -6,7 +6,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:dharma_app/features/auth/auth_provider.dart';
+import 'package:boopi_app/features/auth/auth_provider.dart';
 
 void main() {
   setUp(() {

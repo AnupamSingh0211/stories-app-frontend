@@ -1,4 +1,4 @@
-import 'package:dharma_app/features/storytime/widgets/story_image_cache_policy.dart';
+import 'package:boopi_app/features/storytime/widgets/story_image_cache_policy.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 

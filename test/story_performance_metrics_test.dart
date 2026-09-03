@@ -1,4 +1,4 @@
-import 'package:dharma_app/core/performance/story_performance_metrics.dart';
+import 'package:boopi_app/core/performance/story_performance_metrics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

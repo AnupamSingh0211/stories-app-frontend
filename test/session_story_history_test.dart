@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dharma_app/features/storytime/models/story_model.dart';
-import 'package:dharma_app/features/storytime/providers/continue_listening_provider.dart';
+import 'package:boopi_app/features/storytime/models/story_model.dart';
+import 'package:boopi_app/features/storytime/providers/continue_listening_provider.dart';
 
 void main() {
   const firstScope = StoryHistoryScope(
