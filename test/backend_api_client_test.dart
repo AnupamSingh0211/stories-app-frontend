@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dharma_app/core/backend_api_client.dart';
+import 'package:boopi_app/core/backend_api_client.dart';
 
 void main() {
   group('BackendApiClient', () {

@@ -1,5 +1,5 @@
-import 'package:dharma_app/features/storytime/models/story_model.dart';
-import 'package:dharma_app/features/storytime/repositories/storytime_content_memory_cache.dart';
+import 'package:boopi_app/features/storytime/models/story_model.dart';
+import 'package:boopi_app/features/storytime/repositories/storytime_content_memory_cache.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

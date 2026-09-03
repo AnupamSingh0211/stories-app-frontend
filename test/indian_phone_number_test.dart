@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dharma_app/features/auth/indian_phone_number.dart';
+import 'package:boopi_app/features/auth/indian_phone_number.dart';
 
 void main() {
   group('IndianPhoneNumber', () {

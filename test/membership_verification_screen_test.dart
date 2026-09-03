@@ -1,6 +1,6 @@
-import 'package:dharma_app/features/membership/membership_plans_screen.dart';
-import 'package:dharma_app/features/membership/membership_verification_screen.dart';
-import 'package:dharma_app/shared/theme/app_theme.dart';
+import 'package:boopi_app/features/membership/membership_plans_screen.dart';
+import 'package:boopi_app/features/membership/membership_verification_screen.dart';
+import 'package:boopi_app/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

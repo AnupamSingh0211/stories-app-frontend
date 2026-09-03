@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dharma_app/core/backend_api_client.dart';
-import 'package:dharma_app/core/design_system/design_system_config.dart';
-import 'package:dharma_app/core/design_system/design_system_provider.dart';
-import 'package:dharma_app/core/design_system/design_system_repository.dart';
-import 'package:dharma_app/core/design_system/design_token.dart';
-import 'package:dharma_app/core/design_system/design_token_defaults.dart';
-import 'package:dharma_app/core/design_system/design_token_resolver.dart';
+import 'package:boopi_app/core/backend_api_client.dart';
+import 'package:boopi_app/core/design_system/design_system_config.dart';
+import 'package:boopi_app/core/design_system/design_system_provider.dart';
+import 'package:boopi_app/core/design_system/design_system_repository.dart';
+import 'package:boopi_app/core/design_system/design_token.dart';
+import 'package:boopi_app/core/design_system/design_token_defaults.dart';
+import 'package:boopi_app/core/design_system/design_token_resolver.dart';
 
 void main() {
   test('design token model parses CMS schema fields', () {

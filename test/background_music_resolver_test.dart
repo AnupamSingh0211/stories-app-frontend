@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dharma_app/features/storytime/audio/background_music_resolver.dart';
+import 'package:boopi_app/features/storytime/audio/background_music_resolver.dart';
 
 void main() {
   test('returns common background music for CMS stories', () {

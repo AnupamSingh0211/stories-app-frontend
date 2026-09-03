@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "200410953631",
+    "project_id": "boopi-dev",
+    "storage_bucket": "boopi-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:200410953631:android:6f1dd109f790aab040afaa",
+        "android_client_info": {
+          "package_name": "com.lokalspace.boopi_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDg_dy7aWMJFSqvorneXXfyje3IQu6ZFl4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
