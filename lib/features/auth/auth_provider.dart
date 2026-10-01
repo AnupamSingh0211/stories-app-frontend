@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/backend_config.dart';
+import '../../services/otp_api_service.dart';
 
 part 'auth_provider.g.dart';
 
@@ -61,8 +63,15 @@ final devAuthSessionStateProvider = StateProvider<AppSessionIdentity?>(
 class DevOtpAuthConfig {
   const DevOtpAuthConfig._();
 
+  /// Local/dev auth path used when Supabase phone SMS is not configured.
+  /// Enabled by backend hardcoded OTP mode and/or Twilio otp-api.
   static bool get enabled =>
-      dotenv.env['DEV_AUTH_OTP_ENABLED'] == 'true' && !_isProductionBuild;
+      !_isProductionBuild &&
+      (dotenv.env['DEV_AUTH_OTP_ENABLED'] == 'true' ||
+          OtpApiService.isConfigured());
+
+  static bool get usesOtpApi =>
+      !_isProductionBuild && OtpApiService.isConfigured();
 
   static bool get _isProductionBuild {
     final appEnvironment = dotenv.env['APP_ENV']?.trim().toLowerCase();
@@ -303,11 +312,101 @@ class DevBackendOtpAuthService implements AppAuthService {
   }
 }
 
-final appAuthServiceProvider = Provider<AppAuthService>(
-  (ref) => DevOtpAuthConfig.enabled
-      ? DevBackendOtpAuthService(ref)
-      : SupabaseAppAuthService(ref),
-);
+/// Twilio otp-api auth: send/verify SMS via local OTP API, then create a
+/// local app session so [AppSessionGate] can leave the welcome screen.
+class OtpApiAppAuthService implements AppAuthService {
+  OtpApiAppAuthService(this.ref, {OtpApiService? otpApi})
+      : _otpApi = otpApi ?? OtpApiService();
+
+  final Ref ref;
+  final OtpApiService _otpApi;
+
+  @override
+  AppSessionIdentity? get currentIdentity {
+    return ref.read(devAuthSessionStateProvider) ??
+        DevOtpSessionStore._memorySession;
+  }
+
+  @override
+  Future<void> requestOtp(String phoneNumber) async {
+    if (phoneNumber.trim().isEmpty) {
+      throw const AuthException('Phone number is required.');
+    }
+
+    try {
+      await _otpApi.sendOtp(phone: phoneNumber);
+    } on OtpApiException catch (error) {
+      throw AuthException(error.message);
+    } catch (_) {
+      throw const AuthException(
+        'Could not send OTP. Is otp-api running on OTP_API_BASE_URL?',
+      );
+    }
+  }
+
+  @override
+  Future<AppSessionIdentity> verifyOtp({
+    required String phoneNumber,
+    required String otp,
+  }) async {
+    try {
+      final result = await _otpApi.verifyOtp(phone: phoneNumber, code: otp);
+      if (!OtpApiService.isVerifySuccess(result)) {
+        throw AuthException(
+          result['message']?.toString() ?? 'Invalid or expired OTP',
+        );
+      }
+    } on AuthException {
+      rethrow;
+    } on OtpApiException catch (error) {
+      throw AuthException(error.message);
+    } catch (_) {
+      throw const AuthException(
+        'Could not verify OTP. Is otp-api running on OTP_API_BASE_URL?',
+      );
+    }
+
+    final identity = AppSessionIdentity(
+      userId: _userIdForPhone(phoneNumber),
+      isAnonymous: false,
+      // Accepted by stories-app-backend in development NODE_ENV.
+      accessToken: 'mock.dev.token',
+    );
+    await DevOtpSessionStore.save(identity);
+    ref.read(devAuthSessionStateProvider.notifier).state = identity;
+    return identity;
+  }
+
+  @override
+  Future<void> signOut() async {
+    await DevOtpSessionStore.clear();
+    ref.read(devAuthSessionStateProvider.notifier).state = null;
+  }
+
+  /// Stable UUID-shaped id matching stories-app-backend `userIdForPhone`.
+  static String _userIdForPhone(String phoneNumber) {
+    final hash = sha256
+        .convert(utf8.encode('stories-app-dev-phone:$phoneNumber'))
+        .toString();
+    return [
+      hash.substring(0, 8),
+      hash.substring(8, 12),
+      '4${hash.substring(13, 16)}',
+      '8${hash.substring(17, 20)}',
+      hash.substring(20, 32),
+    ].join('-');
+  }
+}
+
+final appAuthServiceProvider = Provider<AppAuthService>((ref) {
+  if (!DevOtpAuthConfig.enabled) {
+    return SupabaseAppAuthService(ref);
+  }
+  if (DevOtpAuthConfig.usesOtpApi) {
+    return OtpApiAppAuthService(ref);
+  }
+  return DevBackendOtpAuthService(ref);
+});
 
 final activeSessionProvider = Provider<AppSessionIdentity?>((ref) {
   return ref.watch(authSessionProvider).valueOrNull;

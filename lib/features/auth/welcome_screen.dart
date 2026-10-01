@@ -318,6 +318,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       return;
     }
 
+    if (_sentE164MobileNumber.isEmpty) {
+      _showMessage('Phone number missing. Go back and request OTP again.');
+      return;
+    }
+
     _clearMessage();
     unawaited(
       PostHogAnalytics.instance.buttonClicked(
@@ -328,16 +333,18 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     );
     setState(() {
       _isVerifyingOtp = true;
+      _showInvalidOtp = false;
     });
     try {
-      // AppSessionGate owns the transition to profile setup after auth changes.
-      final identity = await ref
-          .read(appAuthServiceProvider)
-          .verifyOtp(phoneNumber: _sentE164MobileNumber, otp: _otpValue);
-      if (identity.isAnonymous) {
-        throw StateError('Phone OTP returned an anonymous identity.');
-      }
-      _hasAuthenticated = true;
+      await ref.read(appAuthServiceProvider).verifyOtp(
+        phoneNumber: _sentE164MobileNumber,
+        otp: _otpValue,
+      );
+      if (!mounted) return;
+      setState(() {
+        _hasAuthenticated = true;
+        _isVerifyingOtp = false;
+      });
       unawaited(
         PostHogAnalytics.instance.capture(
           'login_completed',
@@ -347,12 +354,20 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           },
         ),
       );
-    } catch (_) {
-      _hasAuthenticated = false;
+
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _showInvalidOtp = true);
+      setState(() {
+        _hasAuthenticated = false;
+        _showInvalidOtp = true;
+      });
+      _showMessage(
+        error is AuthException && error.message.trim().isNotEmpty
+            ? error.message
+            : 'Invalid or expired OTP. Please try again.',
+      );
     } finally {
-      if (mounted) {
+      if (mounted && _isVerifyingOtp) {
         setState(() => _isVerifyingOtp = false);
       }
     }
