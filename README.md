@@ -16,7 +16,7 @@ For realistic performance checks, use the
 This repository is the Flutter client. Audiobook stories, CMS design config, profiles, favorites, and listening history come from the backend API. Auth and media buckets come from Supabase.
 
 1. Copy `.env.example` to `.env`.
-2. Set `BACKEND_BASE_URL` to the backend origin on the VPS, with no trailing slash. Example: `https://api.example.com`.
+2. Set `BACKEND_BASE_URL` to the backend origin on the VPS, with no trailing slash. The hosted API is `http://187.126.117.228`.
 3. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` to the Supabase project that backend uses. That can be Supabase Cloud or Supabase self-hosted on the same VPS.
 4. Restart the app. `.env` is bundled as an asset, so a running session does not pick up edits until the next build.
 
