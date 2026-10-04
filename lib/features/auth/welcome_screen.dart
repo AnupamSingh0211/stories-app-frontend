@@ -1024,7 +1024,7 @@ class _OtpTitleBlock extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Sent to',
+                DevOtpAuthConfig.enabled ? 'Use 123456 for' : 'Sent to',
                 style: tokenTextStyles.onboardingOtpCaption.copyWith(
                   color: contentColor.withAlpha(217),
                 ),

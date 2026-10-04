@@ -255,6 +255,38 @@ APP_ENV=test
     expect(authService.requestedPhones, ['+911234567890']);
   });
 
+  testWidgets('dev otp shows the fixed test code instead of Sent to', (
+    tester,
+  ) async {
+    dotenv.testLoad(
+      fileInput: '''
+DEV_AUTH_OTP_ENABLED=true
+APP_ENV=test
+''',
+    );
+    addTearDown(() {
+      dotenv.testLoad(
+        fileInput: '''
+DEV_AUTH_OTP_ENABLED=false
+APP_ENV=test
+''',
+      );
+    });
+
+    await _pumpWelcomeScreen(tester);
+    await tester.enterText(
+      find.byKey(const Key('mobile-number-field')),
+      '1234567890',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('mobile-continue-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Use 123456 for'), findsOneWidget);
+    expect(find.text('Sent to'), findsNothing);
+    expect(find.text('1234567890'), findsOneWidget);
+  });
+
   testWidgets('invalid input does not navigate', (tester) async {
     final observer = _CountingNavigatorObserver();
     await _pumpWelcomeScreen(tester, observer: observer);
