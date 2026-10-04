@@ -273,7 +273,8 @@ APP_ENV=test
       );
     });
 
-    await _pumpWelcomeScreen(tester);
+    final authService = _FakeAuthService();
+    await _pumpWelcomeScreen(tester, authService: authService);
     await tester.enterText(
       find.byKey(const Key('mobile-number-field')),
       '1234567890',
@@ -285,6 +286,13 @@ APP_ENV=test
     expect(find.text('Use 123456 for'), findsOneWidget);
     expect(find.text('Sent to'), findsNothing);
     expect(find.text('1234567890'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('otp-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(authService.verifyOtpCalls, 1);
+    expect(authService.verifiedOtp, '123456');
+    expect(authService.verifiedPhone, '+911234567890');
   });
 
   testWidgets('invalid input does not navigate', (tester) async {

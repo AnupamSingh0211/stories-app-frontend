@@ -239,7 +239,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       setState(() {
         _sentMobileNumber = localNumber;
         _sentE164MobileNumber = e164Number;
-        _otpValue = '';
+        _otpValue = DevOtpAuthConfig.enabled ? '123456' : '';
         _showInvalidOtp = false;
         if (moveToOtpStep) {
           _authStep = _WelcomeAuthStep.otp;
@@ -347,10 +347,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           },
         ),
       );
-    } catch (_) {
+    } catch (error) {
       _hasAuthenticated = false;
       if (!mounted) return;
+      final message = error is AuthException ? error.message.trim() : '';
       setState(() => _showInvalidOtp = true);
+      if (message.isNotEmpty) {
+        _showMessage(message);
+      }
     } finally {
       if (mounted) {
         setState(() => _isVerifyingOtp = false);
