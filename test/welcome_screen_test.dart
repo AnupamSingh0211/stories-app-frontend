@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:boopi_app/features/auth/assets_provider.dart';
+import 'package:boopi_app/features/auth/onboarding_store.dart';
 import 'package:boopi_app/features/auth/auth_provider.dart';
 import 'package:boopi_app/features/auth/profile_notifier.dart';
 import 'package:boopi_app/features/auth/profile_setup_screen.dart';
@@ -15,6 +17,9 @@ import 'package:boopi_app/shared/theme/app_theme.dart';
 
 void main() {
   setUpAll(() {
+    SharedPreferences.setMockInitialValues({
+      OnboardingStore.completedKey: true,
+    });
     dotenv.testLoad(
       fileInput: '''
 DEV_AUTH_OTP_ENABLED=false
