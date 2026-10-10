@@ -71,6 +71,7 @@ class NotificationService {
   Future<void> registerDeviceForUser(
     String userId, {
     required NotificationTokenRepository tokenRepository,
+    bool requestPermission = false,
   }) async {
     if (!_isAndroid || userId.trim().isEmpty) {
       return;
@@ -78,8 +79,8 @@ class NotificationService {
 
     final alreadyRegisteredForUser = _registeredUserId == userId;
     _registeredUserId = userId;
-    if (!alreadyRegisteredForUser) {
-      await _requestPermission();
+    if (!alreadyRegisteredForUser && requestPermission) {
+      await this.requestPermission();
     }
 
     await _syncCurrentToken(
@@ -110,7 +111,7 @@ class NotificationService {
     _tokenRefreshSubscription = null;
   }
 
-  Future<void> _requestPermission() async {
+  Future<void> requestPermission() async {
     await _trackNotificationEvent('notification_permission_requested');
 
     final settings = await _messaging.requestPermission(

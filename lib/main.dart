@@ -18,6 +18,8 @@ import 'core/supabase_config.dart';
 import 'core/theme.dart';
 import 'features/auth/auth_provider.dart';
 import 'features/auth/assets_provider.dart';
+import 'features/auth/onboarding_screen.dart';
+import 'features/auth/onboarding_store.dart';
 import 'features/auth/choose_companion_screen.dart';
 import 'features/auth/companion_flow.dart';
 import 'features/auth/profile_notifier.dart';
@@ -95,12 +97,15 @@ class MyApp extends ConsumerWidget {
         NotificationDeepLinkRouter.instance.setStoryRepository(
           ref.read(storyRepositoryProvider),
         );
-        unawaited(
-          NotificationService.instance.registerDeviceForUser(
+        unawaited(() async {
+          final notificationsAllowed =
+              await OnboardingStore.notificationsAllowed();
+          await NotificationService.instance.registerDeviceForUser(
             identity.userId,
             tokenRepository: ref.read(notificationTokenRepositoryProvider),
-          ),
-        );
+            requestPermission: notificationsAllowed,
+          );
+        }());
         unawaited(NotificationDeepLinkRouter.instance.flushPending());
       });
     });
@@ -158,6 +163,32 @@ class _AuthMascotPrecacheGateState
   }
 }
 
+final onboardingStatusProvider = FutureProvider<bool>((ref) {
+  return OnboardingStore.isCompleted();
+});
+
+class _SignedOutGate extends ConsumerWidget {
+  const _SignedOutGate();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(onboardingStatusProvider);
+    return status.when(
+      loading: () => const _StartupScreen(),
+      error: (error, stackTrace) =>
+          const _AuthMascotPrecacheGate(child: WelcomeScreen()),
+      data: (completed) {
+        if (!completed) {
+          return OnboardingScreen(
+            onFinished: () => ref.invalidate(onboardingStatusProvider),
+          );
+        }
+        return const _AuthMascotPrecacheGate(child: WelcomeScreen());
+      },
+    );
+  }
+}
+
 class AppSessionGate extends ConsumerWidget {
   const AppSessionGate({required this.session, super.key});
 
@@ -167,11 +198,10 @@ class AppSessionGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return session.when(
       loading: () => const _StartupScreen(),
-      error: (error, stackTrace) =>
-          const _AuthMascotPrecacheGate(child: WelcomeScreen()),
+      error: (error, stackTrace) => const _SignedOutGate(),
       data: (currentSession) {
         if (currentSession == null) {
-          return const _AuthMascotPrecacheGate(child: WelcomeScreen());
+          return const _SignedOutGate();
         }
 
         final profiles = ref.watch(profileNotifierProvider);

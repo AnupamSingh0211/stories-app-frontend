@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:boopi_app/features/auth/assets_provider.dart';
+import 'package:boopi_app/features/auth/onboarding_store.dart';
 import 'package:boopi_app/features/auth/auth_provider.dart';
 import 'package:boopi_app/features/auth/profile_notifier.dart';
 import 'package:boopi_app/features/auth/profile_setup_screen.dart';
@@ -15,6 +17,9 @@ import 'package:boopi_app/shared/theme/app_theme.dart';
 
 void main() {
   setUpAll(() {
+    SharedPreferences.setMockInitialValues({
+      OnboardingStore.completedKey: true,
+    });
     dotenv.testLoad(
       fileInput: '''
 DEV_AUTH_OTP_ENABLED=false
@@ -253,6 +258,46 @@ APP_ENV=test
     expect(find.text('1234567890'), findsOneWidget);
     expect(find.byType(ProfileSetupScreen), findsNothing);
     expect(authService.requestedPhones, ['+911234567890']);
+  });
+
+  testWidgets('dev otp shows the fixed test code instead of Sent to', (
+    tester,
+  ) async {
+    dotenv.testLoad(
+      fileInput: '''
+DEV_AUTH_OTP_ENABLED=true
+APP_ENV=test
+''',
+    );
+    addTearDown(() {
+      dotenv.testLoad(
+        fileInput: '''
+DEV_AUTH_OTP_ENABLED=false
+APP_ENV=test
+''',
+      );
+    });
+
+    final authService = _FakeAuthService();
+    await _pumpWelcomeScreen(tester, authService: authService);
+    await tester.enterText(
+      find.byKey(const Key('mobile-number-field')),
+      '1234567890',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('mobile-continue-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Use 123456 for'), findsOneWidget);
+    expect(find.text('Sent to'), findsNothing);
+    expect(find.text('1234567890'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('otp-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(authService.verifyOtpCalls, 1);
+    expect(authService.verifiedOtp, '123456');
+    expect(authService.verifiedPhone, '+911234567890');
   });
 
   testWidgets('invalid input does not navigate', (tester) async {
