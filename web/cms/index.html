@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dharma Audiobook CMS</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #0b121a;
+      --muted: #4b5a6b;
+      --line: #e1e7ef;
+      --paper: #f7f9fc;
+      --card: #ffffff;
+      --blue: #1554b0;
+      --blue-deep: #0a1f42;
+      --soft: #eaf5fe;
+      --danger: #9f2d2d;
+      --ok: #0f6b45;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, #d2eafd 0, transparent 36%),
+        var(--paper);
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      padding: 22px 28px 8px;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    h1 {
+      font-family: Georgia, "Iowan Old Style", serif;
+      font-size: 32px;
+      font-weight: 600;
+    }
+
+    .lede { color: var(--muted); margin-top: 4px; }
+
+    header div.actions, form .row, .player-nav, .edit-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button, .file-button {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button.primary, .file-button.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: white;
+    }
+
+    button.active { background: var(--blue-deep); color: white; border-color: var(--blue-deep); }
+    button.danger { color: var(--danger); }
+
+    main {
+      display: grid;
+      grid-template-columns: 280px 300px minmax(0, 1fr);
+      gap: 16px;
+      padding: 16px 28px 32px;
+    }
+
+    section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      min-height: 70vh;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(10, 31, 66, 0.05);
+    }
+
+    section h2 {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .item, .page-chip {
+      width: 100%;
+      text-align: left;
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 8px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+    }
+
+    .item strong, .page-chip strong { display: block; }
+    .item span, .page-chip span, .meta { color: var(--muted); font-size: 13px; }
+    .item.selected, .page-chip.selected { border-color: var(--blue); background: var(--soft); }
+
+    .stage {
+      display: grid;
+      gap: 14px;
+    }
+
+    .art {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      border-radius: 18px;
+      background: var(--soft);
+    }
+
+    audio { width: 100%; }
+
+    .story-title {
+      font-family: Georgia, "Iowan Old Style", serif;
+      font-size: 28px;
+    }
+
+    form {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+      background: white;
+    }
+
+    textarea { min-height: 72px; resize: vertical; }
+
+    .message { min-height: 1.2em; font-size: 14px; }
+    .message.error { color: var(--danger); }
+    .message.ok { color: var(--ok); }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 980px) {
+      header, main { padding-left: 16px; padding-right: 16px; }
+      main { grid-template-columns: 1fr; }
+      section { min-height: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Dharma Audiobook CMS</h1>
+      <p class="lede">Stories, episodes, and pages. Each page has its own image and audio.</p>
+    </div>
+    <div class="actions">
+      <button id="edit-toggle" type="button">Edit catalog</button>
+      <button id="reset-catalog" class="danger hidden" type="button">Reset sample catalog</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>Stories</h2>
+      <div id="story-list"></div>
+      <form id="story-form" class="hidden">
+        <input id="story-title" name="title" placeholder="Story title" required>
+        <input id="story-category" name="category" placeholder="Category">
+        <button class="primary" type="submit">Add story</button>
+      </form>
+    </section>
+    <section>
+      <h2>Episodes</h2>
+      <div id="episode-list"></div>
+      <form id="episode-form" class="hidden">
+        <input id="episode-title" name="title" placeholder="Episode title" required>
+        <input id="episode-number" name="episodeNumber" type="number" min="1" placeholder="Episode number">
+        <button class="primary" type="submit">Add episode</button>
+      </form>
+    </section>
+    <section>
+      <div id="player" class="stage"></div>
+      <p id="status" class="message" role="status"></p>
+      <form id="page-form" class="hidden">
+        <input id="page-number" name="pageNumber" type="number" min="1" placeholder="Page number">
+        <textarea id="page-text" name="text" placeholder="Page text"></textarea>
+        <div class="row">
+          <label class="file-button">Image<input id="page-image" name="image" type="file" accept="image/*" hidden></label>
+          <label class="file-button">Audio<input id="page-audio" name="audio" type="file" accept="audio/*" hidden></label>
+        </div>
+        <button class="primary" type="submit">Add page</button>
+      </form>
+    </section>
+  </main>
+  <script>
+    const STORAGE_KEY = "dharma-audiobook-cms-v1";
+
+    const seedCatalog = [
+      {
+        id: "krishna-ki-kahani",
+        title: "Krishna ki kahani",
+        category: "Krishna",
+        episodes: [
+          episode("kanha-ki-sunheri-subah", "Kanha Ki Sunheri Subah", 1, [
+            [1, "Kanha wakes to a golden morning in Vrindavan."],
+            [2, "The cows gather as the flute begins to play."],
+            [3, "Yashoda smiles as the village fills with light."]
+          ]),
+          episode("kanha-ke-aane-ki-khabar", "Kanha Ke Aane Ki Khabar", 2, [
+            [1, "News of Kanha's arrival travels from house to house."],
+            [2, "Friends run toward the courtyard to welcome him."],
+            [3, "The whole village celebrates the joyful news."]
+          ])
+        ]
+      },
+      {
+        id: "hanuman-ki-shakti",
+        title: "Hanuman ki shakti",
+        category: "Hanuman",
+        episodes: [
+          episode("sundarkand", "Sundarkand", 1, [
+            [1, "Hanuman leaps across the ocean toward Lanka."],
+            [2, "He searches the gardens and finds Sita."],
+            [3, "He promises that Ram will come."]
+          ]),
+          episode("lanka-dahan", "Lanka Dahan", 2, [
+            [1, "Hanuman's tail is set alight."],
+            [2, "He leaps from roof to roof through Lanka."],
+            [3, "The city glows, and Hanuman returns across the sea."]
+          ])
+        ]
+      }
+    ];
+
+    function episode(id, title, episodeNumber, pages) {
+      return {
+        id,
+        title,
+        episodeNumber,
+        pages: pages.map(([pageNumber, text]) => ({
+          id: id + "-page-" + pageNumber,
+          pageNumber,
+          text,
+          imageKey: id + "/page-" + pageNumber + "/image",
+          audioKey: id + "/page-" + pageNumber + "/audio"
+        }))
+      };
+    }
+
+    const state = loadState();
+    let editing = false;
+    let selectedStoryId = state.stories[0] ? state.stories[0].id : null;
+    let selectedEpisodeId = firstEpisodeId(selectedStoryId);
+    let selectedPageNumber = 1;
+
+    const storyList = document.querySelector("#story-list");
+    const episodeList = document.querySelector("#episode-list");
+    const player = document.querySelector("#player");
+    const status = document.querySelector("#status");
+    const editToggle = document.querySelector("#edit-toggle");
+    const resetCatalog = document.querySelector("#reset-catalog");
+
+    editToggle.addEventListener("click", () => {
+      editing = !editing;
+      editToggle.classList.toggle("active", editing);
+      editToggle.textContent = editing ? "Done editing" : "Edit catalog";
+      resetCatalog.classList.toggle("hidden", !editing);
+      for (const form of document.querySelectorAll("form")) form.classList.toggle("hidden", !editing);
+      render();
+    });
+
+    resetCatalog.addEventListener("click", () => {
+      state.stories = structuredClone(seedCatalog);
+      saveState();
+      selectedStoryId = state.stories[0].id;
+      selectedEpisodeId = firstEpisodeId(selectedStoryId);
+      selectedPageNumber = 1;
+      setStatus("Sample catalog restored.", false);
+      render();
+    });
+
+    document.querySelector("#story-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const title = value("#story-title");
+      const category = value("#story-category");
+      if (findStoryByTitle(title)) {
+        setStatus("A story with this title already exists.", true);
+        return;
+      }
+      const story = { id: crypto.randomUUID(), title, category, episodes: [] };
+      state.stories.push(story);
+      saveState();
+      selectedStoryId = story.id;
+      selectedEpisodeId = null;
+      event.currentTarget.reset();
+      setStatus("Story added.", false);
+      render();
+    });
+
+    document.querySelector("#episode-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const story = selectedStory();
+      if (!story) {
+        setStatus("Choose a story before adding an episode.", true);
+        return;
+      }
+      const title = value("#episode-title");
+      if (story.episodes.some((item) => sameText(item.title, title))) {
+        setStatus("This story already has an episode with that title.", true);
+        return;
+      }
+      const requested = Number(value("#episode-number"));
+      const episodeNumber = requested > 0
+        ? requested
+        : nextNumber(story.episodes.map((item) => item.episodeNumber));
+      if (story.episodes.some((item) => item.episodeNumber === episodeNumber)) {
+        setStatus("This story already uses that episode number.", true);
+        return;
+      }
+      const created = { id: crypto.randomUUID(), title, episodeNumber, pages: [] };
+      story.episodes.push(created);
+      story.episodes.sort((a, b) => a.episodeNumber - b.episodeNumber);
+      saveState();
+      selectedEpisodeId = created.id;
+      selectedPageNumber = 1;
+      event.currentTarget.reset();
+      setStatus("Episode added.", false);
+      render();
+    });
+
+    document.querySelector("#page-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const currentEpisode = selectedEpisode();
+      if (!currentEpisode) {
+        setStatus("Choose an episode before adding a page.", true);
+        return;
+      }
+      const requested = Number(value("#page-number"));
+      const pageNumber = requested > 0
+        ? requested
+        : nextNumber(currentEpisode.pages.map((item) => item.pageNumber));
+      if (currentEpisode.pages.some((item) => item.pageNumber === pageNumber)) {
+        setStatus("This episode already has that page number.", true);
+        return;
+      }
+      const imageFile = document.querySelector("#page-image").files[0];
+      const audioFile = document.querySelector("#page-audio").files[0];
+      const imageAsset = imageFile
+        ? await fileAsset(imageFile, "image")
+        : { key: currentEpisode.id + "/page-" + pageNumber + "/image-" + crypto.randomUUID() };
+      const audioAsset = audioFile
+        ? await fileAsset(audioFile, "audio")
+        : { key: currentEpisode.id + "/page-" + pageNumber + "/audio-" + crypto.randomUUID() };
+      if (!imageAsset || !audioAsset) return;
+      if (imageAsset.key === audioAsset.key) {
+        setStatus("A page needs a separate image and audio file.", true);
+        return;
+      }
+      if (pageUsing("imageKey", imageAsset.key) || pageUsing("audioKey", audioAsset.key)) {
+        setStatus("That image or audio is already used by another page.", true);
+        return;
+      }
+      currentEpisode.pages.push({
+        id: crypto.randomUUID(),
+        pageNumber,
+        text: value("#page-text"),
+        imageKey: imageAsset.key,
+        audioKey: audioAsset.key,
+        imageData: imageAsset.data || "",
+        audioData: audioAsset.data || ""
+      });
+      currentEpisode.pages.sort((a, b) => a.pageNumber - b.pageNumber);
+      saveState();
+      selectedPageNumber = pageNumber;
+      event.currentTarget.reset();
+      setStatus("Page added.", false);
+      render();
+    });
+
+    render();
+
+    function render() {
+      renderStories();
+      renderEpisodes();
+      renderPlayer();
+    }
+
+    function renderStories() {
+      storyList.replaceChildren();
+      if (state.stories.length === 0) {
+        storyList.append(el("p", { class: "meta" }, ["No stories yet."]));
+      }
+      for (const story of state.stories) {
+        const button = el("button", {
+          class: "item" + (story.id === selectedStoryId ? " selected" : ""),
+          type: "button",
+          onclick: () => selectStory(story.id)
+        }, [
+          el("strong", {}, [story.title]),
+          el("span", {}, [story.episodes.length + " episodes"])
+        ]);
+        storyList.append(button);
+        if (editing) {
+          storyList.append(el("button", {
+            class: "danger",
+            type: "button",
+            onclick: () => removeStory(story.id)
+          }, ["Delete " + story.title]));
+        }
+      }
+    }
+
+    function renderEpisodes() {
+      episodeList.replaceChildren();
+      const story = selectedStory();
+      if (!story) {
+        episodeList.append(el("p", { class: "meta" }, ["Select a story."]));
+        return;
+      }
+      if (story.episodes.length === 0) {
+        episodeList.append(el("p", { class: "meta" }, ["No episodes yet."]));
+      }
+      for (const item of story.episodes) {
+        episodeList.append(el("button", {
+          class: "item" + (item.id === selectedEpisodeId ? " selected" : ""),
+          type: "button",
+          onclick: () => selectEpisode(item.id)
+        }, [
+          el("strong", {}, [item.episodeNumber + ". " + item.title]),
+          el("span", {}, [item.pages.length + " pages"])
+        ]));
+        if (editing) {
+          episodeList.append(el("button", {
+            class: "danger",
+            type: "button",
+            onclick: () => removeEpisode(item.id)
+          }, ["Delete episode " + item.episodeNumber]));
+        }
+      }
+    }
+
+    function renderPlayer() {
+      player.replaceChildren();
+      const story = selectedStory();
+      const currentEpisode = selectedEpisode();
+      if (!story || !currentEpisode) {
+        player.append(el("p", { class: "meta" }, ["Choose an episode to open its audiobook."]));
+        return;
+      }
+      const page = currentPage();
+      player.append(el("p", { class: "meta" }, [story.title]));
+      player.append(el("p", { class: "story-title" }, [currentEpisode.title]));
+      if (!page) {
+        player.append(el("p", { class: "meta" }, ["This episode has no pages yet."]));
+        return;
+      }
+      const image = document.createElement("img");
+      image.className = "art";
+      image.alt = currentEpisode.title + ", page " + page.pageNumber;
+      image.src = page.imageData || imageUri(page.imageKey, currentEpisode.title, page.pageNumber);
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.preload = "auto";
+      audio.src = page.audioData || audioUri(page.audioKey);
+      audio.addEventListener("ended", () => goToPage(1));
+      player.append(
+        image,
+        el("p", {}, [page.text || ""]),
+        el("p", { class: "meta" }, ["Page " + page.pageNumber + " of " + currentEpisode.pages.length]),
+        audio,
+        el("div", { class: "player-nav" }, [
+          el("button", { type: "button", onclick: () => goToPage(-1) }, ["Previous page"]),
+          el("button", { class: "primary", type: "button", onclick: () => audio.play() }, ["Play audio"]),
+          el("button", { type: "button", onclick: () => goToPage(1) }, ["Next page"])
+        ])
+      );
+      const chips = el("div", { class: "player-nav" }, []);
+      for (const item of currentEpisode.pages) {
+        chips.append(el("button", {
+          class: "page-chip" + (item.pageNumber === page.pageNumber ? " selected" : ""),
+          type: "button",
+          onclick: () => {
+            selectedPageNumber = item.pageNumber;
+            render();
+          }
+        }, [String(item.pageNumber)]));
+      }
+      player.append(chips);
+      if (editing) {
+        player.append(el("button", {
+          class: "danger",
+          type: "button",
+          onclick: () => removePage(page.id)
+        }, ["Delete this page"]));
+      }
+    }
+
+    function selectStory(id) {
+      selectedStoryId = id;
+      selectedEpisodeId = firstEpisodeId(id);
+      selectedPageNumber = 1;
+      render();
+    }
+
+    function selectEpisode(id) {
+      selectedEpisodeId = id;
+      selectedPageNumber = 1;
+      render();
+    }
+
+    function goToPage(direction) {
+      const currentEpisode = selectedEpisode();
+      if (!currentEpisode) return;
+      const index = currentEpisode.pages.findIndex((item) => item.pageNumber === selectedPageNumber);
+      const next = currentEpisode.pages[index + direction];
+      if (!next) return;
+      selectedPageNumber = next.pageNumber;
+      render();
+      const audio = player.querySelector("audio");
+      if (audio) audio.play().catch(() => {});
+    }
+
+    function removeStory(id) {
+      state.stories = state.stories.filter((story) => story.id !== id);
+      if (selectedStoryId === id) {
+        selectedStoryId = state.stories[0] ? state.stories[0].id : null;
+        selectedEpisodeId = firstEpisodeId(selectedStoryId);
+      }
+      saveState();
+      render();
+    }
+
+    function removeEpisode(id) {
+      const story = selectedStory();
+      if (!story) return;
+      story.episodes = story.episodes.filter((item) => item.id !== id);
+      if (selectedEpisodeId === id) selectedEpisodeId = firstEpisodeId(story.id);
+      saveState();
+      render();
+    }
+
+    function removePage(id) {
+      const currentEpisode = selectedEpisode();
+      if (!currentEpisode) return;
+      currentEpisode.pages = currentEpisode.pages.filter((item) => item.id !== id);
+      selectedPageNumber = currentEpisode.pages[0] ? currentEpisode.pages[0].pageNumber : 1;
+      saveState();
+      render();
+    }
+
+    function selectedStory() {
+      return state.stories.find((story) => story.id === selectedStoryId) || null;
+    }
+
+    function selectedEpisode() {
+      const story = selectedStory();
+      if (!story) return null;
+      return story.episodes.find((item) => item.id === selectedEpisodeId) || null;
+    }
+
+    function currentPage() {
+      const currentEpisode = selectedEpisode();
+      if (!currentEpisode || currentEpisode.pages.length === 0) return null;
+      return currentEpisode.pages.find((item) => item.pageNumber === selectedPageNumber) || currentEpisode.pages[0];
+    }
+
+    function firstEpisodeId(storyId) {
+      const story = state.stories.find((item) => item.id === storyId);
+      return story && story.episodes[0] ? story.episodes[0].id : null;
+    }
+
+    function findStoryByTitle(title) {
+      return state.stories.find((story) => sameText(story.title, title));
+    }
+
+    function pageUsing(field, key) {
+      return state.stories.some((story) => story.episodes.some((item) => item.pages.some((page) => page[field] === key)));
+    }
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "");
+        if (saved && Array.isArray(saved.stories)) return saved;
+      } catch (_) {}
+      return { stories: structuredClone(seedCatalog) };
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function value(selector) {
+      return document.querySelector(selector).value.trim();
+    }
+
+    function sameText(left, right) {
+      return left.trim().toLowerCase() === right.trim().toLowerCase();
+    }
+
+    function nextNumber(numbers) {
+      return numbers.reduce((max, number) => Math.max(max, number), 0) + 1;
+    }
+
+    function setStatus(message, isError) {
+      status.textContent = message;
+      status.className = "message " + (isError ? "error" : "ok");
+    }
+
+    async function fileAsset(file, kind) {
+      if (!file || file.size === 0) {
+        setStatus("Choose a real " + kind + " file.", true);
+        return null;
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      const key = kind + ":" + [...new Uint8Array(digest)].map((part) => part.toString(16).padStart(2, "0")).join("");
+      return { key, data: await blobUrlToData(new Blob([bytes], { type: file.type })) };
+    }
+
+    function blobUrlToData(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function imageUri(key, title, pageNumber) {
+      const hue = hash(key) % 360;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400">
+        <rect width="640" height="400" fill="hsl(${hue} 62% 42%)"/>
+        <circle cx="500" cy="90" r="48" fill="hsl(${(hue + 40) % 360} 80% 72%)"/>
+        <path d="M0 280 C140 220 220 340 360 270 C470 220 540 300 640 240 V400 H0 Z" fill="hsl(${(hue + 18) % 360} 45% 24%)"/>
+        <text x="36" y="336" fill="white" font-family="Georgia" font-size="34">${escapeXml(title)}</text>
+        <text x="36" y="86" fill="white" font-family="sans-serif" font-size="18">Page ${pageNumber}</text>
+      </svg>`;
+      return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+    }
+
+    function audioUri(key) {
+      const sampleRate = 22050;
+      const base = 196 + (hash(key) % 180);
+      const notes = [0, 4, 7, 12].map((step, index) => ({
+        frequency: base * Math.pow(2, step / 12),
+        start: index * 0.55,
+        duration: 0.5
+      }));
+      const length = Math.floor(sampleRate * 2.4);
+      const samples = new Int16Array(length);
+      for (const note of notes) {
+        const start = Math.floor(note.start * sampleRate);
+        const count = Math.floor(note.duration * sampleRate);
+        for (let index = 0; index < count && start + index < length; index += 1) {
+          const envelope = Math.min(1, index / 180) * Math.min(1, (count - index) / 500);
+          const wave = Math.sin(2 * Math.PI * note.frequency * (index / sampleRate));
+          samples[start + index] += wave * envelope * 9000;
+        }
+      }
+      const header = 44;
+      const buffer = new ArrayBuffer(header + samples.length * 2);
+      const view = new DataView(buffer);
+      writeText(view, 0, "RIFF");
+      view.setUint32(4, buffer.byteLength - 8, true);
+      writeText(view, 8, "WAVE");
+      writeText(view, 12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeText(view, 36, "data");
+      view.setUint32(40, samples.length * 2, true);
+      let offset = header;
+      for (const sample of samples) {
+        view.setInt16(offset, sample, true);
+        offset += 2;
+      }
+      let binary = "";
+      const bytes = new Uint8Array(buffer);
+      for (const bite of bytes) binary += String.fromCharCode(bite);
+      return "data:audio/wav;base64," + btoa(binary);
+    }
+
+    function writeText(view, offset, text) {
+      for (let index = 0; index < text.length; index += 1) view.setUint8(offset + index, text.charCodeAt(index));
+    }
+
+    function hash(value) {
+      let total = 0;
+      for (let index = 0; index < value.length; index += 1) total = (total * 33 + value.charCodeAt(index)) >>> 0;
+      return total;
+    }
+
+    function escapeXml(value) {
+      return value.replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
+    }
+
+    function el(tag, attrs, children) {
+      const node = document.createElement(tag);
+      for (const [key, attr] of Object.entries(attrs || {})) {
+        if (key === "class") node.className = attr;
+        else if (key === "onclick") node.addEventListener("click", attr);
+        else node.setAttribute(key, attr);
+      }
+      for (const child of children || []) node.append(child instanceof Node ? child : document.createTextNode(child));
+      return node;
+    }
+  </script>
+</body>
+</html>
